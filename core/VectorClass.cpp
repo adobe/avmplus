@@ -160,6 +160,18 @@ namespace avmplus
     /*static*/ Stringp VectorClass::makeVectorClassName(AvmCore* core, Traits* t)
     {
         Stringp s = core->newConstantStringLatin1("Vector.<");
+        
+#if defined(VMCFG_HALFMOON_AOT_RUNTIME) || defined(VMCFG_HALFMOON_AOT_COMPILER)
+        //Bug 3936675: Mixing Feather and Starling, App crashes in HMAOT mode
+        //Reason: both have 'CharLocation' class in private namespace.but there is just one vector
+        // for them. hence there is mistach resulting in setting one traits variable
+        // and reading other.
+        //Solution: Add param traits' Private NameSpace Index (in Pool) to vector name.
+        if(t->ns()->getType() == Namespace::NS_Private){
+            s = s->append(core->newConstantStringLatin1("_PrivateNS_"));
+            s = s->append(core->string(core->intToAtom(t->getTraitsNameSpaceIndexInPool())));
+        }
+#endif
         s = s->append(t->formatClassName());
         s = s->append(core->newConstantStringLatin1(">"));
         // all callers want it interned, so let's do it here

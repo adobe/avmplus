@@ -86,6 +86,31 @@ from sys import stderr
 
 import os, stat, sys, traceback
 
+# A list of the interfaces that contain a PSDK C++ flash player interface glue object.  This structure must match the one in "modules/psdk/scripts/psdkconfig.py"  TODO: Merge them.
+psdk_interface_classes = set([
+    "TimelineOperation",
+    "TimelineMarker",
+    "DRMErrorListener",
+    "DRMOperationCompleteListener",
+    "DRMAuthenticateListener",
+    "DRMAcquireLicenseListener",
+    "DRMReturnLicenseListener",
+    "AdPolicySelector",
+    "ContentFactory",
+    "ContentResolver",
+    "ContentResolverClient",
+    "ContentTracker",
+    "CustomAdHandler",
+    "CustomAdHandlerClient",
+    "OpportunityGenerator",
+    "OpportunityGeneratorClient"
+])
+
+# Look for additional modules in the halfmoon templates directory.
+hm_scripts = os.path.abspath(os.path.join(os.path.dirname(__file__), '../halfmoon/templates'))
+sys.path.append(hm_scripts)
+from mangle import *
+
 parser = OptionParser(usage="usage: %prog [importfile [, importfile]...] file...")
 parser.add_option("-v", "--thunkvprof", action="store_true", default=False)
 parser.add_option("-e", "--externmethodandclassetables", action="store_true", default=False, help="generate extern decls for method and class tables")
@@ -1281,16 +1306,16 @@ class Abc:
                 names[q] = self.strings[self.data.readU30()]
             for q in range(0, values_count):
                 m.attrs[names[q]] = self.strings[self.data.readU30()]
-
+    
+    instancesDict = {}
     def parseInstanceInfos(self):
         count = self.data.readU30()
         self.instances = [ None ] * count
-        instancesDict = {}
         for i in range (0, count):
             tname = self.names[self.data.readU30()]
             t = Traits(tname)
             self.instances[i] = t
-            instancesDict[id(tname)] = t
+            Abc.instancesDict[str(t)] = t
             t.base = self.names[self.data.readU30()]
             t.flags = self.data.readU8()
             if (t.flags & 1) != 0:
@@ -1310,7 +1335,7 @@ class Abc:
             t.init.name = t.name
             t.init.kind = TRAIT_Method
             t.init.id = methid
-            self.parseTraits(t, instancesDict.get(id(t.base), None))
+            self.parseTraits(t, Abc.instancesDict.get(str(t.base),None))
 
     @staticmethod
     def __qname(name):
@@ -1334,6 +1359,7 @@ class Abc:
 
     def parseTraits(self, t, baseTraits=None):
         lastBaseTraitsSlotId = 0 if baseTraits is None else baseTraits.nextSlotId
+        t.nextSlotId = lastBaseTraitsSlotId;
         namecount = self.data.readU30()
         t.members = [ None ] * namecount
         for i in range(0, namecount):
@@ -1647,6 +1673,71 @@ class AbcThunkGen:
 
         out.println("#endif // _H_nativegen_header_%s" % name);
 
+    def emit_aotslotsAndNatives(self, out, name, arch):
+        
+        out.println(MPL_HEADER);
+        out.println('')
+        out.println("/* machine generated file -- do not edit */");
+        out.println('')
+        
+        for i in range(0, len(self.abc.classes)):
+            c = self.abc.classes[i]
+            if c.itraits.is_interface:
+                continue
+            self.emitAotSlotOffsetsForTraits(out, c)
+            if (self.needsInstanceSlotsStruct(c)):
+                self.emitAotSlotOffsetsForTraits(out, c.itraits)
+
+        for scheme in mangleSchemes:
+          out.println(scheme.cppLatchBegin())
+          for i in range(0, len(self.abc.methods)):
+              m = self.abc.methods[i]
+              if m.isNative() and (m.receiver == None or not m.receiver.is_interface):
+                  assert(m.native_method_name != None)
+                  assert(m.native_id_name != None)
+                  args = []
+                  for j in range(0, len(m.paramTypes)):
+                      argtraits = self.lookupTraits(m.paramTypes[j])
+                      args.append(argtraits.cpp_argument_name())
+                  fnm = m.native_method_name
+                  func_attrs = Attribute.PUBLIC | Attribute.STATIC | Attribute.CDECL
+                  if m.receiver != None:
+                      fnm = m.receiver.method_map_name+ '::' + fnm
+                      func_attrs = Attribute.PUBLIC | Attribute.THISCALL
+                  rettraits = self.lookupTraits(m.returnType)
+                  unmangled = fnm + '(' + ', '.join(args) + ')'
+                  mangled = scheme.mangle(fnm, 
+                     rettraits.cpp_return_name(), args, func_attrs, getAvmMangleTypedefs(arch))
+                  type_string = ";".join([make_llvm_type_string(nm, getAvmMangleTypedefs(arch)) for nm in [rettraits.cpp_return_name()] + args])
+                  out.println('DEFINENATIVE(%d, %s, "%s", "%s"),' % (i, unmangled, mangled, type_string))
+          out.println(scheme.cppLatchEnd())
+
+    def emitAotSlotOffsetsForTraits(self, out, t):
+        if (t.fqcppname() in GLUECLASSES_WITHOUT_SLOTS):
+            return
+
+        structName = t.cppname()
+        out.println('DEFINELAYOUT(%s, %s, "%s"),' % (t.cppns(), structName, t))
+
+        slotsStructName = t.slotsStructName
+
+        for slot in t.slots:
+            if slot is not None:
+                assert slot.kind in (TRAIT_Slot, TRAIT_Const)
+                slotTraits = self.lookupTraits(slot.type)
+                ty = {
+                    CTYPE_OBJECT:       "*'avmplus::ScriptObject'",
+                    CTYPE_ATOM:         "atom",
+                    CTYPE_VOID:         "#error",
+                    CTYPE_BOOLEAN:      "i",
+                    CTYPE_INT:          "i",
+                    CTYPE_UINT:         "i",
+                    CTYPE_DOUBLE:       "d",
+                    CTYPE_FLOAT:        "f",
+                    CTYPE_STRING:       "*'avmplus::String'",
+                    CTYPE_NAMESPACE:    "*'avmplus::Namespace'",
+                }[slotTraits.ctype];
+                out.println('  DEFINESLOT(%s, %s, %s, %s, "%s", %d),' % (t.cppns(), structName, slotsStructName, to_cname(slot.name), ty, slot.id+1))
 
     def emit_cls(self, out, name):
 
@@ -1810,7 +1901,7 @@ class AbcThunkGen:
         # note, these are emitted *after* closing the namespaces
         self.emitMethodBodies(out)
 
-    def emit(self, abc, name, out_h, out_cls, out_c):
+    def emit(self, abc, name, out_h, out_cls, out_c, out_aotslots, out_aotslots64):
         self.abc = abc;
         self.all_thunks = []
         self.lookup_traits = None
@@ -1827,6 +1918,8 @@ class AbcThunkGen:
         self.emit_h(out_h, name)
         self.emit_cls(out_cls, name)
         self.emit_cpp(out_c, name)
+        self.emit_aotslotsAndNatives(out_aotslots, name, 32)
+        self.emit_aotslotsAndNatives(out_aotslots64, name, 64)
 
     def forwardDeclareGlueClasses(self, out_h):
         # find all the native glue classes and write forward declarations for them
@@ -1913,6 +2006,11 @@ class AbcThunkGen:
         out.indent += 1
         for as3name,cppname,clsid in names:
             # We can't use static_cast<> because the subclass is only forward-declared at this point
+			#
+			# Introducing a new concept.  Actionscript namespaces need to be involved with the name of this method.  Otherwise you cannot emit two classes of identical name in different packages.
+			# This concept could be easily extended to all classes, but for now only the com.adobe.mediacore namespace is affected to keep it separate from the rest.
+            if clsid.find("com_adobe_mediacore_") != -1:
+                as3name = "com_adobe_mediacore_" + as3name
             out.println("REALLY_INLINE GCRef<%s> get_%s() { return (%s*)(lazyInitClass(%s)); }" % (cppname, as3name, cppname, clsid))
         out.indent -= 1
         out.println("};")
@@ -1997,6 +2095,7 @@ class AbcThunkGen:
         out.println('{')
         out.indent += 1
         out.println('friend class SlotOffsetsAndAsserts;')
+        out.println('friend class halfmoon::JitFriend;')
         out.println('friend class %s;' % t.fqcppname())
         if len(sortedSlots) > 0:
             out.indent -= 1
@@ -2382,6 +2481,7 @@ class AbcThunkGen:
         out.println("private:")
         out.indent += 1
         out.println("friend class %s::SlotOffsetsAndAsserts;" % opts.nativeIDNS)
+        out.println('friend class halfmoon::JitFriend;')
         if t.cpp_friend_classes != None:
             for f in t.cpp_friend_classes:
                 out.println("friend class %s;" % f)
@@ -2439,6 +2539,26 @@ class AbcThunkGen:
         out.println('//-----------------------------------------------------------')
         out.println('')
 
+    def emitPSDKInterfaceStuff(self, out, t):
+        base = self.lookupTraits(t.base)
+        baseclassname = base.fqcppname()
+        either_is_interface = (t.is_interface or (t.itraits != None and t.itraits.is_interface))
+        if either_is_interface == True:
+            if str(t.name).endswith("$") == False:
+                if t.cppname()[0:-9] in psdk_interface_classes:
+                    out.println('// Beginning of PSDK Interface code')
+                    out.println('public:')
+                    out.indent += 1
+                    generatedspclassname = "psdkutils::PSDKSharedPointer<psdk::" + t.cppname()[0:-9] + ">"
+                    generatedclassname = "psdk::" + t.cppname()[0:-9] + "*"
+                    out.println(generatedspclassname + ' m_ptr;')
+                    out.println(generatedclassname + ' getNativeObject() { return m_ptr.getRawPointer(); }')
+                    out.println("REALLY_INLINE explicit %s(VTable* ivtable, ScriptObject* delegate, %s n) : m_ptr(n), %s(ivtable, delegate) {}" % (t.cppname(),  generatedclassname, baseclassname))
+                    out.indent -= 1
+                    out.println('// End of PSDK Interface code')
+                    return "m_ptr(new FlashPlayer" + t.cppname()[0:-9] + "(this)), "
+        return ""
+
     def emitOneSyntheticClass(self, out, t):
         sortedSlots,slotsTypeInfo = self.sortSlots(t)
         out.println('//-----------------------------------------------------------')
@@ -2449,6 +2569,9 @@ class AbcThunkGen:
         either_is_interface = (t.is_interface or (t.itraits != None and t.itraits.is_interface))
         out.println("class %s : public %s" % (t.cppname(), baseclassname))
         out.println("{")
+        psdkobjectconstructstring = ""
+        if str(t.name).find("com.adobe.mediacore") != -1:
+			psdkobjectconstructstring = self.emitPSDKInterfaceStuff(out, t)
         if t.is_gc_exact:
             out.indent += 1
             out.println("GC_DECLARE_EXACT_METHODS")
@@ -2463,7 +2586,7 @@ class AbcThunkGen:
             out.println("inline explicit %s(VTable* cvtable) : %s(cvtable) { createVanillaPrototype(); }" % (t.cppname(), baseclassname))
         else:
             out.println("friend class %s;" % t.ctraits.fqcppname())
-            out.println("REALLY_INLINE explicit %s(VTable* ivtable, ScriptObject* delegate) : %s(ivtable, delegate) {}" % (t.cppname(), baseclassname))
+            out.println("REALLY_INLINE explicit %s(VTable* ivtable, ScriptObject* delegate) : %s%s(ivtable, delegate) {}" % (t.cppname(), psdkobjectconstructstring, baseclassname))
         out.indent -= 1
         out.println("private:")
         out.indent += 1
@@ -2526,7 +2649,7 @@ class AbcThunkGen:
 
         numTracedSlots = self.countTracedSlots(sortedSlots)
 
-        out.println("#ifdef DEBUG")
+        out.println("#ifdef GCDEBUG")
         if numTracedSlots > 0:
             out.println("const uint32_t %s::gcTracePointerOffsets[] = {" % t.fqcppname())
             out.indent += 1
@@ -2556,7 +2679,7 @@ class AbcThunkGen:
             out.println("return MMgc::kOffsetNotFound;")
         out.indent -= 1
         out.println("}")
-        out.println("#endif // DEBUG")
+        out.println("#endif // GCDEBUG")
 
     def emitMethodBodiesForTraits(self, out, t, visitedGlueClasses):
         
@@ -2999,10 +3122,14 @@ if abcGenFor:
         hfile = open(abcGenName+".h","w")
         clsfile = open(abcGenName+"-classes.hh","w")
         cppfile = open(abcGenName+".cpp","w")
+        aotslotsfile = open(abcGenName+"_aotslots.hh","w")
+        aotslotsfile64 = open(abcGenName+"_aotslots_64.hh","w")
         h = IndentingPrintWriter(hfile)
         cls = IndentingPrintWriter(clsfile)
         c = IndentingPrintWriter(cppfile)
-        ngen.emit(abcGenFor, abcScriptName, h, cls, c);
+        aotslots = IndentingPrintWriter(aotslotsfile)
+        aotslots64 = IndentingPrintWriter(aotslotsfile64)
+        ngen.emit(abcGenFor, abcScriptName, h, cls, c, aotslots,aotslots64);
 #    except Exception, e:
 #        sys.stderr.write("ERROR: "+str(e)+"\n")
 #        exit(1)
@@ -3013,3 +3140,8 @@ if abcGenFor:
             clsfile.close()
         if cppfile != None:
             cppfile.close()
+        if aotslotsfile != None:
+            aotslotsfile.close()
+        if aotslotsfile64 != None:
+            aotslotsfile64.close()
+

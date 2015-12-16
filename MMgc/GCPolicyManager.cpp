@@ -494,7 +494,7 @@ namespace MMgc
                 }
                 /*FALLTHROUGH*/
             common_actions:
-#ifdef DEBUG
+#ifdef GCDEBUG
                 if (start_event != NO_EVENT)
                     GCDebugMsg(true, "Should not have a start_event but had start_event=%d, ev=%d\n", (int)start_event, (int)ev);
 #endif
@@ -503,7 +503,7 @@ namespace MMgc
                 return; // to circumvent resetting of start_event below
         }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         {
             PolicyEvent ev0 = ev;
             if (ev0 == END_FinalizeAndSweepNoShrink)

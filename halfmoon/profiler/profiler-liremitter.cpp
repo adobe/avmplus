@@ -69,7 +69,7 @@ void ProfileLirEmitter::branchToAbcPos(LOpcode op, LIns *condition, const uint8_
   /// So call with a constant 0, but branch on the NULL
   LIns* recordCondition = condition;
   if (condition == NULL) {
-    assert (op == LIR_j);
+    AvmAssert (op == LIR_j);
     recordCondition = InsConst(1); // Condition is true for OP_jump
     fall_through_pc = InsConst(0);  // Fall through PC is actually 0
   }
@@ -271,7 +271,7 @@ void ProfileLirEmitter::writePrologue(const FrameState* state, const uint8_t *pc
   const int param_count = ms->param_count();
   const int optional_count = ms->optional_count();
   (void) optional_count;
-  assert ((optional_count == 0) && "Don't support optional arguments yet");
+  AvmAssert ((optional_count == 0) && "Don't support optional arguments yet");
 
   if (shouldEmitMethodCounters())
     callIns(FUNCTIONID(incrementMethodInvokeCounter), 1, env_param);

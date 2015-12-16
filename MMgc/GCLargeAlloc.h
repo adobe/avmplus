@@ -30,7 +30,7 @@ namespace MMgc
         GCLargeAlloc(GC* gc);
         ~GCLargeAlloc();
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         void* Alloc(size_t originalSize, size_t requestSize, int flags);
 #else
         void* Alloc(size_t requestSize, int flags);
@@ -42,7 +42,7 @@ namespace MMgc
 
         static bool IsLargeBlock(const void *item);
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         static bool IsWhite(const void *item);
 #endif
         static void ProtectAgainstFree(const void *item);
@@ -103,7 +103,7 @@ namespace MMgc
         bool m_startedFinalize;
         size_t m_totalAllocatedBytes;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         static bool ConservativeGetMark(const void *item, bool bogusPointerReturnValue);
 #endif
 

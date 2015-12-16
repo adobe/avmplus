@@ -19,7 +19,7 @@ package flash.utils
  */
     
     
-[native(cls="ObjectInputClass", gc="exact", instance="ObjectInputObject", methods="auto")]
+[native(cls="ObjectInputClass", gc="exact", instance="ObjectInputObject", methods="auto", construct="native")]
 internal class ObjectInput implements IDataInput
 {
     public native function readBytes(bytes:ByteArray, offset:uint=0, length:uint=0):void;

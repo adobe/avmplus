@@ -27,7 +27,7 @@ void ProfiledInformation::addBranchProbability(ArmInstr* armInstr, double takenP
 /// Retrieves the probability that the arm is taken
 ///
 double ProfiledInformation::getBranchProbability(ArmInstr* armInstr) {
-    assert (branch_probability_.containsKey(armInstr));
+    AvmAssert (branch_probability_.containsKey(armInstr));
     return branch_probability_.get(armInstr);
 }
 

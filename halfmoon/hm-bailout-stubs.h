@@ -95,7 +95,7 @@ uintptr_t unboxValue(Atom retVal, MethodSignaturep method_signature) {
     case BUILTIN_string:
       return (uintptr_t) AvmCore::atomToString(retVal);
     case BUILTIN_array: {
-      assert(atomKind(retVal) == kObjectType);
+      AvmAssert(atomKind(retVal) == kObjectType);
       return (uintptr_t) AvmCore::atomToScriptObject(retVal);
     }
     case BUILTIN_namespace:
@@ -105,15 +105,15 @@ uintptr_t unboxValue(Atom retVal, MethodSignaturep method_signature) {
       return (uintptr_t) retVal;
     case BUILTIN_number: // should have called deopt double
     default:
-      assert(false && "Unknown return type");
+      AvmAssert(false && "Unknown return type");
       return (uintptr_t) retVal;
   }
 }
 
 void checkBailoutFrame(MethodSignaturep method_signature) {
-  assert(method_signature->local_count() < 32);
-  assert(method_signature->max_scope() < 16);
-  assert(method_signature->max_stack() < 16);
+  AvmAssert(method_signature->local_count() < 32);
+  AvmAssert(method_signature->max_scope() < 16);
+  AvmAssert(method_signature->max_stack() < 16);
   (void) method_signature;
 }
 

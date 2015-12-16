@@ -238,7 +238,7 @@ LirModel lirtype(const Type* t) {
     return kLirVoid;
   if (isDataType(*t)) {
     switch (model(t)) {
-      default: assert(false && "bad model");
+      default: AvmAssert(false && "bad model");
       case kModelAtom:
       case kModelScriptObject:
       case kModelString:
@@ -355,11 +355,11 @@ public:
     return iter.empty();
   }
   BlockStartInstr* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return iter.front();
   }
   BlockStartInstr* popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     return iter.popFront();
   }
 
@@ -404,7 +404,7 @@ if (ir->hasBlockEnd(block)) {
     dfsPreOrder(cast<GotoInstr>(end)->target, profiled_info);
   } else if (k == HR_if || k == HR_switch) {
     CondInstr* block_end = (CondInstr*) end;
-    assert(block_end->armc == 2);
+    AvmAssert(block_end->armc == 2);
     ArmInstr* firstArm = block_end->arms[0];
     ArmInstr* secondArm = block_end->arms[1];
 
@@ -418,7 +418,7 @@ if (ir->hasBlockEnd(block)) {
   } else if (k == HR_return || k == HR_throw) {
     // no successors
   } else {
-      assert(false && "unsupported block-end opcode");
+      AvmAssert(false && "unsupported block-end opcode");
   }
 }
 }
@@ -595,7 +595,7 @@ void LirEmitter::analyzeLiveness() {
 /// Allocate tables we need during LIR code generation.
 ///
 void LirEmitter::allocateTables() {
-  assert(pool->codeMgr && "CodeMgr not initialized yet");
+  AvmAssert(pool->codeMgr && "CodeMgr not initialized yet");
   Allocator0 alloc0(*alloc1);
 
   // Sort all the blocks.  Later passes will use this order.
@@ -676,7 +676,7 @@ inline LIns* LirEmitter::ins(Instr* i) {
 
 void LirEmitter::emitStackOverflowCheck() {
   // stack overflow check - copied from codegenlir
-  assert (method_frame_ != NULL);
+  AvmAssert (method_frame_ != NULL);
   LIns* minstack  = ldp(coreAddr, JitFriend::core_minstack_offset, ACCSET_OTHER);
   LIns* compare_stack = lirout->ins2(LIR_ltup, method_frame_, minstack);
 
@@ -739,10 +739,10 @@ void LirEmitter::emitBegin(bool has_reachable_exceptions) {
 }
 
 LIns* LirEmitter::emitConst(const Type* t) {
-  assert(isConst(t));
+  AvmAssert(isConst(t));
   switch (kind(t)) {
     default:
-      assert(false && "unsupported kind");
+      AvmAssert(false && "unsupported kind");
     case kTypeName:
       return InsConstPtr(nameVal(t));
     case kTypeOrdinal:
@@ -761,7 +761,7 @@ LIns* LirEmitter::emitConst(const Type* t) {
     case kTypeScriptObject:
       switch (model(t)) {
         default:
-          assert(false && "unsupported model");
+          AvmAssert(false && "unsupported model");
         case kModelScriptObject:
           return InsConstPtr(objectVal(t));
         case kModelNamespace:
@@ -782,7 +782,7 @@ LIns* LirEmitter::emitConst(const Type* t) {
         case kModelDouble:
           return lirout->insImmD(doubleVal(t));
         case kModelInt:
-          assert(isInt(t) || isUInt(t) || isBoolean(t));
+          AvmAssert(isInt(t) || isUInt(t) || isBoolean(t));
           return InsConst(isInt(t) ? intVal(t) :
                           isUInt(t) ? (int32_t)uintVal(t) :
                           (int32_t)boolVal(t));
@@ -793,7 +793,7 @@ LIns* LirEmitter::emitConst(const Type* t) {
 LIns* LirEmitter::emitAvmCall(const Use* args_in, int actual_argc,
                               MethodSignaturep callee_sig, LIns* callee_env,
                               Def* value_out) {
-  assert(isBottom(type(value_out)) ||
+  AvmAssert(isBottom(type(value_out)) ||
          model(type(value_out)) == defaultModelKind(callee_sig->returnTraits()));
   emitStoreArgs(args_in, actual_argc, callee_sig);
   LIns* result = emitIndirectAvmCall(type(value_out), callee_env, actual_argc,
@@ -809,7 +809,7 @@ LIns* LirEmitter::emitIndirectAvmCall(const Type* result_type, LIns* callee_env,
   ModelKind k = isBottom(result_type) ? kModelInvalid : model(result_type);
   switch (k) {
     default:
-      assert(false && "unknown model");
+      AvmAssert(false && "unknown model");
     case kModelInvalid: // result type is UN.
     case kModelAtom:
     case kModelString:
@@ -831,7 +831,7 @@ LIns* LirEmitter::emitInterfaceAvmCall(const Type* result_type, LIns* callee_env
   ModelKind k = isBottom(result_type) ? kModelInvalid : model(result_type);
   switch (k) {
     default:
-      assert(false && "unknown model");
+      AvmAssert(false && "unknown model");
     case kModelInvalid: // result type is UN.
     case kModelAtom:
     case kModelString:
@@ -858,7 +858,7 @@ void LirEmitter::emitStoreArgs(const Use* args_in, int actual_argc,
   // FIXME: pad alignment if first double arg is unalinged, 32bit-only
   ParamIter p(callee);
   for (int i = 0; i < actual_argc; ++i, p.popFront()) {
-    assert(p.disp() < int(max_argc_ << VARSHIFT(cxt->method)));
+    AvmAssert(p.disp() < int(max_argc_ << VARSHIFT(cxt->method)));
     LIns* arg_ins = def_ins(args_in[i]);
     switch (p.builtinType()) {
       case BUILTIN_number:
@@ -879,8 +879,8 @@ void LirEmitter::emitStoreArgs(const Use* args_in, int actual_argc,
 }
 
 LIns* LirEmitter::emitLoadVTable(const Use& object) {
-  assert(!isNullable(type(object)));
-  assert(model(type(object)) == kModelScriptObject);
+  AvmAssert(!isNullable(type(object)));
+  AvmAssert(model(type(object)) == kModelScriptObject);
   return ldp(def_ins(object), offsetof(ScriptObject, vtable), ACCSET_OTHER,
              LOAD_CONST);
 }
@@ -901,7 +901,7 @@ LIns* LirEmitter::emitJump(LIns* target) {
 LIns* LirEmitter::emitLoad(const Type* value_type, LIns* ptr, int32_t offset,
                            AccSet accSet, LoadQual qual) {
   switch (lirtype(value_type)) {
-    default: assert(false && "bad lirtype");
+    default: AvmAssert(false && "bad lirtype");
     case kLirPtr: return ldp(ptr, offset, accSet, qual);
     case kLirInt: return ldi(ptr, offset, accSet, qual);
     case kLirDouble: return ldd(ptr, offset, accSet, qual);
@@ -916,7 +916,7 @@ LIns* LirEmitter::emitLoad(const Type* value_type, LIns* ptr, int32_t offset,
 LIns* LirEmitter::emitStore(const Use& value, const Type* constraint,
                             LIns* ptr, int32_t offset, AccSet acc_set) {
   switch (lirtype(constraint)) {
-    default: assert(false && "bad lirtype");
+    default: AvmAssert(false && "bad lirtype");
       // regress/bug_638233.abc - callprop on a null object
       // cknull on a null -> bottom, which has lirvoid type.
       // unsure how to fix. See halfmoon/test/sanity/acceptance/bug_638233.as
@@ -941,7 +941,7 @@ LIns* LirEmitter::emitReturn(const Use& value) {
 LOpcode ltyToLiveOpcode(LTy ty) {
   switch (ty) {
     default:
-      assert(false && "bad LTy");
+      AvmAssert(false && "bad LTy");
     case LTy_I:
       return LIR_livei;
     case LTy_D:
@@ -1186,14 +1186,14 @@ void LirEmitter::do_default(Instr* instr) {
     cxt->out << "LIR    --------\n";
     fflush(NULL);
   }
-  assert(false && "unsupported instruction");
+  AvmAssert(false && "unsupported instruction");
 }
 
 /// Gives ARGTYPE required for callins 
 ArgType argtype(const Type* t) {
   if (isDataType(*t)) {
     switch (model(t)) {
-      default: assert(false && "bad model");
+      default: AvmAssert(false && "bad model");
       case kModelAtom:
       case kModelString:
       case kModelScriptObject:
@@ -1202,7 +1202,7 @@ ArgType argtype(const Type* t) {
     }
   } else {
     switch (kind(t)) {
-      default: assert(false && "bad type kind");
+      default: AvmAssert(false && "bad type kind");
       case kTypeBottom:
         return ARGTYPE_V;
       case kTypeOrdinal:
@@ -1228,11 +1228,11 @@ void LirEmitter::do_stub(Instr* instr, const CallInfo* call) {
   for (ArrayRange<Use> u = useRange(instr); !u.empty(); s.popFront()) {
     const Use& arg = u.popFront();
     const Type* sig_type = s.front();
-    assert(subtypeof(type(arg), sig_type)); // ir must be well typed!
+    AvmAssert(subtypeof(type(arg), sig_type)); // ir must be well typed!
     if (isLinear(sig_type) || isState(sig_type))
       continue; // ignore stateful args
     if (argc < limit) {
-      assert(argc < (int)MAXARGS && "too many args");
+      AvmAssert(argc < (int)MAXARGS && "too many args");
       args[argc++] = def_ins(arg);
     } else {
       emitStore(arg, sig_type, args_, offset, ACCSET_OTHER);
@@ -1241,12 +1241,12 @@ void LirEmitter::do_stub(Instr* instr, const CallInfo* call) {
     }
   }
   if (fixc != -1) {
-    assert(argc + 2 < (int)MAXARGS && "too many args");
+    AvmAssert(argc + 2 < (int)MAXARGS && "too many args");
     args[argc++] = InsConst(varargc);
     args[argc++] = args_;
   }
   // reverse the args.
-  assert(argc == call->count_args());
+  AvmAssert(argc == call->count_args());
   for (uint32_t i = 0; i < argc/2; ++i) {
     LIns* t = args[i];
     args[i] = args[argc - i - 1];
@@ -1258,7 +1258,7 @@ void LirEmitter::do_stub(Instr* instr, const CallInfo* call) {
   // assume the result goes in def 0 or def 1
   switch (numDefs(instr)) {
     default:
-      assert(false && "too many defs");
+      AvmAssert(false && "too many defs");
     case 0: // do nothing
       break;
     case 1:
@@ -1311,7 +1311,7 @@ uint32_t* allocDefaultParams(CodeMgr* mgr, MethodSignaturep signature) {
     } else {
       Atom value = signature->getDefaultValue(i - 1 - required_count);
       switch (avmplus::valueStorageType(p.builtinType())) {
-        default: assert(false && "bad slotStorageType");
+        default: AvmAssert(false && "bad slotStorageType");
         case SST_int32:
           p.asInt() = AvmCore::integer_i(value);
           break;
@@ -1346,10 +1346,10 @@ uint32_t* allocDefaultParams(CodeMgr* mgr, MethodSignaturep signature) {
 /// from the argument array.
 ///
 void LirEmitter::do_start(StartInstr* start) {
-  assert(!cxt->method->needArguments() && "arguments not supported yet");
+  AvmAssert(!cxt->method->needArguments() && "arguments not supported yet");
   // + 3 because start has extra params not in included in param_count():
   // effect, env, and this.
-  assert(numDefs(start) == signature->param_count() + 3 +
+  AvmAssert(numDefs(start) == signature->param_count() + 3 +
          (cxt->method->needRestOrArguments() ? 1 : 0));
   // Set up env parameter
   int i = 0;
@@ -1377,7 +1377,7 @@ void LirEmitter::do_start(StartInstr* start) {
     }
     // arg = load [args + offset], according to arg type.
     switch (lirtype(type(arg_def))) {
-      default: assert(false && "bad lirtype");
+      default: AvmAssert(false && "bad lirtype");
       case kLirInt:
         // int/uint/bool are widened to [u]intptr_t, so truncate now.  Loading
         // and truncating handles both endian styles.
@@ -1470,7 +1470,7 @@ void LirEmitter::do_callinterface(CallStmt2* call) {
 
   Def* value_out = call->value_out();
   const Type* value_out_type = type(value_out);
-  assert(isBottom(value_out_type) ||
+  AvmAssert(isBottom(value_out_type) ||
          model(value_out_type) == defaultModelKind(interface_sig->returnTraits()));
 
   emitStoreArgs(call->args(), call->arg_count(), interface_sig);
@@ -1503,7 +1503,7 @@ void LirEmitter::do_return(StopInstr* stop) {
 /// This goto is a fall-through path if it jumps to the next block in linear order.
 ///
 bool LirEmitter::isFallthruGoto(GotoInstr* go) {
-  assert(blocks_[current_block_] == ir->blockStart(go) &&
+  AvmAssert(blocks_[current_block_] == ir->blockStart(go) &&
          "fallthru check on non-current block");
   int i = current_block_ + 1;
   return i < num_blocks_ && blocks_[i] == go->target;
@@ -1512,7 +1512,7 @@ bool LirEmitter::isFallthruGoto(GotoInstr* go) {
 /// This label is a fall-through path if the only goto is the previous block
 /// in linear order.
 bool LirEmitter::isFallthruLabel(LabelInstr* label) {
-  assert(blocks_[current_block_] == label &&
+  AvmAssert(blocks_[current_block_] == label &&
          "fallthru check on non-current block");
   PredRange p(label);
   if (p.empty())
@@ -1568,7 +1568,7 @@ void LirEmitter::emitSetPc(DeoptSafepointInstr* instr)
 /// optimization.  (HR_switch does not).
 ///
 bool LirEmitter::isFallthruBranch(ArmInstr* arm) {
-  assert(blocks_[current_block_] == ir->blockStart(arm->owner) &&
+  AvmAssert(blocks_[current_block_] == ir->blockStart(arm->owner) &&
          "fallthru check on non-current block");
   int i = current_block_ + 1;
   return i < num_blocks_ && blocks_[i] == arm && (kind(arm->owner) == HR_if);
@@ -1579,7 +1579,7 @@ bool LirEmitter::isFallthruBranch(ArmInstr* arm) {
 /// optimization.  (HR_switch does not).
 ///
 bool LirEmitter::isFallthruArm(ArmInstr* arm) {
-  assert((blocks_[current_block_] == arm) &&
+  AvmAssert((blocks_[current_block_] == arm) &&
          "fallthru check on non-current block");
   CondInstr* owner = arm->owner;
   BlockStartInstr* owner_block = InstrGraph::blockStart(owner);
@@ -1808,7 +1808,7 @@ void LirEmitter::do_arm(ArmInstr* arm) {
   // Patch the branch, if the branch came first.
   if (branch) {
     if (branch->isop(LIR_jtbl)) {
-      assert(kind(arm->owner) == HR_switch);
+      AvmAssert(kind(arm->owner) == HR_switch);
       branch->setTarget(pos(arm), label);
       // If incoming edge is from a switch, we need a regfence.
       // See case LIR_jtbl in Assembler::gen() in nanojit/Assembler.cpp.
@@ -1965,7 +1965,7 @@ void LirEmitter::writeSlot(LIns* object, LIns* value_in,
   switch (model(value_type)) {
     default:
       printf("model is: %d\n", model(value_type));
-      assert(false && "Unsupported model");
+      AvmAssert(false && "Unsupported model");
     case kModelAtom: {
       callIns(&ci_atomWriteBarrier, 4, InsConstPtr(core->gc), object, 
               addp(object, offset), value_in);
@@ -1994,7 +1994,7 @@ void LirEmitter::do_setslot(CallStmt2* instr) {
   int slot = ordinalVal(type(name_in));
   const Type* value_type = type(value_in);
   const Type* object_type = type(object_in);
-  assert(subtypeof(value_type, ir->lattice.getSlotType(object_type, slot)));
+  AvmAssert(subtypeof(value_type, ir->lattice.getSlotType(object_type, slot)));
   uint32_t offset = ir->lattice.getSlotOffset(object_type, slot);
 
   LIns* object = def_ins(object_in);
@@ -2008,7 +2008,7 @@ void LirEmitter::do_getslot(CallStmt2* instr) {
   int slot = ordinalVal(type(name_in));
   const Type* object_type = type(object_in);
   const Type* slot_type = ir->lattice.getSlotType(object_type, slot);
-  assert(subtypeof(type(instr->value_out()), slot_type));
+  AvmAssert(subtypeof(type(instr->value_out()), slot_type));
   uint32_t offset = ir->lattice.getSlotOffset(object_type, slot);
 
   LIns* object = def_ins(object_in);
@@ -2264,7 +2264,7 @@ void LirEmitter::do_newstate(ConstantExpr* instr) {
 /// NanoJIT removes the tag stores
 void LirEmitter::do_setlocal(SetlocalInstr* instr) {
   set_def_ins(instr->state_out(), def_ins(instr->state_in()));
-  assert (safepoint_space_ != NULL);
+  AvmAssert (safepoint_space_ != NULL);
   int stackIndex = instr->index;
   emitStore(instr->value_in(), type(instr->value_in()),
             safepoint_space_, stackIndex << VARSHIFT(cxt->method),
@@ -2279,7 +2279,7 @@ void LirEmitter::do_setlocal(SetlocalInstr* instr) {
   /// can't put in abcbuilder because type analysis may specialize downstream
   JitManager* jit = JitManager::init(this->pool);
   BailoutData* metaData = jit->ensureMethodData(cxt->method)->bailout_data;
-  assert (metaData != NULL);
+  AvmAssert (metaData != NULL);
   metaData->setNativeType(stackIndex, type2sst(type(instr->value_in())));
 }
 
@@ -2287,7 +2287,7 @@ void LirEmitter::do_setlocal(SetlocalInstr* instr) {
 /// Any safepoint instr that gets here cannot be optimized away
 /// Stores the abc pc, setlocals store the actual data prior to this safepoint
 void LirEmitter::do_safepoint(SafepointInstr* instr) {
-  assert (safepoint_space_ != NULL);
+  AvmAssert (safepoint_space_ != NULL);
   int vpc = instr->vpc;
   // update bytecode ip
   stp(InsConstPtr((void*)vpc), _save_eip, 0, ACCSET_OTHER);
@@ -2295,7 +2295,7 @@ void LirEmitter::do_safepoint(SafepointInstr* instr) {
   /// See do_setlocal for why we grab metadata here
   JitManager* jit = JitManager::init(this->pool);
   BailoutData* metaData = jit->ensureMethodData(cxt->method)->bailout_data;
-  assert (metaData != NULL);
+  AvmAssert (metaData != NULL);
   metaData->do_safepoint(vpc, instr->scopep, instr->sp);
 }
 
@@ -2320,8 +2320,8 @@ void LirEmitter::do_abc_hasnext2(Hasnext2Stmt* instr) {
   LIns* object = stackAlloc(sizeof(Atom), "hasnext2_obj");
   LIns* counter = stackAlloc(sizeof(int32_t), "hasnext2_index");
 
-  assert (model(type(instr->object_in())) == kModelAtom);
-  assert (model(type(instr->counter_in())) == kModelInt);
+  AvmAssert (model(type(instr->object_in())) == kModelAtom);
+  AvmAssert (model(type(instr->counter_in())) == kModelInt);
 
   stp(def_ins(instr->object_in()), object, 0, ACCSET_OTHER);
   sti(def_ins(instr->counter_in()), counter, 0, ACCSET_OTHER);

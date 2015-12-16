@@ -758,5 +758,6 @@ class B extends A {
   <error id="2107" label="kProxyNextValueError">Proxy 类不实现 nextValue。它必须由一个子类覆盖。</error>
   <error id="2108" label="kInvalidArrayLengthError">值 %1 不是有效的数组长度。</error>
   <error id="2173" label="kReadExternalNotImplementedError">无法读取流中的对象。类 %1 虽未实现 flash.utils.IExternalizable，但由其别名可得知它为 externalizable 类。</error>
+  <error id="3735" label="kAPICannotAcceptSharedByteArray">此 API 不接受共享的 ByteArray。</error>
 
 </errors>

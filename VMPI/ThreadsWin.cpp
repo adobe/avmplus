@@ -30,10 +30,10 @@ bool VMPI_threadCreate(vmpi_thread_t* thread, vmpi_thread_attr_t* attr, vmpi_thr
     HANDLE threadHandle = CreateThread(NULL, stackSize, start_fn, arg, 0, &id);
     if (threadHandle) {
         *thread = id;
-        CloseHandle(threadHandle);
         if (attr != NULL && attr->priority != THREAD_PRIORITY_NORMAL) {
             SetThreadPriority(threadHandle, attr->priority);
         }
+		CloseHandle(threadHandle);
         // The SetThreadStackGuarantee API is not available in all versions of Windows we care about,
         // so we can't honor any specific guard size request.
         return true;

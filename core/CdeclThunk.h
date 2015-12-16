@@ -9,15 +9,21 @@
 
 namespace avmplus
 {
+    class va_list_wrapper 
+    {
+    public:
+        va_list m_list;
+    };
+
     // used to call a MethodEnv with a C cdecl implementation
 
     // TODO for x86-64, we probably want to split this into real 32-bit integer returning variant
-    Atom coerce32CdeclArgDescEnter(Traits* retTraits, uintptr_t argDesc, MethodEnv* env, va_list ap);
-    Atom coerce32CdeclArgDescEnter(Traits* retTraits, char* argDesc, MethodEnv* env, va_list ap);
+    Atom coerce32CdeclArgDescEnter(Traits* retTraits, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap);
+    Atom coerce32CdeclArgDescEnter(Traits* retTraits, char* argDesc, MethodEnv* env, va_list_wrapper ap);
     Atom coerce32CdeclArgDescEnter(Traits* retTraits, MethodEnv* env, int argc, Atom* argv);
     Atom coerce32CdeclArgDescEnter(Traits* retTraits, MethodEnv* env, int argc, uint32_t* ap);
-    double coerceNCdeclArgDescEnter(uintptr_t argDesc, MethodEnv* env, va_list ap);
-    double coerceNCdeclArgDescEnter(char* argDesc, MethodEnv* env, va_list ap);
+    double coerceNCdeclArgDescEnter(uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap);
+    double coerceNCdeclArgDescEnter(char* argDesc, MethodEnv* env, va_list_wrapper ap);
     double coerceNCdeclArgDescEnter(MethodEnv* env, int argc, Atom* argv);
     double coerceNCdeclArgDescEnter(MethodEnv* env, int argc, uint32_t* ap);
 
@@ -27,8 +33,8 @@ namespace avmplus
     int32_t argDescApSize(uintptr_t argDesc, MethodEnv* env);
     int32_t argDescApSize(char* argDesc, MethodEnv* env);
     // convert arguments to ap style argument block, returning "argc"
-    int32_t argDescArgsToAp(void* args, uintptr_t argDesc, MethodEnv* env, va_list ap);
-    int32_t argDescArgsToAp(void* args, char* argDesc, MethodEnv* env, va_list ap);
+    int32_t argDescArgsToAp(void* args, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap);
+    int32_t argDescArgsToAp(void* args, char* argDesc, MethodEnv* env, va_list_wrapper ap);
 
     // used to convert C parameters to Atom* style (argc, atomv)
 
@@ -36,11 +42,11 @@ namespace avmplus
     int32_t argDescArgCount(uintptr_t argDesc);
     int32_t argDescArgCount(char* argDesc);
     // convert arguments to Atoms
-    void argDescArgsToAtomv(Atom* args, uintptr_t argDesc, MethodEnv* env, va_list ap);
-    void argDescArgsToAtomv(Atom* args, char* argDesc, MethodEnv* env, va_list ap);
+    void argDescArgsToAtomv(Atom* args, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap);
+    void argDescArgsToAtomv(Atom* args, char* argDesc, MethodEnv* env, va_list_wrapper ap);
     // convert arguments to AtomList
-    void argDescArgsToAtomList(AtomList& args, uintptr_t argDesc, MethodEnv* env, va_list ap);
-    void argDescArgsToAtomList(AtomList& args, char* argDesc, MethodEnv* env, va_list ap);
+    void argDescArgsToAtomList(AtomList& args, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap);
+    void argDescArgsToAtomList(AtomList& args, char* argDesc, MethodEnv* env, va_list_wrapper ap);
 
 #ifdef VMCFG_AOT
     uintptr_t aotThunker(MethodEnv* env, int32_t argc, uint32_t* argv);

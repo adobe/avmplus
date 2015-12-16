@@ -952,7 +952,6 @@ namespace avmplus
         };
         static const bool align8ByteSlots = (offsetof(GlueClassTest_Slots, m_numberSlot) == 8);
         static const bool alignPointersTo8Bytes = (offsetof(GlueClassTest_Slots, m_ptrSlot) == 24);
-        static const bool is64Bit = sizeof(void*) == 8;
 #ifdef VMCFG_FLOAT
         struct GlueClassTest128_Slots
         {
@@ -1741,9 +1740,6 @@ namespace avmplus
         const AOTInfo* aotInfo = m->pool()->aotInfo;
         Traits* activationTraits = m->activationTraits();
         AvmAssert(activationTraits != NULL);
-        AvmAssert(m->method_id() < (int)aotInfo->nActivationTraits);
-        AvmAssert(aotInfo->activationTraits != NULL);
-        AvmAssert(aotInfo->activationTraits[m->method_id()] == activationTraits);
         AvmAssert(aotInfo->activationInfo != NULL);
 
         // See comment in initActivationTraits about why this can be called more than once per Traits
@@ -2415,5 +2411,20 @@ failure:
             return traits->getTraitsBindings()->getSlotTraits(AvmCore::bindingToSlotId(b));
         }
     }
+
+#if defined(VMCFG_HALFMOON_AOT_RUNTIME) || defined(VMCFG_HALFMOON_AOT_COMPILER)
+    int Traits::getTraitsNameSpaceIndexInPool()
+    {
+        AvmAssert(ns()->getType() == Namespace::NS_Private);
+        // index 0 is always NULL, so start with 1;
+        for (int i = 1, end = (int)pool->constantNsCount; i < end; ++i) {
+            if (ns()->EqualTo(pool->getNamespace(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+#endif
+
 
 }

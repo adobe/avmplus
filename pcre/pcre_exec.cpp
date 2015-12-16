@@ -345,6 +345,7 @@ typedef struct heapframe {
   uschar Xocchars[8];
 #endif
 
+  int Xcodelink;
   int Xctype;
   unsigned int Xfc;
   int Xfi;
@@ -448,6 +449,7 @@ register unsigned int c;   /* Character values not kept over RMATCH() calls */
 register BOOL utf8;        /* Local copy of UTF-8 flag for speed */
 
 BOOL minimize, possessive; /* Quantifier options */
+int condcode = 0;
 
 /* When recursion is not being used, all "local" variables that have to be
 preserved over calls to RMATCH() are part of a "frame" which is obtained from
@@ -490,6 +492,7 @@ HEAP_RECURSE:
 #define charptr            frame->Xcharptr
 #endif
 #define callpat            frame->Xcallpat
+#define codelink           frame->Xcodelink
 #define data               frame->Xdata
 #define next               frame->Xnext
 #define pp                 frame->Xpp
@@ -572,6 +575,7 @@ int oclength;
 uschar occhars[8];
 #endif
 
+int codelink;
 int ctype;
 int length;
 int max;
@@ -836,77 +840,132 @@ for (;;)
 
     case OP_COND:
     case OP_SCOND:
-    if (ecode[LINK_SIZE+1] == OP_RREF)         /* Recursion test */
+	{
+
+	/* The variable codelink will be added to ecode when the condition is 
+    false, to get to the second branch. Setting it to the offset to the ALT 
+    or KET, then incrementing ecode achieves this effect. We now have ecode 
+    pointing to the condition or callout. */
+ 
+    codelink = GET(ecode, 1);   /* Offset to the second branch */
+	ecode += 1 + LINK_SIZE;     /* From this opcode */
+
+    /* Because of the way auto-callout works during compile, a callout item is
+    inserted between OP_COND and an assertion condition. */
+
+    if (*ecode == OP_CALLOUT)
       {
-      offset = GET2(ecode, LINK_SIZE + 2);     /* Recursion group number*/
-      condition = md->recursive != NULL &&
-        (offset == RREF_ANY || offset == md->recursive->group_num);
-      ecode += condition? 3 : GET(ecode, 1);
+      if (pcre_callout != NULL)
+        {
+		pcre_callout_block cb;
+        cb.version          = 2;   /* Version 1 of the callout block */
+        cb.callout_number   = ecode[1];
+        cb.offset_vector    = md->offset_vector;
+        cb.subject          = (PCRE_SPTR)md->start_subject;
+        cb.subject_length   = (int)(md->end_subject - md->start_subject);
+        cb.start_match      = (int)(mstart - md->start_subject);
+        cb.current_position = (int)(eptr - md->start_subject);
+        cb.pattern_position = GET(ecode, 2);
+        cb.next_item_length = GET(ecode, 2 + LINK_SIZE);
+        cb.capture_top      = offset_top/2;
+        cb.capture_last     = md->capture_last;
+        cb.callout_data     = md->callout_data;
+        if ((rrc = (*pcre_callout)(&cb)) > 0) RRETURN(MATCH_NOMATCH);
+        if (rrc < 0) RRETURN(rrc);
+        }
+        
+      /* Advance ecode past the callout, so it now points to the condition. We 
+      must adjust codelink so that the value of ecode+codelink is unchanged. */
+       
+	  ecode += _pcre_OP_lengths[OP_CALLOUT];
+      codelink -= _pcre_OP_lengths[OP_CALLOUT];
       }
 
-    else if (ecode[LINK_SIZE+1] == OP_CREF)    /* Group used test */
-      {
-      offset = GET2(ecode, LINK_SIZE+2) << 1;  /* Doubled ref number */
+    /* Test the various possible conditions */
+
+    condition = FALSE;
+    switch(condcode = *ecode)
+      { 
+      case OP_RREF:         /* Numbered group recursion test */
+      if (md->recursive != NULL)     /* Not recursing => FALSE */
+        {
+        int recno = GET2(ecode, 1);   /* Recursion group number*/
+        condition = (recno == RREF_ANY || recno == md->recursive->group_num);
+        }
+      break;
+
+      case OP_CREF:         /* Numbered group used test */
+      offset = GET2(ecode, 1) << 1;  /* Doubled ref number */
       condition = offset < offset_top && md->offset_vector[offset] >= 0;
-      ecode += condition? 3 : GET(ecode, 1);
-      }
+      break;   
 
-    else if (ecode[LINK_SIZE+1] == OP_DEF)     /* DEFINE - always false */
-      {
-      condition = FALSE;
-      ecode += GET(ecode, 1);
-      }
+      case OP_DEF:     /* DEFINE - always false */
+	  case OP_FAIL:    /* From optimized (?!) condition */
+      break;
 
-    /* The condition is an assertion. Call match() to evaluate it - setting
-    the final argument match_condassert causes it to stop at the end of an
-    assertion. */
-
-    else
-      {
-      RMATCH(eptr, ecode + 1 + LINK_SIZE, offset_top, md, ims, NULL,
+      /* The condition is an assertion. Call match() to evaluate it */
+      
+      default: 
+      RMATCH(eptr, ecode, offset_top, md, ims, NULL,
           match_condassert, RM3);
       if (rrc == MATCH_MATCH)
         {
+        if (md->end_offset_top > offset_top)
+          offset_top = md->end_offset_top;  /* Captures may have happened */
         condition = TRUE;
-        ecode += 1 + LINK_SIZE + GET(ecode, LINK_SIZE + 2);
+         
+        /* Advance ecode past the assertion to the start of the first branch, 
+        but adjust it so that the general choosing code below works. */
+ 
+        if (*ecode == OP_BRAZERO) ecode++;
+		ecode += GET(ecode, 1);
         while (*ecode == OP_ALT) ecode += GET(ecode, 1);
+		ecode += 1 + LINK_SIZE - _pcre_OP_lengths[condcode]; 
         }
+
+      /* PCRE doesn't allow the effect of (*THEN) to escape beyond an
+      assertion; it is therefore treated as NOMATCH. Any other return is an 
+      error. */
+
       else if (rrc != MATCH_NOMATCH && rrc != MATCH_THEN)
         {
         RRETURN(rrc);         /* Need braces because of following else */
         }
-      else
-        {
-        condition = FALSE;
-        ecode += GET(ecode, 1);
-        }
+      break;   
       }
-
-    /* We are now at the branch that is to be obeyed. As there is only one,
-    we can use tail recursion to avoid using another stack frame, except when
-    match_cbegroup is required for an unlimited repeat of a possibly empty
-    group. If the second alternative doesn't exist, we can just plough on. */
-
-    if (condition || *ecode == OP_ALT)
+      
+    /* Choose branch according to the condition */
+      
+    ecode += condition? _pcre_OP_lengths[condcode] : codelink;
+ 
+    /* We are now at the branch that is to be obeyed. As there is only one, we
+    can use tail recursion to avoid using another stack frame, except when
+    there is unlimited repeat of a possibly empty group. In the latter case, a
+    recursive call to match() is always required, unless the second alternative
+    doesn't exist, in which case we can just plough on. Note that, for
+    compatibility with Perl, the | in a conditional group is NOT treated as
+    creating two alternatives. If a THEN is encountered in the branch, it
+    propagates out to the enclosing alternative (unless nested in a deeper set
+    of alternatives, of course). */
+    
+    if (condition || ecode[-(1+LINK_SIZE)] == OP_ALT)
       {
-      ecode += 1 + LINK_SIZE;
-      if (op == OP_SCOND)        /* Possibly empty group */
+      if (op != OP_SCOND)
         {
-        RMATCH(eptr, ecode, offset_top, md, ims, eptrb, match_cbegroup, RM49);
-        RRETURN(rrc);
-        }
-      else                       /* Group must match something */
-        {
-        flags = 0;
         goto TAIL_RECURSE;
         }
-      }
-    else                         /* Condition false & no 2nd alternative */
-      {
-      ecode += 1 + LINK_SIZE;
-      }
-    break;
 
+      RMATCH(eptr, ecode, offset_top, md, ims, eptrb, match_cbegroup, RM49);
+      RRETURN(rrc);
+      }
+
+     /* Condition false & no alternative; continue after the group. */
+
+    else
+      {
+      }
+	}
+    break;
 
     /* End of the pattern, either real or forced. If we are in a top-level
     recursion, we should restore the offsets appropriately and continue from
@@ -1261,7 +1320,7 @@ for (;;)
     infinite repeats of empty string matches, retrieve the subject start from
     the chain. Otherwise, set it NULL. */
 
-    if (*prev >= OP_SBRA)
+    if (*prev >= OP_SBRA && eptrb)
       {
       saved_eptr = eptrb->epb_saved_eptr;   /* Value at start of group */
       eptrb = eptrb->epb_prev;              /* Backup to previous group */
@@ -1288,8 +1347,8 @@ for (;;)
 					offset = GET2(prev, 1+LINK_SIZE)<<1;
 					if (prev_op_was_negative)
 					{
-						md->offset_vector[offset] = -1;
- 						md->offset_vector[offset+1] = -1;
+						if(offset < md->offset_end) md->offset_vector[offset] = -1;
+						if(offset < md->offset_end-1) md->offset_vector[offset+1] = -1; //Bounds-check to prevent overflow - PSIRT 2493 [Watson 3721083]
 					}
 					prev += _pcre_OP_lengths[*prev];
 				} else { 
@@ -5066,10 +5125,20 @@ if (rc == MATCH_MATCH)
   /* Set the return code to the number of captured strings, or 0 if there are
   too many to fit into the vector. */
 
-	// ECMAScript compatible behavior means always returning as many elements as there were groups (+1).  PERL behavior is to return only as many results as the number of groups actually visited (+1)
-	rc = md->offset_overflow? 0 : (ES3_Compatible_Behavior ? resetcount/2 : md->end_offset_top/2);
+  // Original PCRE code for setting rc
+  //  rc = md->offset_overflow? 0 : md->end_offset_top/2;
 
-//  rc = md->offset_overflow? 0 : md->end_offset_top/2;
+  // ECMAScript compatible behavior means always returning as many elements as there were groups (+1).  PERL behavior is to return only as many results as the number of groups actually visited (+1)
+  // rc = md->offset_overflow? 0 : (ES3_Compatible_Behavior ? resetcount/2 : md->end_offset_top/2);
+
+  // 13jan2014 pgrandma@adobe.com :
+  // pcre_exec() starts with { md->offset_vector = offsets }, but switches md->offset_vector to heap allocated memory when a larger buffer is required.
+  // When the final state would overflow the buffer { md->offset_overflow is set to true when (md->end_offset_top > offsetcount) }, this routine is supposed to return 0.
+  //
+  // The above ES3_Compatible_Behavior code change from Adobe broke this, because it returns resetcount/2 when (resetcount > offsetcount),
+  // when it should have returned 0 to indicate the buffer wasn't large enough for the result (as documented).
+  rc = md->offset_overflow? 0 : (ES3_Compatible_Behavior ? ((resetcount > offsetcount) ? 0 : resetcount/2) : md->end_offset_top/2);
+
 
   /* If there is space, set up the whole thing as substring 0. The value of
   md->start_match_ptr might be modified if \K was encountered on the success

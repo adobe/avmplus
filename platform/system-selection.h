@@ -75,6 +75,9 @@
 
   #if defined(__arm__) || defined(__ARM__)
     #define AVMSYSTEM_ARM    1
+  #elif defined(__arm64__)
+    #define SIXTYFOURBIT
+    #define AVMSYSTEM_ARM    1
   #else
     #define AVMSYSTEM_ARM    0
   #endif

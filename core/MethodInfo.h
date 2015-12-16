@@ -195,6 +195,12 @@ namespace avmplus
         uint32_t osrEnabled() const;
         void setOSR(uint32_t threshold);
 
+#if defined(VMCFG_HALFMOON_AOT_COMPILER) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+        //Halfmoon AOT need to propogate a flag in method hierarchy to indicate that method signature required argc, argv
+        uint32_t needArgsArrInMethodSig() const;
+        void setNeedArgsArrInMethodSig();
+#endif
+        
     public:
 
         Stringp FASTCALL getMethodNameWithTraits(Traits* declaringTraits, bool includeAllNamespaces = false) const;
@@ -308,6 +314,8 @@ namespace avmplus
         GC_DATA_BEGIN(MethodInfo)
 
     private:
+        friend class halfmoon::JitFriend;
+        
         GCMember<MMgc::GCWeakRef> GC_POINTER(_msref); // our MethodSignature
         ScopeOrTraits             GC_STRUCTURE(_declarer);
         ScopeOrTraits             GC_STRUCTURE(_activation);
@@ -446,6 +454,11 @@ namespace avmplus
 #ifdef VMCFG_FLOAT
         // if true, the function operates on float4_t values, and needs a double VARSIZE
         uint32_t                _has128bitLocals:1;
+#endif
+
+#if defined(VMCFG_HALFMOON_AOT_COMPILER) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+        //Halfmoon AOT need to propogate a flag in method hierarchy to indicate that method signature required argc, argv
+        uint32_t                _needArgsArrInMethodSig:1;
 #endif
         GC_DATA_END(MethodInfo)
     // ------------------------ DATA SECTION END

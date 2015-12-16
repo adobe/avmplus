@@ -13,6 +13,10 @@
 #include "AVMPI.h"
 #include "atom.h"
 
+#if !defined(GCDEBUG) && (defined(DEBUG) || defined(_DEBUG))
+	#define GCDEBUG
+#endif
+
 #ifdef MMGC_VALGRIND
     // Valgrind information:
     // The GCHeap, GC and FixedMalloc allocators are instrumented for valgrind's purposes.
@@ -32,7 +36,7 @@
     #define VALGRIND_FREELIKE_BLOCK(_a,rdz) {}
 #endif
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     #define MMGC_DELETE_DEBUGGING
     // Valgrind integration is trickier with fresh memory scribbling and free memory
     // poisoning and its pointless since valgrind will uncover the same problems.
@@ -91,7 +95,7 @@
     //#define MMGC_MARKSTACK_DEPTH
 #endif
 
-// this might be good to enable in a heightened DEBUG build, it triggers bug 561402
+// this might be good to enable in a heightened GCDEBUG build, it triggers bug 561402
 //#define MMGC_POISON_MEMORY_FROM_OS
 
 #ifdef MMGC_MEMORY_PROFILER

@@ -9,6 +9,7 @@
 #include "shell_toplevel-classes.hh"
 #include "shell_toplevel.cpp"
 
+
 namespace avmshell
 {
     const int kScriptTimeout = 15;
@@ -135,7 +136,11 @@ namespace avmshell
 #ifdef VMCFG_AOT
         avmplus::NativeInitializer shellNInit(this,
             avmplus::NativeID::shell_toplevel_versioned_uris,
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            &sdk_aotInfo,
+#else
             &shell_toplevel_aotInfo,
+#endif
             avmplus::NativeID::shell_toplevel_abc_method_count,
             avmplus::NativeID::shell_toplevel_abc_class_count);
         shellNInit.fillInClasses(avmplus::NativeID::shell_toplevel_classEntries);
@@ -354,7 +359,7 @@ namespace avmshell
         avmplus::selftests(this, settings.st_component, settings.st_category, settings.st_name);
     }
 #endif
-
+    
     ShellToplevel* ShellCore::setup(const ShellCoreSettings& settings)
     {
 #ifdef VMCFG_AOT
@@ -472,9 +477,19 @@ namespace avmshell
     int ShellCore::evaluateFile(ShellCoreSettings& settings, const char* filename)
     {
 #ifdef VMCFG_AOT
+        (void)filename; // unreferenced parameter
+#ifdef DEBUGGER
+        if (settings.enter_debugger_on_launch)
+        {
+            // Activate the debug CLI and stop at
+            // start of program
+            debugCLI()->activate();
+            debugCLI()->stepInto();
+        }
+#endif
         avmplus::ScriptBuffer dummyScriptBuffer;
         return handleArbitraryExecutableContent(settings.do_testSWFHasAS3, dummyScriptBuffer, NULL);
-#endif
+#else // ndef VMCFG_AOT
 
         if (config.interrupts)
             Platform::GetInstance()->setTimer(kScriptTimeout, interruptTimerCallback, this);
@@ -509,6 +524,7 @@ namespace avmshell
 #endif
 
         return handleArbitraryExecutableContent(settings.do_testSWFHasAS3, code, filename);
+#endif // ndef VMCFG_AOT
     }
 
     int ShellCore::evaluateScriptBuffer(avmplus::ScriptBuffer& buffer, bool enter_debugger_on_launch)
@@ -527,7 +543,11 @@ namespace avmshell
             debugCLI()->stepInto();
         }
 #endif
+#ifdef VMCFG_AOT
+        return handleArbitraryExecutableContent(false, buffer, NULL);
+#else
         return handleArbitraryExecutableContent(false, buffer, "<ByteArray buffer>");
+#endif
     }
 
 

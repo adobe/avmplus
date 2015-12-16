@@ -459,6 +459,11 @@ namespace avmplus
         virtual uint32_t getLength() const = 0;
         virtual void setLength(uint32_t length) = 0;
 
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+		// For diagnostic purposes only!
+		virtual void setLengthUnchecked(uint32_t length) = 0;
+#endif
+
     protected:
         
         Atom _mapImpl(ScriptObject* callback, Atom thisObject, VectorBaseObject* r, uint32_t len);
@@ -531,6 +536,11 @@ namespace avmplus
         virtual uint32_t getLength() const;
         virtual void setLength(uint32_t length);
 
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+		// For diagnostic purposes only!
+		virtual void setLengthUnchecked(uint32_t length);
+#endif
+
         // AS3 native getter/setter implementations
         uint32_t get_length() const;
         void set_length(uint32_t newLength);
@@ -543,6 +553,8 @@ namespace avmplus
         // Then insert insertCount entries starting at insertPoint;
         // the insertCount entries are read from args, starting at offset.
         void _spliceHelper(uint32_t insertPoint, uint32_t insertCount, uint32_t deleteCount, Atom args, uint32_t offset);
+		void AS3_insertAt(int32_t index, typename TLIST::TYPE element);
+		typename TLIST::TYPE AS3_removeAt(int32_t index);
         uint32_t AS3_push(Atom* argv, int argc);
         typename TLIST::TYPE AS3_pop();
 #ifdef VMCFG_FLOAT

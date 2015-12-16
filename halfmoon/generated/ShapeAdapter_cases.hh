@@ -44,12 +44,16 @@ case NARYSTMT1_SHAPE:
   return a->do_NaryStmt1(cast<NaryStmt1>(instr));
 case UNARYSTMT_SHAPE: 
   return a->do_UnaryStmt(cast<UnaryStmt>(instr));
+case DEBUGINSTR2_SHAPE: 
+  return a->do_DebugInstr2(cast<DebugInstr2>(instr));
 case CALLSTMT2_SHAPE: 
   return a->do_CallStmt2(cast<CallStmt2>(instr));
 case NARYSTMT2_SHAPE: 
   return a->do_NaryStmt2(cast<NaryStmt2>(instr));
 case BINARYSTMT_SHAPE: 
   return a->do_BinaryStmt(cast<BinaryStmt>(instr));
+case GETLOCALSTMT_SHAPE: 
+  return a->do_GetlocalStmt(cast<GetlocalStmt>(instr));
 case HASNEXT2STMT_SHAPE: 
   return a->do_Hasnext2Stmt(cast<Hasnext2Stmt>(instr));
 case CALLSTMT3_SHAPE: 

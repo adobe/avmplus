@@ -7,7 +7,7 @@
 namespace avmshell
 {
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult AbstractBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -17,7 +17,7 @@ MMgc::GCTracerCheckResult AbstractBaseClass::gcTraceOffsetIsTraced(uint32_t off)
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool AbstractBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -33,7 +33,7 @@ bool AbstractBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult AbstractBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -43,7 +43,7 @@ MMgc::GCTracerCheckResult AbstractBaseObject::gcTraceOffsetIsTraced(uint32_t off
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool AbstractBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -59,7 +59,7 @@ bool AbstractBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult AbstractRestrictedBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -69,7 +69,7 @@ MMgc::GCTracerCheckResult AbstractRestrictedBaseClass::gcTraceOffsetIsTraced(uin
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool AbstractRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -85,7 +85,7 @@ bool AbstractRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult AbstractRestrictedBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -95,7 +95,7 @@ MMgc::GCTracerCheckResult AbstractRestrictedBaseObject::gcTraceOffsetIsTraced(ui
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool AbstractRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -111,7 +111,7 @@ bool AbstractRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult CheckBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -121,7 +121,7 @@ MMgc::GCTracerCheckResult CheckBaseClass::gcTraceOffsetIsTraced(uint32_t off) co
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool CheckBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -137,7 +137,7 @@ bool CheckBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult CheckBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -147,7 +147,7 @@ MMgc::GCTracerCheckResult CheckBaseObject::gcTraceOffsetIsTraced(uint32_t off) c
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool CheckBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -163,7 +163,7 @@ bool CheckBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -173,7 +173,7 @@ MMgc::GCTracerCheckResult NativeBaseClass::gcTraceOffsetIsTraced(uint32_t off) c
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -189,7 +189,7 @@ bool NativeBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -199,7 +199,7 @@ MMgc::GCTracerCheckResult NativeBaseObject::gcTraceOffsetIsTraced(uint32_t off) 
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -215,7 +215,7 @@ bool NativeBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfAbstractBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -225,7 +225,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfAbstractBaseClass::gcTraceOffsetIsTrac
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfAbstractBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -241,7 +241,7 @@ bool NativeSubclassOfAbstractBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_curso
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfAbstractBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -251,7 +251,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfAbstractBaseObject::gcTraceOffsetIsTra
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfAbstractBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -267,7 +267,7 @@ bool NativeSubclassOfAbstractBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_curs
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfAbstractRestrictedBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -277,7 +277,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfAbstractRestrictedBaseClass::gcTraceOf
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfAbstractRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -293,7 +293,7 @@ bool NativeSubclassOfAbstractRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfAbstractRestrictedBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -303,7 +303,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfAbstractRestrictedBaseObject::gcTraceO
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfAbstractRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -319,7 +319,7 @@ bool NativeSubclassOfAbstractRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t 
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfRestrictedBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -329,7 +329,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfRestrictedBaseClass::gcTraceOffsetIsTr
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -345,7 +345,7 @@ bool NativeSubclassOfRestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cur
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult NativeSubclassOfRestrictedBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -355,7 +355,7 @@ MMgc::GCTracerCheckResult NativeSubclassOfRestrictedBaseObject::gcTraceOffsetIsT
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool NativeSubclassOfRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -371,7 +371,7 @@ bool NativeSubclassOfRestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cu
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult RestrictedBaseClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -381,7 +381,7 @@ MMgc::GCTracerCheckResult RestrictedBaseClass::gcTraceOffsetIsTraced(uint32_t of
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool RestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -397,7 +397,7 @@ bool RestrictedBaseClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult RestrictedBaseObject::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -407,7 +407,7 @@ MMgc::GCTracerCheckResult RestrictedBaseObject::gcTraceOffsetIsTraced(uint32_t o
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool RestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -423,7 +423,7 @@ bool RestrictedBaseObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult SystemClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -433,7 +433,7 @@ MMgc::GCTracerCheckResult SystemClass::gcTraceOffsetIsTraced(uint32_t off) const
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool SystemClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -450,7 +450,7 @@ bool SystemClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 #if defined(DEBUGGER)
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 const uint32_t DebugCLI::gcTracePointerOffsets[] = {
     offsetof(DebugCLI, currentFile),
     offsetof(DebugCLI, firstBreakAction),
@@ -466,7 +466,7 @@ MMgc::GCTracerCheckResult DebugCLI::gcTraceOffsetIsTraced(uint32_t off) const
         return result;
     return MMgc::GC::CheckOffsetIsInList(off,gcTracePointerOffsets,3);
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool DebugCLI::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -483,7 +483,7 @@ bool DebugCLI::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 #endif // defined(DEBUGGER)
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 const uint32_t ShellToplevel::gcTracePointerOffsets[] = {
     offsetof(ShellToplevel, shellClasses),
     0};
@@ -497,7 +497,7 @@ MMgc::GCTracerCheckResult ShellToplevel::gcTraceOffsetIsTraced(uint32_t off) con
         return result;
     return MMgc::GC::CheckOffsetIsInList(off,gcTracePointerOffsets,1);
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool ShellToplevel::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {

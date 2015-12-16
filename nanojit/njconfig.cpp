@@ -65,11 +65,17 @@ namespace nanojit
         harden_blind_constants = false;
         check_page_flags = false;
 
+#ifdef NANOJIT_STRESS_FORCE_LONG_BRANCH
+        force_long_branch = true;
+#else
+        force_long_branch = false;
+#endif
+
 #ifdef NANOJIT_IA32
         setCpuFeatures(this);
 #endif
 
-//### FIXME: Thumb2 requires V7+.
+// FIXME: Thumb2 requires V7+.
 #if defined(NANOJIT_ARM) || defined(NANOJIT_THUMB2)
         NanoStaticAssert(NJ_COMPILER_ARM_ARCH >= 4 && NJ_COMPILER_ARM_ARCH <= 7);
         arm_arch = NJ_COMPILER_ARM_ARCH;

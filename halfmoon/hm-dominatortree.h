@@ -23,7 +23,7 @@ public:
 
   /** Get the immediate dominator of block b */
   BlockStartInstr* idom(BlockStartInstr* b) {
-    assert(hasIDom(b));
+    AvmAssert(hasIDom(b));
     return info_[b->blockid].idom;
   }
 

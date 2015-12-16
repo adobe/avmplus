@@ -18,7 +18,7 @@ namespace nanojit
     // Profilers get confused by non-contiguous functions,
     // so make the allocation size huge to avoid non-contiguous methods
     static const int pagesPerAlloc = 256; // 1MB
-#elif defined(NANOJIT_ARM) || defined(NANOJIT_THUMB2)
+#elif defined(NANOJIT_ARM) || defined(NANOJIT_THUMB2) || defined(VMCFG_STRESS_SPARSE_CODE_MEM)
     // ARM requires single-page allocations, due to the constant pool that
     // lives on each page that must be reachable by a 4KB pc-relative load.
     static const int pagesPerAlloc = 1; // 4KB
@@ -526,10 +526,19 @@ extern  "C" void sync_instruction_memory(caddr_t v, u_int len);
     // Loop through a list of blocks marking the chunks executable.  If we encounter
     // multiple blocks in the same chunk, only the first block will cause the
     // chunk to become executable, the other calls will no-op (isExec flag checked)
-    void CodeAlloc::markExec(CodeList* &blocks) {
+#if defined(NANOJIT_WIN_CFG)
+	void CodeAlloc::markExec(CodeList* &blocks, NIns *pFnc)
+#else
+	void CodeAlloc::markExec(CodeList* &blocks) 
+#endif
+	{
         for (CodeList *b = blocks; b != 0; b = b->next) {
-            markChunkExec(b->terminator);
-        }
+            markChunkExec(b->terminator
+#if defined(NANOJIT_WIN_CFG)
+				, pFnc
+#endif
+				);
+		}
     }
 
     // Variant of markExec(CodeList*) that walks all heapblocks (i.e. chunks) marking
@@ -537,18 +546,35 @@ extern  "C" void sync_instruction_memory(caddr_t v, u_int len);
     // of elements in the list) this can be expensive.
     void CodeAlloc::markAllExec() {
         for (CodeList* hb = heapblocks; hb != NULL; hb = hb->next) {
-            markChunkExec(hb);
+#if defined(NANOJIT_WIN_CFG)
+			markChunkExec(hb, NULL);
+#else
+			markChunkExec(hb);
+#endif
         }
     }
 
     // make an entire chunk executable
-    void CodeAlloc::markChunkExec(CodeList* term) {
+#if defined(NANOJIT_WIN_CFG)
+	void CodeAlloc::markChunkExec(CodeList* term, NIns *pFnc)
+#else
+	void CodeAlloc::markChunkExec(CodeList* term)
+#endif
+	{
         NanoAssert(term->terminator == NULL);
         if (!term->isExec) {
             term->isExec = true;
             markCodeChunkExec(firstBlock(term), bytesPerAlloc);
-        }
+#if defined(NANOJIT_WIN_CFG)
+			// Bug# 4039856
+			// Will try to set target valid only when the pFnc is within the regions
+			char *address = (char *)firstBlock(term);
+			if (address <= (char *)pFnc && (char *)pFnc < ((char *)address + bytesPerAlloc))
+				AVMPI_makeTargetValid(address, bytesPerAlloc, (void *)pFnc);
+#endif
+		}
         debug_only(sanity_check();)
     }
+
 }
 #endif // FEATURE_NANOJIT

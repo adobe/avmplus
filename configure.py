@@ -69,15 +69,35 @@ def _setSDKParams(sdk_version, os_ver, xcode_version):
         os_ver,sdk_number = '10.7','10.7'
         if xcode_version is None:
             xcode_version = '4'
+    elif sdk_version == '108':
+        os_ver,sdk_number = '10.8','10.8'
+        if xcode_version is None:
+            xcode_version = '4'
+    elif sdk_version == '109':
+        os_ver,sdk_number = '10.9','10.9'
+        if xcode_version is None:
+            xcode_version = '6'
+    elif sdk_version == '1010':
+        os_ver,sdk_number = '10.10','10.10'
+        if xcode_version is None:
+            xcode_version = '6'
     else:
-        print'Unknown SDK version -> %s. Expected values are 104u, 105, 106 or 107.' % sdk_version
+        print'Unknown SDK version -> %s. Expected values are 104u, 105, 106, 107, 108, 109 or 1010.' % sdk_version
         sys.exit(2)
 
     sdk_prefix = None
     if xcode_version is not None:
        xcode_major_version = xcode_version.split(".")[0]
        if int(xcode_major_version) >= 4:
-          sdk_prefix = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX"
+           #matz: post xcode 4.5 can install xcode anyplace
+           #hence may  need to use xcode-select to find right install of xcode
+           sdk_prefix = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX"
+           if not os.path.exists(sdk_prefix):
+               p = subprocess.Popen('xcode-select -print-path', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+               pth = p.stdout.read().strip()
+               #print "xcode-select --print-path says", pth.strip()
+               sdk_prefix = pth.strip() + "/Platforms/MacOSX.platform/Developer/SDKs/MacOSX"
+
     if sdk_prefix is None:
        sdk_prefix = "/Developer/SDKs/MacOSX"
 
@@ -88,10 +108,11 @@ def _setSDKParams(sdk_version, os_ver, xcode_version):
     else:
         return os_ver,sdk_path
 
-def _setGCCVersionedFlags(FLAGS, MAJOR_VERSION, MINOR_VERSION, current_cpu):
+def _setGCCVersionedFlags(FLAGS, MAJOR_VERSION, MINOR_VERSION, current_cpu, clang_compiler):
     # warnings have been updated to try to include all those enabled by current Flash/AIR builds -- disable with caution, or risk integration pain
     if MAJOR_VERSION >= 4:
-        FLAGS += "-Wstrict-null-sentinel "
+        if not clang_compiler:
+            FLAGS += "-Wstrict-null-sentinel "
         if current_cpu == 'mips':
             FLAGS += "-Wstrict-aliasing=0 "
         elif (MAJOR_VERSION == 4 and MINOR_VERSION <= 2): # 4.0 - 4.2
@@ -100,12 +121,46 @@ def _setGCCVersionedFlags(FLAGS, MAJOR_VERSION, MINOR_VERSION, current_cpu):
             FLAGS += "-Wstrict-aliasing=0 -Werror "
         elif (MAJOR_VERSION == 4 and MINOR_VERSION == 4): # 4.4
             FLAGS += "-Werror -Wempty-body -Wno-logical-op -Wmissing-field-initializers -Wstrict-aliasing=0 -Wno-array-bounds -Wno-clobbered -Wstrict-overflow=0 -funit-at-a-time  "
+        elif (MAJOR_VERSION >= 5 and clang_compiler): # clang 5.0 and above, TODO - Fix these warnings and reduce the flags.
+            FLAGS += "-Wno-undef -Wno-unused-macros -Wno-documentation -Wno-c++11-extensions -Wno-sign-conversion -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare "
+            FLAGS += "-Wno-shadow -Wno-cast-align -Wno-compare-distinct-pointer-types -Wno-null-conversion -Wno-invalid-offsetof -Wno-non-literal-null-conversion "
+            FLAGS += "-Wno-padded -Wno-global-constructors -Wno-missing-prototypes -Wno-missing-variable-declarations -Wno-exit-time-destructors -Wno-format-nonliteral -Wno-unused-private-field "
+            FLAGS += "-Wmissing-field-initializers -Wno-array-bounds -Wstrict-overflow=0 -funit-at-a-time  "
         else: # gcc 4.5 or later
             FLAGS += "-Werror -Wempty-body -Wno-logical-op -Wmissing-field-initializers -Wstrict-aliasing=3 -Wno-array-bounds -Wno-clobbered -Wstrict-overflow=0 -funit-at-a-time  "
             if (MAJOR_VERSION == 4 and MINOR_VERSION == 6): # 4.6
                 FLAGS += "-Wno-psabi -Wno-unused-variable -Wno-unused-but-set-variable "
 
     return FLAGS
+
+def getLlvmFlags(llvm_config_flags, llvm_dir):
+    "given an installed llvm build (aka llvm sdk), exec llvm-config --flags to get the -I (or ld, or cpp, etc) flags to use to compile llvm code"
+    if not os.path.exists(llvm_dir):
+        print 'llvm value %s does not exist' % llvm_dir
+        return None
+    if not os.path.isdir(llvm_dir):
+        print 'llvm value %s not a directory' % llvm_dir
+        return None
+    llvm_bin_dir = os.path.join(llvm_dir, "bin")
+    if not os.path.exists(llvm_bin_dir):
+        print 'are you sure %s is a llvm installed "sdk"? Cannot find %s' % (llvm_dir, llvm_bin_dir)
+        return None
+    # llvm-config is a clever tool installed by llvm that knows paths to libs and includes
+    # and other stuff that helps users 
+    llvm_config = os.path.join(llvm_bin_dir, "llvm-config") 
+    if not os.path.isfile(llvm_config):
+        print 'are you sure %s is a llvm installed "sdk"? Cannot find %s' % (llvm_dir, llvm_config)
+        return None
+    else:
+        llvm_config_cmd = llvm_config + " " + llvm_config_flags
+        p = subprocess.Popen(llvm_config_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        llvm_config_out = p.stdout.read()
+        cxxflags = llvm_config_out.strip()
+        #how to find out exit code from process library??
+        if not cxxflags.startswith("-") and not cxxflags.startswith("/") and not llvm_config_flags.startswith("--libs"):
+            print  "'%s' looks like an incorrect llvm-config command because output doesn't start with - %s" % (llvm_config_cmd, llvm_config_out)
+            return None
+        return  llvm_config_out
 
 o = build.getopt.Options()
 
@@ -126,6 +181,11 @@ arm_arch = o.arm_arch
 if arm_arch == None and cpu == "thumb2":
     arm_arch = "armv7-a"
 
+# matz: the ENABLE_ make macros are a private arrangement
+# between the code here and conditional code in the
+# (We could generate them into the makefile automatically for all enabled features)
+# In makefiles, use ifeq (1,$(ENABLE_XXXX)) to conditionally build features
+
 buildTamarin = o.getBoolArg('tamarin', True)
 if buildTamarin:
     config.subst("ENABLE_TAMARIN", 1)
@@ -137,6 +197,54 @@ if (buildShell):
 buildAot = o.peekBoolArg("aot", False)
 if buildAot:
     config.subst("ENABLE_AOT", 1)
+
+if o.peekBoolArg("halfmoon-aot-runtime", False):
+    config.subst("ENABLE_HALFMOON_AOT_RUNTIME", 1)
+
+if o.peekBoolArg("halfmoon-aot-compiler", False):
+    config.subst("ENABLE_HALFMOON_AOT_COMPILER", 1)
+
+# imitating the clang configure script, we accept --enable-llvm=dir which points at the build output of the llvm build we want to use.
+#    
+llvm_dir = o.getStringArg("llvm")
+if llvm_dir :      
+    llvm_cpp_flags = getLlvmFlags("--cppflags", llvm_dir)
+    if llvm_cpp_flags == None :
+        print "running llvm-config --cppflags to obtain C preprocessor flags from %s has failed." % llvm_dir
+        sys.exit(2)
+    else:
+        #release llvm-config include -UNDEBUG though it doesn't need to.. and it clashes with our NDEBUG
+        print "configure.py removing -UNDEBUG from llvm-config --cppflags output"
+        llvm_cpp_flags = llvm_cpp_flags.replace(" -UNDEBUG", "")
+        
+    llvm_cxx_flags = getLlvmFlags("--cxxflags", llvm_dir)
+    #print llvm_cxx_flags
+    if llvm_cxx_flags == None :
+        print "running llvm-config --cxxflags to obtain compiler flags from %s has failed." % llvm_dir
+        sys.exit(2)
+    else:
+        #release llvm-config include -UNDEBUG though it doesn't need to.. and it clashes with our NDEBUG
+        print "configure.py removing -UNDEBUG from llvm-config --cxxflags output"
+        llvm_cxx_flags = llvm_cxx_flags.replace(" -UNDEBUG", "")
+        
+    llvm_ld_flags = getLlvmFlags("--ldflags", llvm_dir)
+    #print llvm_ld_flags
+    if llvm_ld_flags == None :
+        print "running llvm-config --ldflags to obtain compiler flags from %s has failed." % llvm_dir
+        sys.exit(2)
+    #TODO: llvm-config shouldn't need the specialized components.
+    llvm_libs_flags = getLlvmFlags("--libs all-targets codegen ipo ipa bitwriter", llvm_dir)
+    #print llvm_libs_flags
+    if llvm_libs_flags == None :
+        print "running llvm-config --libs to obtain list of llvm libs from %s has failed." % llvm_dir
+        sys.exit(2)
+        
+    config.subst("ENABLE_LLVM", 1)
+    config.subst("LLVM_DIR", llvm_dir)
+    config.subst("LLVM_CPPFLAGS", llvm_cpp_flags)
+    config.subst("LLVM_CXXFLAGS", llvm_cxx_flags)
+    config.subst("LLVM_LDFLAGS", llvm_ld_flags)
+    config.subst("LLVM_LIBS", llvm_libs_flags)
 
 APP_CPPFLAGS = "-DAVMSHELL_BUILD "
 APP_CXXFLAGS = ""
@@ -200,6 +308,9 @@ if 'DISABLE_RTMPE' in os.environ:
 if o.getBoolArg('valgrind', False, False):
     OPT_CXXFLAGS = "-O1 -g "
 
+if (o.peekBoolArg("aot") or o.peekBoolArg("halfmoon-aot") or 
+    o.peekBoolArg("aot-compiler")) and config.getCompiler() != "VS":
+    APP_CXXFLAGS += "-fvisibility-inlines-hidden "
 
 valinc = '$(topsrcdir)/other-licenses'
 if 'VALGRIND_HOME' in os.environ:
@@ -234,11 +345,12 @@ if config.getCompiler() == 'GCC':
         rawver = build.process.run_for_output(['$CXX', '--version'])
     else:
         rawver = build.process.run_for_output(['gcc', '--version'])
-    vre = re.compile(".* ([3-9]\.[0-9]+\.[0-9]+)[ \n]")
+    vre = re.compile(".* ([3-9]\.[0-9]+\.?[0-9]*)[ \n]")
     ver = vre.match(rawver).group(1)
     ver_arr = ver.split('.')
     GCC_MAJOR_VERSION = int(ver_arr[0])
     GCC_MINOR_VERSION = int(ver_arr[1])
+    clang_compiler = (rawver.find("clang") != -1 )
 
 
     if the_os == 'android':
@@ -270,7 +382,7 @@ if config.getCompiler() == 'GCC':
                     "-Wnon-virtual-dtor -Wstrict-null-sentinel -Wno-missing-braces -Wno-multichar -Wno-psabi -Wno-reorder " \
                     "-fno-short-enums -fno-strict-aliasing -fpic -funwind-tables -fstack-protector -finline-limit=200 -ftree-vectorize " \
                     "-feliminate-unused-debug-symbols -feliminate-unused-debug-types -MD -fwrapv " % COMMON_CXX_FLAGS
-        APP_CXXFLAGS += _setGCCVersionedFlags(APP_CXX_FLAGS, GCC_MAJOR_VERSION, GCC_MINOR_VERSION, cpu)
+        APP_CXXFLAGS += _setGCCVersionedFlags(APP_CXX_FLAGS, GCC_MAJOR_VERSION, GCC_MINOR_VERSION, cpu, clang_compiler)
 
         # LFLAGS_HEADLESS gets picked up in configuration.py by MKPROGRAM
         LFLAGS_HEADLESS = "-nostdlib -Bdynamic -Wl,-T,"\
@@ -313,8 +425,14 @@ if config.getCompiler() == 'GCC':
     else:
         APP_CXXFLAGS += "-Wall -Wcast-align -Wdisabled-optimization -Wextra -Wformat=2 -Winit-self -Winvalid-pch -Wno-invalid-offsetof -Wno-switch "\
                        "-Wparentheses -Wpointer-arith -Wreorder -Wsign-compare -Wunused-parameter -Wwrite-strings -Wno-ctor-dtor-privacy -Woverloaded-virtual "\
-                       "-Wsign-promo -Wno-char-subscripts -fmessage-length=0 -fno-exceptions -fno-rtti -fno-check-new -fstrict-aliasing -fsigned-char  "
-        APP_CXXFLAGS += _setGCCVersionedFlags(APP_CXXFLAGS, GCC_MAJOR_VERSION, GCC_MINOR_VERSION, cpu)
+                       "-Wsign-promo -Wno-char-subscripts -fmessage-length=0 -fno-exceptions -fsigned-char  "
+        APP_CXXFLAGS += _setGCCVersionedFlags(APP_CXXFLAGS, GCC_MAJOR_VERSION, GCC_MINOR_VERSION, cpu, clang_compiler)
+
+        if clang_compiler:
+            pass
+            #APP_CXXFLAGS += "-no-integrated-as "
+        else:
+            APP_CXXFLAGS += "-fno-check-new -fno-rtti -fstrict-aliasing "
 
     if cpu == 'sh4':
         APP_CXXFLAGS += "-mieee -Wno-cast-align "
@@ -371,8 +489,8 @@ elif config.getCompiler() == 'VS':
         if arm_fpu:
             OPT_CXXFLAGS += "-QRfpe- " # compile to use hardware fpu
     else:
-        APP_CXXFLAGS = "-W4 -WX -wd4291 -GF -GS- -Zc:wchar_t- "
-        APP_CFLAGS = "-W3 -WX -wd4291 -GF -GS- -Zc:wchar_t- "
+        APP_CXXFLAGS = "-W4 -wd4291 -wd4510 -wd4610 -wd4062 -GF -GS- -Zc:wchar_t "
+        APP_CFLAGS = "-W3 -wd4291 -GF -GS- -Zc:wchar_t "
 
         if cpu == 'x86_64':
             pass # 64 bit VC does NaN comparisons incorrectly with fp:fast
@@ -433,12 +551,15 @@ if the_os == "darwin":
                          '_MAC': None,
                          'AVMPLUS_MAC': None,
                          'TARGET_RT_MAC_MACHO': 1})
-    APP_CXXFLAGS += "-fpascal-strings -faltivec -fasm-blocks "
+    APP_CXXFLAGS += "-fpascal-strings  -fasm-blocks "
+    if not clang_compiler:
+        APP_CXXFLAGS += "-faltivec "
 
     # If an sdk is selected align OS and gcc/g++ versions to it
     os_ver,sdk_path = _setSDKParams(o.mac_sdk, os_ver, o.mac_xcode)
     APP_CXXFLAGS += "-mmacosx-version-min=%s -isysroot %s " % (os_ver,sdk_path)
-    config.subst("MACOSX_DEPLOYMENT_TARGET",os_ver)
+    if not 'MACOSX_DEPLOYMENT_TARGET' in os.environ:
+        config.subst("MACOSX_DEPLOYMENT_TARGET",os_ver)
 
     if cpu == 'ppc64':
         APP_CXXFLAGS += "-arch ppc64 "

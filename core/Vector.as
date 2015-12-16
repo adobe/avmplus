@@ -92,10 +92,25 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: Number, deleteCount: Number, ...items): Vector$object {
             return this._splice(start, deleteCount, items);
         }
 
+        // At present, insertAt() and removeAt() are defined in the AS3 namespace only,
+        // just as in the Array class.  Since the Vector class is an AS3 extension itself,
+        // ES3 compatibility does not demand that we follow suit.  We also provide
+        // prototype-based definitions of existing Vector operations, allowing ES3-style
+        // programming idioms.  I have not seen any current examples, however, of API
+        // versioning on such definitions, which would be necessary to avoid breaking
+        // older code that may have user-defined functions insertAt() and/or removeAt().
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:Object):void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):Object;
+        
         AS3 function indexOf(value:Object, from:Number=0): Number {
             var start:uint = clamp( from, length );
             for ( var i:uint=start, limit:uint=length ; i < limit ; i++ )
@@ -187,6 +202,7 @@ package __AS3__.vec
             this._reverse();
             return this;
         }
+
         AS3 native function shift():int;
 
         AS3 function slice(start:Number=0, end:Number=0x7fffffff): Vector$int {
@@ -198,9 +214,16 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: Number, deleteCount: Number, ...items): Vector$int {
             return this._splice(start, deleteCount, items);
         }
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:int):void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):int;
 
         AS3 function indexOf(value:int, from:Number=0): Number {
             var start:uint = clamp( from, length );
@@ -305,9 +328,16 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: Number, deleteCount: Number, ...items): Vector$uint {
             return this._splice(start, deleteCount, items);
         }
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:uint): void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:uint):uint;
 
         AS3 function indexOf(value:uint, from:Number=0): Number {
             var start:uint = clamp( from, length );
@@ -411,9 +441,16 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: Number, deleteCount: Number, ...items): Vector$double {
             return this._splice(start, deleteCount, items);
         }
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:Number):void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):Number;
 
         AS3 function indexOf(value:Number, from:Number=0): Number {
             var start:uint = clamp( from, length );
@@ -518,9 +555,16 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: int, deleteCount: uint, ...items): Vector$float {
             return this._splice(start, deleteCount, items);
         }
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:float):void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):float;
 
         AS3 function indexOf(value:float, from:int=0): Number {
             var start:uint = clamp( from, length );
@@ -625,9 +669,16 @@ package __AS3__.vec
             _sort(this, a);
             return this;
         }
+
         AS3 function splice(start: int, deleteCount: uint, ...items): Vector$float4 {
             return this._splice(start, deleteCount, items);
         }
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:float4):void;
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):float4;
 
         AS3 function indexOf(value:float4, from:int=0): Number {
             var start:uint = clamp( from, length );

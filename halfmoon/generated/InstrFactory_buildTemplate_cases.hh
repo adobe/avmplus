@@ -2367,6 +2367,30 @@ callprop_string: (effect0:Effect, name:Top, stringclass:Top, value:Atom) -> (Eff
     break;
   }
 
+  case HR_callprop_int: {
+/***
+callprop_int: (effect0:Effect, name:Top, integerclass:Top, value:Atom) -> (Effect, Int)
+  (effect1:Effect, data0:Int) = toint(effect0, value)
+  () = return(effect1, data0)
+***/
+
+    const Type* in_types[] = { EFFECT, TOP, TOP, lattice_.atom_type[kTypeNullable] };
+    tb.start(HR_callprop_int, 4, in_types);
+
+    Def* effect0 = tb.paramRef(0); (void)effect0;
+    Def* name = tb.paramRef(1); (void)name;
+    Def* integerclass = tb.paramRef(2); (void)integerclass;
+    Def* value = tb.paramRef(3); (void)value;
+
+    UnaryStmt* toint0 = (UnaryStmt*)tb.addInstr(newUnaryStmt(HR_toint, effect0, value));
+    Def* effect1 = toint0->effect_out(); (void)effect1;
+    Def* data0 = toint0->value_out(); (void)data0;
+
+    tb.addInstr(newStopInstr(HR_return, effect1, data0));
+
+    break;
+  }
+
   case HR_coerce_any: {
 /***
 coerce_any: (effect0:Effect, traits:Top, value:Top) -> (Effect, Top)

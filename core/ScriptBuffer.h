@@ -69,7 +69,7 @@ namespace avmplus
         : ScriptBufferImpl()
         {
             this->size = _size;
-            this->buffer = (uint8_t*) _buf;
+            this->buffer = const_cast<uint8_t*>(_buf);
         }
     };
 

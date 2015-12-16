@@ -16,7 +16,7 @@ namespace MMgc
     /*static private*/
     REALLY_INLINE void GC::WriteField(const void *address, const void *value)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GCAssert(((uintptr_t)address & 3) == 0);
         GC *gc = GetActiveGC();
         GCAssertMsg(gc != NULL, "Illegal for a GC write to occur when the GC isn't entered");
@@ -31,7 +31,7 @@ namespace MMgc
     /*static private*/
     REALLY_INLINE void GC::WriteFieldNonRC(const void *address, const void *value)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC *gc = GetActiveGC();
         GCAssertMsg(gc != NULL, "Illegal for a GC write to occur when the GC isn't entered");
         if(Pointer(value) != NULL)
@@ -46,7 +46,7 @@ namespace MMgc
     /*static private*/
     REALLY_INLINE void GC::WriteFieldRC(const void *address, const void *value)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC *gc = GetActiveGC();
         if(Pointer(value) != NULL)
             GCAssert(gc->IsRCObjectSafe(Pointer(value)));
@@ -109,7 +109,7 @@ namespace MMgc
  
     REALLY_INLINE void GC::InlineWriteBarrierGuardedTrap(const void *address)
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         {
             const void* container = FindBeginningFast(address);
 
@@ -193,7 +193,7 @@ namespace MMgc
     template<class T>
     REALLY_INLINE WriteBarrier<T>::WriteBarrier() : t(0)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC::TracePointerCheck(&t);
 #endif
     }
@@ -201,7 +201,7 @@ namespace MMgc
     template<class T>
     REALLY_INLINE WriteBarrier<T>::WriteBarrier(T _t)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC::TracePointerCheck(&t);
 #endif
         set(_t);
@@ -226,7 +226,7 @@ namespace MMgc
     template<class T>
     REALLY_INLINE WriteBarrierRC<T>::WriteBarrierRC() : t(0)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC::TracePointerCheck(&t);
 #endif
     }
@@ -251,14 +251,14 @@ namespace MMgc
 
     REALLY_INLINE AtomWBCore::AtomWBCore(avmplus::Atom a) : m_atom(a)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC::TracePointerCheck(&m_atom);
 #endif
     }
     
     REALLY_INLINE AtomWBCore::AtomWBCore()
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC::TracePointerCheck(&m_atom);
 #endif
     }

@@ -468,7 +468,11 @@ namespace avmplus
         LIns* emitGetIndexedProperty(int objIndex, LIns *index, Traits *result, IndexKind idxKind);
         LIns* emitInlineVectorRead(int objIndexOnStack, 
                                    LIns* index,
-                                   size_t arrayDataOffset, size_t lenOffset, size_t entriesOffset, int scale, LOpcode load_item,
+                                   size_t arrayDataOffset, size_t lenOffset,
+								   #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+								     size_t checksumOffset,
+								   #endif
+								   size_t entriesOffset, int scale, LOpcode load_item,
                                    const CallInfo* helper);
         LIns* emitInlineSpeculativeArrayRead(int objIndexOnStack,
                                              LIns* index,
@@ -477,7 +481,11 @@ namespace avmplus
         void emitInlineVectorWrite(int objIndexOnStack, 
                                    LIns* index,
                                    LIns* value,
-                                   size_t arrayDataOffset, size_t lenOffset, size_t entriesOffset, int scale, LOpcode store_item,
+                                   size_t arrayDataOffset, size_t lenOffset,
+								   #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+								     size_t checksumOffset,
+								   #endif
+								   size_t entriesOffset, int scale, LOpcode store_item,
                                    const CallInfo* helper);
         void emitSetIndexedProperty(int objIndex, int valIndex, LIns *index, IndexKind idxKind);
         void localSet(int i, LIns* o, Traits* type);

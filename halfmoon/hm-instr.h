@@ -31,7 +31,7 @@ class FixedArgInstr : public Instr {
 
 public:
   Use& use(int i) {
-    assert (i >= 0 && i < USEC);
+    AvmAssert (i >= 0 && i < USEC);
     return uses[i];
   }
 
@@ -67,7 +67,7 @@ public:
   }
 
   Def* value_out() {
-    assert(VDEFC >= 1);
+    AvmAssert(VDEFC >= 1);
     return &this->defs[1];
   }
 };
@@ -117,12 +117,12 @@ public:
 
   /// ith variable arg
   Use& vararg(int i) {
-    assert(i >= 0 && i < vararg_count());
+    AvmAssert(i >= 0 && i < vararg_count());
     return varargs()[i];
   }
 
   Use& use(int i) {
-    assert (i >= 0 && i < info->num_uses);
+    AvmAssert (i >= 0 && i < info->num_uses);
     return uses()[i];
   }
 };
@@ -163,7 +163,7 @@ public:
   }
 
   Use& arg(int i) {
-    assert(i >= 0 && i < arg_count());
+    AvmAssert(i >= 0 && i < arg_count());
     return this->args()[i];
   }
 };
@@ -203,12 +203,12 @@ public:
   }
 
   Use* args() {
-    assert(ARGMIN >= 1);
+    AvmAssert(ARGMIN >= 1);
     return this->varargs() - 1;
   }
 
   Use& arg(int i) {
-    assert(i >= 0 && i < arg_count());
+    AvmAssert(i >= 0 && i < arg_count());
     return this->args()[i];
   }
 };
@@ -579,7 +579,7 @@ class SafepointInstr : public VarArgInstr<1, 2, class SafepointInstr> {
 
   SafepointInstr(const InstrInfo* info) :
     VarArgInstr<1, 2, class SafepointInstr>(info) {
-    assert(info->uses_off == sizeof(SafepointInstr));
+    AvmAssert(info->uses_off == sizeof(SafepointInstr));
   }
 
   static const int USEMIN = 1;  // effect in
@@ -634,6 +634,39 @@ public:
 
   Def* state_out() {
     return &this->defs[0];
+  }
+};
+
+/// A getlocal statement returns one element of the abstract "local state"
+/// tuple (called kStateIn and kStateOut).
+/// input:  kStateIn  (v0, ..., vk,     ... vN),  newval, index (k)
+/// output: kStateOut (v0, ..., newval, ... vN)
+///
+/// The getlocal instr really should be (Effect Stata Ord -> Effect Atom) but like setlocal,
+/// we encode the index as a constant in the instruction.
+/// Instead, the instr is (Effect Stata Atom -> Effect Atom) The third "Atom" parameter is to simplify
+/// type computations
+///
+class GetlocalStmt : public FixedArgStmt<2, 1> {
+  friend class InfoManager;
+  friend class InstrFactory;
+  friend class Copier;
+
+  GetlocalStmt(const InstrInfo* info, int index) :
+      FixedArgStmt<2, 1>(info), index(index) {
+  }
+
+public:
+  static const InstrShape shape = GETLOCALSTMT_SHAPE;
+
+  int index; // Fixme: should this be a plain ordinal input?
+
+  Use& state_in() {
+    return this->uses[1];
+  }
+
+  Use& value_in() {
+    return this->uses[2];
   }
 };
 
@@ -705,12 +738,12 @@ public:
   // ith captured variable
   // sequence does not include scopes above scopep or operands above sp
   Use& value_in(int i) {
-    assert(i >= 0 && i < values_count());
+    AvmAssert(i >= 0 && i < values_count());
     return values_in()[i];
   }
 
   Use& use(int i) {
-    assert (i >= 0 && i < info->num_uses);
+    AvmAssert (i >= 0 && i < info->num_uses);
     return uses()[i];
   }
 };
@@ -768,6 +801,18 @@ public:
   }
 };
 
+class DebugInstr2 : public FixedArgStmt<2, 0> {
+  friend class InfoManager;
+  friend class InstrFactory;
+  friend class Copier;
+    
+  DebugInstr2(const InstrInfo* info) :
+      FixedArgStmt<2, 0>(info) {
+  }
+    
+public:
+  static const InstrShape shape = DEBUGINSTR2_SHAPE;
+};
 
 // ------------------------------- IR5 start ---------------------------------
 
@@ -876,7 +921,7 @@ public:
   }
 
   Use& vararg(int i) {
-    assert((i >= 0) & (i < argc));
+    AvmAssert((i >= 0) & (i < argc));
     return args[i];
   }
 };
@@ -916,7 +961,7 @@ public:
 
   /** get data param i */
   Def* data_param(int i) {
-    assert(i >= 0 && i < data_param_count());
+    AvmAssert(i >= 0 && i < data_param_count());
     return &params[1 + i];
   }
 
@@ -930,7 +975,7 @@ public:
 
   /** get the rest array parameter */
   Def* rest_out() {
-    assert(has_rest());
+    AvmAssert(has_rest());
     return &params[paramc - 1];
   }
 };
@@ -954,14 +999,14 @@ public:
 
   /// convenience method, for use in conventional,
   /// return-one-value-from-effectful-code contexts.
-  /// note assert.
+  /// note AvmAssert.
   Use& value_in() {
-    assert(argc == 2);
+    AvmAssert(argc == 2);
     return args[1];
   }
 
   Use& use(int i) {
-    assert(i >= 0 && i < argc);
+    AvmAssert(i >= 0 && i < argc);
     return args[i];
   }
 };
@@ -1134,7 +1179,7 @@ public:
   }
 
   ArmInstr* case_arm(int i) {
-    assert(is_case(i));
+    AvmAssert(is_case(i));
     return arms[i];
   }
 
@@ -1167,7 +1212,7 @@ public:
 
   /** get data param i */
   Def* data_param(int i) {
-    assert(i >= 0 && i < data_param_count());
+    AvmAssert(i >= 0 && i < data_param_count());
     return &params[1 + i];
   }
 
@@ -1210,7 +1255,7 @@ public:
   }
 
   ExceptionEdge* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return front_;
   }
 
@@ -1237,7 +1282,7 @@ inline void CatchBlockInstr::printCatchPreds() {
 /// true if this goto is the only predecessor of its target.
 ///
 inline bool isAlone(GotoInstr* go) {
-  assert(go->target);
+  AvmAssert(go->target != NULL);
   // Don't allow start block to merge into main block
   return go->next_goto == go && kind(InstrGraph::blockStart(go)) != HR_start;
 }
@@ -1283,12 +1328,12 @@ public:
   }
 
   GotoInstr* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return front_;
   }
 
   GotoInstr* popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     GotoInstr* F = front_;
     front_ = (F == back_) ? (back_ = 0) : F->next_goto;
     return F;

@@ -39,7 +39,7 @@ inline void write_null(void* p) { *(uintptr_t*)(p) = 0; }
 #endif // AVMSHELL_BUILD
 
 // This is used in places where the mutator has convinced itself the
-// barrier isn't necessary.  FIXME: The idea is to check this in DEBUG
+// barrier isn't necessary.  FIXME: The idea is to check this in GCDEBUG
 // builds.
 #define WB_SKIP(gc, container, addr, value) *(addr) = value
 

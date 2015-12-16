@@ -1276,8 +1276,15 @@ namespace avmplus
         return result;
     }
 
-#ifdef VMCFG_VERIFYALL
+#if defined(VMCFG_VERIFYALL)
 #   define VERIFYFAILED(core, msg) verifyFailed(core, msg)
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+    extern void AOTThrowVerifyError(avmplus::AvmCore* core, avmplus::String* msg);
+    void verifyFailed(AvmCore* core, String* msg)
+    {
+        AOTThrowVerifyError(core, msg);
+    }
+#else
     void verifyFailed(AvmCore* core, String* msg)
     {
         if (core->config.verifyonly) {
@@ -1285,6 +1292,7 @@ namespace avmplus
             exit(1);
         }
     }
+#endif
 #else
 #   define VERIFYFAILED(core, msg)
 #endif

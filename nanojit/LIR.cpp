@@ -56,6 +56,16 @@ namespace nanojit
 
     #endif /* NANOJIT_VERBOSE */
 
+#ifdef NANOJIT_WIN_CFG
+	extern "C" PVOID __guard_check_icall_fptr;
+	const CallInfo ci_cfg_check = { (uintptr_t)__guard_check_icall_fptr,
+									CallInfo::typeSig1(ARGTYPE_V, ARGTYPE_P),
+									ABI_FASTCALL,
+									0,
+									ACCSET_NONE,
+									verbose_only("__guard_check_icall_fptr") };
+#endif
+
     template <class FILTER> uint32_t CallInfo::countArgs() const {
         uint32_t argc = 0;
         uint32_t argt = _typesig;
@@ -1750,6 +1760,19 @@ namespace nanojit
         int32_t argc = ci->count_args();
         NanoAssert(argc <= (int)MAXARGS);
 
+#ifdef NANOJIT_WIN_CFG
+		if (ci->isIndirect())
+		{
+			// Insert call to Control Flow Guard check function.  Argument is address of indirect call.
+			NanoAssert(argc > 0);
+			LIns** args2 = (LIns**)_buf->_allocator.alloc(sizeof(LIns*));
+			args2[0] = args[argc - 1]; // last arg is function address
+			LInsC* insC = (LInsC*)_buf->makeRoom(sizeof(LInsC));
+			LIns*  ins = insC->getLIns();
+			ins->initLInsC(LIR_callv, args2, &ci_cfg_check);
+		}
+#endif
+
         // Allocate space for and copy the arguments.  We use the same
         // allocator as the normal LIR buffers so it has the same lifetime.
         // Nb: this must be kept in sync with arg().
@@ -2710,6 +2733,7 @@ namespace nanojit
 
             case LIR_safe:
             case LIR_endsafe:
+			case LIR_unreachable:
                 VMPI_snprintf(s, n, "%s", (char*)lirNames[op]);
                 break;
 
@@ -4236,6 +4260,7 @@ namespace nanojit
         case LIR_popstate:
         case LIR_memfence:
         case LIR_restorepc:
+		case LIR_unreachable:
             break;
         default:
             NanoAssert(0);

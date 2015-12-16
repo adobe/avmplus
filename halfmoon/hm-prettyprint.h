@@ -62,6 +62,7 @@ void printGraph(Context*, InstrGraph* g, const char *phase);
 ///    adjacent, before blocks that come after the loop.
 ///
 void listCfg(PrintWriter& console, InstrGraph*);
+void listCfg(InstrGraph* ir);
 
 /// Just list the instructions without doing a CFG analysis.
 void listInstr(PrintWriter& console, InstrGraph*);

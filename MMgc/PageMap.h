@@ -180,7 +180,7 @@ namespace MMgc
             /** @return byte ref in page map for index (see notes above). */
             uint8_t& IndexToByteRef(uintptr_t index);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
             /** @return true if index is reasonable for host address space. */
             static bool IndexSaneForAddressRange(uintptr_t index);
 #endif

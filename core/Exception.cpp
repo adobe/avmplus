@@ -97,7 +97,7 @@ namespace avmplus
         this->stacktop = core->gc->allocaTop();
 
         savedMethodFrame = core->currentMethodFrame;
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
         this->llvmUnwindStyle = 0;
 #endif
 
@@ -106,7 +106,7 @@ namespace avmplus
 #endif
     }
 
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
     void ExceptionFrame::beginLlvmUnwindTry(AvmCore *core)
     {
         beginTry(core);
@@ -131,7 +131,8 @@ namespace avmplus
     void ExceptionFrame::throwException(Exception *exception)
     {
         core->exceptionAddr = exception;
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
+        // GO AOT uses LLVM unwind, but Halfmoon AOT uses longjmp just like the JIT does.
         if (this->llvmUnwindStyle) {
             llvm_unwind();
             return; // Not reached.

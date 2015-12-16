@@ -112,6 +112,7 @@ private:
   LabelInstr* ensureBlockLabel(AbcBlock* abc_block);
   CatchBlockInstr* ensureCatchBlockLabel(AbcBlock* abc_block);
   void linkExceptionEdge(BlockStartInstr* block, CatchBlockInstr* catch_block);
+  void addGetlocals();
 
   void cktimeout();
   void jumpStmt();

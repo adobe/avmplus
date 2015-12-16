@@ -24,7 +24,7 @@ namespace MMgc
     REALLY_INLINE void FLPush(void* &head, const void *next)
     {
         *(void**)next = head;
-        head = (void*)next;
+        head = const_cast<void*>(next);
     }
 
     REALLY_INLINE void *FLPop(void* &head)

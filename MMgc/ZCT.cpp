@@ -138,7 +138,7 @@ namespace MMgc
         if(!gc->drcEnabled)
         {
             limit = top;
-#ifdef DEBUG
+#ifdef GCDEBUG
             GCLog("*** DRC has been disabled for GC=%p ***\n", (void*)gc);
 #endif
         }
@@ -290,7 +290,7 @@ namespace MMgc
         if (reaping || topIndex == 0)
             return;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         if (gc->validateDefRef)
             gc->DRCValidationTrace(scanStack);
 #endif
@@ -320,7 +320,7 @@ namespace MMgc
         // For some generally difficult problems around pinning see bugzilla #506644.
 
         if (scanStack) {
-#ifdef DEBUG
+#ifdef GCDEBUG
             // During DRC validation stack scanning happened already.
             // See GC::DRCValidationTrace().
             if(!gc->validateDefRef)
@@ -381,7 +381,7 @@ namespace MMgc
         }
         UsePinningMemory();
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         if(gc->validateDefRef)
             gc->AbortInProgressMarking();
 #endif
@@ -402,7 +402,7 @@ namespace MMgc
 
         reaping = false;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         for ( uint32_t i=0 ; i < topIndex ; i++ ) {
             // The first element of each block is usually NULL because it has
             // been used as a link for pinList.
@@ -522,7 +522,7 @@ namespace MMgc
     REALLY_INLINE void ZCT::ReapObject(RCObject* obj)
     {
         obj->ClearZCTFlag();
-#ifdef DEBUG
+#ifdef GCDEBUG
         if (gc->validateDefRef)
             gc->DefRefValidate(obj);
 #endif

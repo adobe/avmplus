@@ -52,7 +52,7 @@ template<class T> struct WorkList {
   }
 
   T pop() {
-    assert(!empty());
+    AvmAssert(!empty());
     Seq<T>* n = work;
     work = n->tail;
     if (!work)
@@ -279,7 +279,7 @@ void SCCP::analyzeSSA(Instr* instr) {
   bool changed2 = false;
   i = 0;
   for (ArrayRange<Def> d = defRange(instr); !d.empty(); d.popFront(), ++i) {
-    assert(subtypeof(old_types[i], type(d.front())) && "illegal type narrowing");
+    AvmAssert(subtypeof(old_types[i], type(d.front())) && "illegal type narrowing");
     changed2 |= *type(d.front()) != *old_types[i];
   }
   if (changed2) {
@@ -309,7 +309,7 @@ void SCCP::analyzeSSA(Instr* instr) {
  * Propagate:
  * 1. while worklist not empty, deque instruction I
  * 2. evaluate I's output types using TypeAnalyzer
- * 3. If any types changed, assert(old-T <: new-T) and 
+ * 3. If any types changed, AvmAssert(old-T <: new-T) and 
  *    enque reachable uses.
  * 4. If I is a branch, mark and enque reachable arms.
  */
@@ -318,7 +318,7 @@ void propagateTypes(InstrGraph* ir) {
   SCCP sccp(scratch, ir);
   sccp.init();
   sccp.analyze();
-  assert(checkTypes(ir, false));
+  AvmAssert(checkTypes(ir, false));
 }
 
 /**
@@ -363,10 +363,10 @@ void propagateTypes(InstrGraph* ir, const Type** arg_types) {
  * caller must copy them out to a permanent location.
  */
 void propagateTypes(Instr* fat_instr) {
-  assert(hasSubgraph(fat_instr));
+  AvmAssert(hasSubgraph(fat_instr));
   InstrGraph* ir = subgraph(fat_instr);
-  assert(kind(ir->begin) == HR_template);
-  assert(numDefs(ir->begin) == numUses(fat_instr));
+  AvmAssert(kind(ir->begin) == HR_template);
+  AvmAssert(numDefs(ir->begin) == numUses(fat_instr));
   Allocator scratch;
   propagateTypes(ir, getUseTypes(scratch, fat_instr));
 }

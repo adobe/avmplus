@@ -60,7 +60,7 @@ namespace avmplus
     */
     class GC_CPP_EXACT(ScopeChain, MMgc::GCTraceableObject)
     {
-#ifdef VMCFG_NANOJIT
+#if defined(VMCFG_NANOJIT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
         friend class CodegenLIR;
         friend class MopsRangeCheckFilter;
         friend class halfmoon::JitFriend;

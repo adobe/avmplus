@@ -117,6 +117,7 @@ class RuntestBase(object):
     vmtype = ''
     aotsdk = None
     aotout = None
+    aotmode = 'GO'
     remoteip = None
     remoteuser = None
     aotextraargs = ""
@@ -193,7 +194,6 @@ class RuntestBase(object):
         self.timeoutmsgs=[]
         self.assertmsgs=[]
         self.altsearchpath=None
-
         self.run()
 
     def __str__(self):
@@ -242,8 +242,9 @@ class RuntestBase(object):
         print('    --aotsdk        location of the AOT sdk used to compile tests to standalone executables.')
         print('    --aotout        where the resulting binaries should be put (defaults to the location of the as file).')
         print('    --aotargs       any extra arguments to pass to compile.py.')
+        print('    --aotmode       AOT compiler version, valid options are GO or HM (default=GO)')
         print('    --writeresult   write out the result.properties file, used when called from an ant script.')
-        
+        print('    --threads       number of threads to run (default=1), set to 1 to have tests finish sequentially')
 
 
 
@@ -253,11 +254,11 @@ class RuntestBase(object):
         self.options = 'vE:a:g:b:s:x:htfc:dql:'
         self.longOptions = ['verbose','avm=','asc=','ash=','globalabc=','builtinabc=','shellabc=',
                    'exclude=','help','notime','forcerebuild','config=','ascargs=','vmargs=',
-                   'aotsdk=', 'aotout=', 'aotargs=', 'remoteip=', 'remoteuser=',
+                   'aotsdk=', 'aotout=', 'aotargs=', 'aotmode=', 'remoteip=', 'remoteuser=',
                    'timeout=','testtimeout=', 'rebuildtests','cleanexit','quiet','notimecheck',
                    'showtimes','java=','html','random', 'seed=', 'playerglobalabc=', 'toplevelabc=',
                    'javaargs=', 'summaryonly', 'log=', 'valgrind', 'addtoconfig=',
-                   'writeresult','logjunit=','logjunitname=', 'ascoutput'
+                   'writeresult','logjunit=','logjunitname=', 'ascoutput', 'threads='
                    ]
 
     def parseOptions(self):
@@ -377,8 +378,23 @@ class RuntestBase(object):
                 self.aotout = v
             elif o in ('--aotargs',):
                 self.aotextraargs = v
+            elif o in ('--aotmode',):
+                if v.upper() == 'GO':
+                    self.aotmode = v.upper()
+                elif v.upper() == 'HM':
+                    self.aotmode = v.upper()
+                else:
+                    print('Incorrect aotmode: %s\n' % v)
+                    print('Valid aotmode values are: GO, HM\n')
+                    self.usage(2)
             elif o in ('--writeresult',):
                 self.writeResultProperties = True
+            elif o in ('--threads',):
+                try:
+                    self.threads=int(v)
+                except ValueError:
+                    print('Incorrect threads value: %s\n' % v)
+                    self.usage(2)
 
         return opts
 
@@ -1028,6 +1044,11 @@ class RuntestBase(object):
             avm_args_file.close()
             extraabcs = extraabcs + multiabc.split()
 
+        #Now send all the abc to HM or GO 
+        if self.aotmode == 'HM':
+            return self.compile_aot_hm(abcfile, extraabcs)
+        
+        #Beyond this , GO AOT
         if isfile(abcfile): # Safe guard
             shutil.copyfile(abcfile, outabc)
             while not os.path.exists(outabc): # Have had some IO issues with getting to the ADT call
@@ -1080,6 +1101,56 @@ class RuntestBase(object):
                 raise Exception()
 
         return (f, err, exitcode)
+
+    def compile_aot_hm(self, abcfile, extraabcs = []):
+
+        
+        (testdir, ext) = splitext(abcfile)
+        settings = self.get_test_settings(testdir)
+        if '.*' in settings and 'skip' in settings['.*']:
+            self.js_print('Skipping %s ... reason: %s' % (abcfile,settings['.*']['skip']))
+            return ['', '', 0]
+
+        outname = abcfile.replace("./", "")
+        # Replace this before .abc otherwise we won't be able to replace it
+        outname = outname.replace(".abc_", "")
+        outname = outname.replace(".abc", "")
+        outname = outname.replace("/", ".")
+
+        execname = abcfile.replace(".abc", "")
+
+        output_name=os.path.realpath((self.aotout + "/" + outname))
+        wrapper_verbose = ""
+        if self.verbose:
+            wrapper_verbose += " --verbose "
+        if self.debug:
+            wrapper_verbose += " --debug "
+            
+        if "x86_64" in self.config:
+            arch_name = "x86_64"
+        else :
+            arch_name = "i386"
+
+        cmd = '%s/bin/compile-shell-abc.py %s --sdk=%s --arch=%s --output=%s %s %s %s' % (self.aotsdk, wrapper_verbose, self.aotsdk, arch_name, output_name, " ".join(self.harness_abcs), " ".join(extraabcs), abcfile)
+        self.verbose_print(cmd)
+
+        try:
+            (f,err,exitcode) = self.run_pipe(cmd)
+            if not os.path.exists(self.aotout + "/" + outname):
+                exitcode = 1
+                
+            for line in f:
+                self.verbose_print(line.strip())
+            for line in err:
+                self.verbose_print(line.strip())
+        except:
+            print(execname)
+            print(sys.exc_info())
+            raise Exception()
+
+        
+        return (f, err, exitcode)
+           
 
     def copyfile_retry(self, src, dest, attempts=3):
         # Have had problems with AOT compilation randomly failing because not all of the
@@ -1602,9 +1673,10 @@ class RuntestBase(object):
             if not os.path.exists(self.aotout):
                 os.mkdir(self.aotout)
 
-            # Move the harness files into the AOT compilation directory
-            for harness_abc in self.harness_abcs:
-                self.copyfile_retry(harness_abc, self.aotout+"/"+harness_abc)
+            if self.aotmode == 'GO':
+                # Move the harness Files into the AOT compilation directory
+                for harness_abc in self.harness_abcs:
+                    self.copyfile_retry(harness_abc, self.aotout+"/"+harness_abc)
 
             # We use the test config file to mark abc files that fail to AOT compile,
             # so we need to take account of that here before we try to compile them.

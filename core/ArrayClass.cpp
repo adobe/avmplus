@@ -1308,15 +1308,15 @@ namespace avmplus
 
 #ifdef VMCFG_AOT
     template <typename ADT>
-    ArrayObject* ArrayClass::newArray(MethodEnv *env, ADT argDesc, va_list ap)
+    ArrayObject* ArrayClass::newArray(MethodEnv *env, ADT argDesc, va_list_wrapper ap)
     {
         uint32_t argc = argDescArgCount(argDesc);
         // removed assert, argc is unsigned!
         return ArrayObject::createSimple<ADT>(core()->GetGC(), ivtable(), prototypePtr(), env, argDesc, argc, ap);
     }
 
-    template ArrayObject* ArrayClass::newArray(MethodEnv *env, uint32_t argDesc, va_list ap);
-    template ArrayObject* ArrayClass::newArray(MethodEnv *env, char* argDesc, va_list ap);
+    template ArrayObject* ArrayClass::newArray(MethodEnv *env, uint32_t argDesc, va_list_wrapper ap);
+    template ArrayObject* ArrayClass::newArray(MethodEnv *env, char* argDesc, va_list_wrapper ap);
 #endif
 
     /*static*/ int ArrayClass::generic_indexOf(Atom thisAtom, Atom searchElement, int startIndex)

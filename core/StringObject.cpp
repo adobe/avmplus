@@ -779,7 +779,7 @@ namespace avmplus
         return true;
     }
 
-#ifdef VMCFG_NANOJIT
+#if defined(VMCFG_NANOJIT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
     /*static*/ int32_t String::equalsWithNullChecks(Stringp s1, Stringp s2)
     {
         if (s1 == s2)

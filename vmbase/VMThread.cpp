@@ -104,7 +104,19 @@ namespace vmbase {
 
     bool VMThread::start()
     {
+#if defined(AVMSYSTEM_64BIT) && ( AVMSYSTEM_MAC || defined(VMCFG_PEPPER_MAC) )
+        // 64-bit mac player requires 2 MB (but default is 512 KB)
+        vmpi_thread_attr_t attr;
+        if (!VMPI_threadAttrInit(&attr)) {
+            return false;
+        }
+        if (!VMPI_threadAttrSetStackSize(&attr, 2*1024*1024)) {
+            return false;
+        }
+        return start(&attr);
+#else
         return start(NULL);
+#endif
     }
 
     bool VMThread::start(ThreadPriority priority)
@@ -116,6 +128,14 @@ namespace vmbase {
         } else if (priority == LOW_PRIORITY) {
             VMPI_threadAttrSetPriorityLow(&attr);
         }
+        
+#if defined(AVMSYSTEM_64BIT) && ( AVMSYSTEM_MAC || defined(VMCFG_PEPPER_MAC) )
+        // 64-bit mac player requires 2 MB (but default is 512 KB)
+        if (!VMPI_threadAttrSetStackSize(&attr, 2*1024*1024)) {
+            return false;
+        }
+#endif
+
         return start(&attr);
     }
 
@@ -210,7 +230,14 @@ namespace vmbase {
     public:
         static void sleep(int32_t timeout)
         {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+#endif
             VMPI_callWithRegistersSaved(sleepInSafepointGate, (void*)timeout);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
         }
     };
 

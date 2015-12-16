@@ -227,6 +227,18 @@ REALLY_INLINE uint32_t MethodInfo::isInterpreted() const
     return _isInterpImpl;
 }
 
+#if defined(VMCFG_HALFMOON_AOT_COMPILER) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+//Halfmoon AOT need to propogate a flag in method hierarchy to indicate that method signature required argc, argv
+REALLY_INLINE uint32_t MethodInfo::needArgsArrInMethodSig() const
+{
+    return _needArgsArrInMethodSig;
+}
+REALLY_INLINE void MethodInfo::setNeedArgsArrInMethodSig()
+{
+    _needArgsArrInMethodSig = 1;
+}
+#endif
+
 #ifdef VMCFG_AOT
 REALLY_INLINE uint32_t MethodInfo::isAotCompiled() const
 {
@@ -262,7 +274,8 @@ REALLY_INLINE void MethodInfo::setOSR(uint32_t threshold)
     _osr_enabled = (threshold > 0);
 }
 
-#ifndef VMCFG_AOT   // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE PoolObject* MethodInfo::pool() const
 {
     return _pool;
@@ -356,11 +369,6 @@ REALLY_INLINE Traits* MethodInfo::declaringTraits() const
 REALLY_INLINE const ScopeTypeChain* MethodInfo::declaringScope() const
 {
     return _declarer.getScope();
-}
-
-REALLY_INLINE Traits* MethodInfo::activationTraits() const
-{
-    return _activation.getTraits();
 }
 
 REALLY_INLINE const ScopeTypeChain* MethodInfo::activationScope() const

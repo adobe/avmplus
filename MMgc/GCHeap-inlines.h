@@ -355,7 +355,7 @@ namespace MMgc
         dirty       = true;
     }
 
-#ifndef _DEBUG
+#ifndef GCDEBUG
     // debug only freelist consistency checks
     REALLY_INLINE void GCHeap::CheckFreelist()
     {
@@ -380,7 +380,7 @@ namespace MMgc
         if(block)
             return block->size;
         else if(AddrToRegion(item))
-            return LargeAllocSize((void*)item);
+            return LargeAllocSize((const void*)item);
         return 0;
     }
 

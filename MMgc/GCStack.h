@@ -257,7 +257,7 @@ namespace MMgc
         // and the payload.  The payload starts where the header ends, and ends at the end of
         // the block.
         //
-        // In DEBUG builds there are sentinels before and after the payload to catch overwrites
+        // In GCDEBUG builds there are sentinels before and after the payload to catch overwrites
         // and other errors in the stack logic.
 
         struct StackSegment
@@ -266,7 +266,7 @@ namespace MMgc
 
             uintptr_t*      m_savedTop;  // Saved m_top value when this segment is not topmost
             StackSegment* m_prev;        // The segment below this one
-#ifdef DEBUG
+#ifdef GCDEBUG
             uintptr_t       sentinel1;
             uintptr_t       sentinel2;
 #endif
@@ -304,7 +304,7 @@ namespace MMgc
         // Return the address of the first payload word in the segment.
         static uintptr_t* items(StackSegment* seg);
 
-        // Return the address above the last payload word in the segment.  In DEBUG builds there
+        // Return the address above the last payload word in the segment.  In GCDEBUG builds there
         // are two sentinel words starting at this address.
         static uintptr_t* limit(StackSegment* seg);
 
@@ -347,7 +347,7 @@ namespace MMgc
         bool MakeSpaceForSegments(int32_t nseg);
 #endif
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Check as many invariants as possible
         bool Invariants();
 #endif

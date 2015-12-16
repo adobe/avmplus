@@ -233,20 +233,6 @@ namespace avmplus
         _asm frndint;
         _asm fldcw [oldcw];
     }
-    double MathUtils::floor(double value)
-    {
-        // todo avoid control word modification
-        short oldcw, newcw;
-        _asm fnstcw [oldcw];
-        _asm mov ax, [oldcw];
-        _asm and ax, 0xf3ff; // Set to round down.
-        _asm or  ax, 0x400;
-        _asm mov [newcw], ax;
-        _asm fldcw [newcw];
-        _asm fld [value];
-        _asm frndint;
-        _asm fldcw [oldcw];
-    }
 #endif /* X86_MATH */
 
     /* @(#)s_frexp.c 5.1 93/09/24 */

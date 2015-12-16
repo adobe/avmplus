@@ -15,7 +15,7 @@ namespace MMgc
         , tableSize(capacity)
         , numValues(0)
         , numDeleted(0)
-#ifdef _DEBUG
+#ifdef GCDEBUG
         , numIterators(0)
 #endif
 #ifdef MMGC_GCHASHTABLE_PROFILER
@@ -45,7 +45,7 @@ namespace MMgc
         tableSize = 0;
         numValues = 0;
         numDeleted = 0;
-#ifdef _DEBUG
+#ifdef GCDEBUG
         numIterators = 0;
 #endif
 #ifdef MMGC_GCHASHTABLE_PROFILER

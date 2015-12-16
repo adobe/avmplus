@@ -82,7 +82,7 @@ namespace MMgc
                 while(itemNum++ < m_itemsPerBlock) {
                     if(IsInUse(m_firstBlock, mem)) {
                         // supress output in release build UNLESS the profiler is on
-#ifndef DEBUG
+#ifndef GCDEBUG
                         if(m_heap->GetProfiler() != NULL)
 #endif
                         {
@@ -174,7 +174,7 @@ namespace MMgc
         b->nextItem = b->items;
         b->alloc = this;
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Deleted and unused memory is poisoned, this is important for leak diagnostics.
         if (!RUNNING_ON_VALGRIND)
             VMPI_memset(b->items, uint8_t(GCHeap::FXFreedPoison), m_itemSize * m_itemsPerBlock);

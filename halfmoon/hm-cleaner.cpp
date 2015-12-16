@@ -89,7 +89,7 @@ bool Cleaner::joinArms(CondInstr* cond, LabelInstr* target) {
   // If all arms are redundant, merge with single successor (#1)
   if (enable_verbose)
     printf("clean: found redundant branch i%d->i%d\n", cond->id, target->id);
-  assert(target->paramc == 0);
+  AvmAssert(target->paramc == 0);
   GotoInstr* go = factory_.newGotoStmt(target);
   ir_->replaceInstr(cond, go);
   return true;
@@ -154,7 +154,7 @@ bool Cleaner::hoistGoto(GotoInstr* go, GotoInstr* succ_go) {
 ///   goto->L1;C1->Arm   =>   C2->Arm;goto->L2.
 /// Labels are inserted at Arm positions lazily by ensureLabel().
 bool Cleaner::hoistBranch(GotoInstr* go, CondInstr* branch) {
-  assert(kind(branch) == HR_if || kind(branch) == HR_switch);
+  AvmAssert(kind(branch) == HR_if || kind(branch) == HR_switch);
   if (enable_verbose)
     printf("clean: goto->branch i%d->i%d->i%d\n", go->id, go->target->id,
            branch->id);
@@ -219,14 +219,14 @@ LabelInstr* Cleaner::ensureLabel(ArmInstr* arm) {
 /// Run the cleaner repeatedly on the IR until no more changes occur.
 ///
 void cleanBlocks(Context* cxt, InstrGraph* ir, Cleaner* cleaner) {
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   while (cleaner->onePass()) {
     pruneGraph(ir);
     if (enable_verbose) {
       cxt->out << "after clean pass\n";
       listCfg(cxt->out, ir);
     }
-    assert(checkSSA(ir));
+    AvmAssert(checkSSA(ir));
   }
 }
 }

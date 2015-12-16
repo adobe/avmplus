@@ -183,10 +183,10 @@ REALLY_INLINE void VMPI_lockDestroy(vmpi_spin_lock_t* lock)
 REALLY_INLINE bool VMPI_lockAcquire(vmpi_spin_lock_t* lock)
 {
 #ifdef DEBUG
-    if(!::OSSpinLockTry((OSSpinLock*)&lock->lock)) {
+    if(!::OSSpinLockTry((volatile OSSpinLock*)&lock->lock)) {
         // deadlock assert
         assert(lock->ownerThread != pthread_self());
-        ::OSSpinLockLock((OSSpinLock*)&lock->lock);
+        ::OSSpinLockLock((volatile OSSpinLock*)&lock->lock);
     }
     lock->ownerThread = pthread_self();
 #else
@@ -200,13 +200,13 @@ REALLY_INLINE bool VMPI_lockRelease(vmpi_spin_lock_t* lock)
 #ifdef DEBUG
     lock->ownerThread = NULL;
 #endif
-    ::OSSpinLockUnlock((OSSpinLock*)&lock->lock);
+    ::OSSpinLockUnlock((volatile OSSpinLock*)&lock->lock);
     return true;
 }
 
 REALLY_INLINE bool VMPI_lockTestAndAcquire(vmpi_spin_lock_t* lock)
 {
-    if(::OSSpinLockTry((OSSpinLock*)&lock->lock))
+    if(::OSSpinLockTry((volatile OSSpinLock*)&lock->lock))
     {
 #ifdef DEBUG
         assert(lock->ownerThread == NULL);

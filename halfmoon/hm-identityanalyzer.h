@@ -47,6 +47,7 @@ public: // dispatch() adapter methods.
   Def* do_cknullobject(UnaryStmt* i) { return do_cknull(i); }
   Def* do_u2i(UnaryExpr*);
   Def* do_speculate_number(BinaryExpr*);
+  Def* do_getlocal(GetlocalStmt* i);
 
 private:
   /// Generic analyzer for lexical 'find' instructions.

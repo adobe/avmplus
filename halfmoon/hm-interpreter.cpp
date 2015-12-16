@@ -98,7 +98,7 @@ Value Interpreter::stub(MethodEnv* env, int32_t argc, uint32_t* args) {
       printInstr(&frame, instr);
       frame.next_block_ = 0;
       do_instr(&frame, instr);
-      assert(checkValues(frame, instr));
+      AvmAssert(checkValues(frame, instr));
     }
     Instr* branch = InstrGraph::blockEnd(blk);
     if (kind(branch) == HR_return) {
@@ -135,13 +135,13 @@ void Interpreter::do_default(Instr* instr) {
     fflush(NULL);
     printInstr(this, instr);
   }
-  assert(false && "interpreter instruction not implemented");
+  AvmAssert(false && "interpreter instruction not implemented");
 }
 
 Value paramToValue(const ParamIter& p) {
   switch (p.model()) {
     default:
-      assert(false && "unknown param representation");
+      AvmAssert(false && "unknown param representation");
     case kModelAtom:
      return AtomValue(p.asAtom());
     case kModelScriptObject:
@@ -163,7 +163,7 @@ Value paramToValue(const ParamIter& p) {
 Value atomToValue(Atom value, const ParamIter& p) {
   switch (p.model()) {
   default:
-    assert(false && "unknown model type");
+    AvmAssert(false && "unknown model type");
   case kModelScriptObject:
     return Value(AvmCore::isNull(value) ? (ScriptObject*)0 :
         AvmCore::atomToScriptObject(value));
@@ -173,7 +173,7 @@ Value atomToValue(Atom value, const ParamIter& p) {
     return Value(AvmCore::number_d(value));
   case kModelInt:
     switch (p.builtinType()) {
-      default: assert(false && "bad builtinType");
+      default: AvmAssert(false && "bad builtinType");
       case BUILTIN_int: return Value(AvmCore::integer_i(value));
       case BUILTIN_uint: return Value(AvmCore::integer_u(value));
       case BUILTIN_boolean: return Value(atomGetBoolean(value));
@@ -188,13 +188,13 @@ Value atomToValue(Atom value, const ParamIter& p) {
 }
 
 void Interpreter::do_start(StartInstr* start) {
-  assert(!env_->method->needArguments() && "arguments not supported yet");
-  assert(!isThisBoxed() && "unboxThis() not implemented");
+  AvmAssert(!env_->method->needArguments() && "arguments not supported yet");
+  AvmAssert(!isThisBoxed() && "unboxThis() not implemented");
   // start signature for an as3 method is:
   // [effect, env, this, arg, ...].  The data_param() accessor
   // accesses [env, this, arg, ...].
   // + 3 because we have effect, env, this, then real args
-  assert(numDefs(start) == signature()->param_count() + 3 +
+  AvmAssert(numDefs(start) == signature()->param_count() + 3 +
          (env_->method->needRestOrArguments() ? 1 : 0));
   int i = 0;
   resultVal(start->data_param(i++)) = env_;
@@ -202,7 +202,7 @@ void Interpreter::do_start(StartInstr* start) {
   for (; !p.empty(); p.popFront(), ++i) {
     // data_param[0] is env, so offset by 1
     if (i > argc_ + 1) {
-      assert(signature()->optional_count() &&
+      AvmAssert(signature()->optional_count() &&
              "interpreter invoked with too many arguments");
       // -2, 1 because i counts env and this; optional_index starts at 0.
       int optional_index = i - 2 - signature()->requiredParamCount();
@@ -229,7 +229,7 @@ void Interpreter::do_label(LabelInstr*) {
 /// helper: jump from block end to block start, passing arguments along.
 /// Use a temp array to guarantee simultaneous copies; see test/swap.as
 void Interpreter::jump(BlockEndInstr* end, BlockStartInstr* start) {
-  assert(numArgs(end) == numDefs(start));
+  AvmAssert(numArgs(end) == numDefs(start));
   Allocator scratch;
   int argc = numArgs(end);
   Value* temp = new (scratch) Value[argc];
@@ -293,7 +293,7 @@ void Interpreter::do_const(ConstantExpr* instr) {
           result = Value(doubleVal(t));
           break;
         default:
-          assert(false && "Unsupported const type");
+          AvmAssert(false && "Unsupported const type");
       }
   }
 }
@@ -320,11 +320,11 @@ void Interpreter::coerceArgs(MethodSignaturep method_sig, int actual_argc_out,
   ParamIter p(method_sig, args_out_);
   for (int i = 0; i < actual_argc_out; ++i, p.popFront()) {
     const Use& arg = call_args[i];
-    assert(p.model() == model(type(arg)) && "Signature model doesn't match arg model");
+    AvmAssert(p.model() == model(type(arg)) && "Signature model doesn't match arg model");
     const Type* t = type(arg);
     switch (model(t)) {
       default:
-        assert(false && "Unsupported param type");
+        AvmAssert(false && "Unsupported param type");
       case kModelScriptObject:
         p.asObject() = getObject(arg);
         break;
@@ -368,7 +368,7 @@ void Interpreter::doCallInterface(MethodInfo* interface_info, MethodEnv* callee_
     switch (k) {
       default:
         printf("ModelKind is: %d\n", k);
-        assert(false && "Unsupported return type");
+        AvmAssert(false && "Unsupported return type");
       case kModelInvalid: // return type was _, i.e. no value
         break;
       case kModelScriptObject:
@@ -408,7 +408,7 @@ void Interpreter::doCall(MethodEnv* callee_env,
     switch (k) {
       default:
         printf("ModelKind is: %d\n", k);
-        assert(false && "Unsupported return type");
+        AvmAssert(false && "Unsupported return type");
       case kModelInvalid: // return type was _, i.e. no value
         break;
       case kModelScriptObject:
@@ -440,7 +440,7 @@ void Interpreter::do_getslot(CallStmt2* instr) {
   int slot = ordinalVal(type(slot_in));
   const Type* object_type = type(object_in);
   const Type* slot_type = lattice().getSlotType(object_type, slot);
-  assert(subtypeof(type(instr->value_out()), slot_type));
+  AvmAssert(subtypeof(type(instr->value_out()), slot_type));
   uint32_t offset = lattice().getSlotOffset(object_type, slot);
   Value& result = resultVal(instr->value_out());
 
@@ -448,7 +448,7 @@ void Interpreter::do_getslot(CallStmt2* instr) {
   uintptr_t ptr = uintptr_t(object) + offset;
   switch (model(slot_type)) {
     default:
-      assert(false && "Unsupported model");
+      AvmAssert(false && "Unsupported model");
     case kModelAtom:
       result = AtomValue(*((Atom*) ptr));
       break;
@@ -478,17 +478,17 @@ void Interpreter::do_setslot(CallStmt2* instr) {
   int slot = getOrdinal(name_in);
   const Type* value_type = type(value_in);
   const Type* object_type = type(object_in);
-  assert(subtypeof(value_type, lattice().getSlotType(object_type, slot)));
-  assert(submodelof(value_type, lattice().getSlotType(object_type, slot)));
+  AvmAssert(subtypeof(value_type, lattice().getSlotType(object_type, slot)));
+  AvmAssert(submodelof(value_type, lattice().getSlotType(object_type, slot)));
   uint32_t offset = lattice().getSlotOffset(object_type, slot);
 
   ScriptObject* object = getObject(object_in);
-  assert (object != 0);
+  AvmAssert (object != 0);
 
   uintptr_t ptr = uintptr_t(object) + offset;
   switch (model(value_type)) {
     default:
-      assert(false && "Unsupported rep");
+      AvmAssert(false && "Unsupported rep");
     case kModelAtom:
       core()->atomWriteBarrier(core()->gc, object, (Atom*) ptr, getAtom(value_in));
       break;
@@ -512,13 +512,13 @@ void Interpreter::do_setslot(CallStmt2* instr) {
 
 void Interpreter::do_speculate_number(BinaryExpr* instr) {
   Atom value = getAtom(instr->lhs_in());
-  assert((atomKind(value) == kDoubleType) && "Simulate Bailout");
+  AvmAssert((atomKind(value) == kDoubleType) && "Simulate Bailout");
   resultVal(instr->value_out()) = core()->atomToDouble(value);
 }
 
 void Interpreter::do_speculate_int(BinaryExpr* instr) {
   Atom value = getAtom(instr->lhs_in());
-  assert((atomKind(value) == kIntptrType) && "Simulate Bailout");
+  AvmAssert((atomKind(value) == kIntptrType) && "Simulate Bailout");
   resultVal(instr->value_out()) = core()->integer_i(value);
 }
 
@@ -535,6 +535,15 @@ void Interpreter::do_newstate(ConstantExpr* instr) {
 void Interpreter::do_setlocal(SetlocalInstr* instr) {
   // I think we technically still have the same state object, just a side effect
   // occured on it.
+  //
+  // NOTE (stan, 22 Nov 13): This is not how the compiler works, and I beieve tha above is wrong.
+  // The setlocal instr does indeed modify the state (which is why it has a state in and out!)
+  // The safepoint instruction consumes that state to keep the setlocal from becoming dead
+  // and to impose order constraints due to the location of the safepoint instr in the effects chain.
+  // However also note: if the safepoint instruction _is_ DCEed, so much the better!
+  //
+  // TODO: Maybe implement getlocal? Not clear if it's really necessary; it's only to support the debugger.
+  //
   int stackIndex = instr->index;
   saved_state_[stackIndex] = get(instr->value_in());
   resultVal(instr->state_out()) = get(instr->state_in());

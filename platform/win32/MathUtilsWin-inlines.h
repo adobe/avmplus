@@ -101,12 +101,10 @@ namespace avmplus
     }
 #endif /* X86_MATH */
 
-#ifndef X86_MATH
     REALLY_INLINE double MathUtils::floor(double value)
     {
         return ::floor(value);
     }
-#endif /* X86_MATH */
 
     REALLY_INLINE double MathUtils::log(double value)
     {

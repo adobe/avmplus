@@ -95,7 +95,7 @@ namespace MMgc
 
 #endif
 
-#if defined DEBUG
+#if defined GCDEBUG
     // For debugging we track live large objects in a list.  If there are a lot
     // of large objects then a list may slow down debug builds too much; in that
     // case we can move to a tree or similar structure.  (It's useful to avoid using
@@ -122,7 +122,7 @@ namespace MMgc
     #ifdef MMGC_MEMORY_PROFILER
         totalAskSizeLargeAllocs = 0;
     #endif
-    #if defined DEBUG && !defined AVMPLUS_SAMPLER
+    #if defined GCDEBUG && !defined AVMPLUS_SAMPLER
         largeObjects = NULL;
         VMPI_lockInit(&m_largeObjectLock);
     #endif
@@ -141,7 +141,7 @@ namespace MMgc
             m_allocs[i].Destroy();
 
         VMPI_lockDestroy(&m_largeAllocInfoLock);
-    #if defined DEBUG && !defined AVMPLUS_SAMPLER
+    #if defined GCDEBUG && !defined AVMPLUS_SAMPLER
         VMPI_lockDestroy(&m_largeObjectLock);
     #endif
         m_rootFindCache.Destroy();
@@ -222,7 +222,7 @@ namespace MMgc
 
             UpdateLargeAllocStats(item, blocksNeeded);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
             // Fresh memory poisoning
             if ((flags & kZero) == 0 && !RUNNING_ON_VALGRIND)
                 memset(item, uint8_t(GCHeap::FXFreshPoison), size - DebugSize());
@@ -231,7 +231,7 @@ namespace MMgc
             // Enregister the large object
             AddToLargeObjectTracker(item);
 #endif
-#endif // DEBUG
+#endif // GCDEBUG
 
             VALGRIND_MEMPOOL_ALLOC(GetRealPointer(item), item, Size(item));
         }
@@ -240,7 +240,7 @@ namespace MMgc
 
     void FixedMalloc::LargeFree(void *item)
     {
-#if defined DEBUG && !defined AVMPLUS_SAMPLER
+#if defined GCDEBUG && !defined AVMPLUS_SAMPLER
         RemoveFromLargeObjectTracker(item);
 #endif
         UpdateLargeFreeStats(item, GCHeap::SizeToBlocks(LargeSize(item)));
@@ -364,7 +364,7 @@ namespace MMgc
         return false;
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     // If EnsureFixedMallocMemory returns and fixed-memory checking has not
     // been disabled then item was definitely allocated by an allocator owned
     // by this FixedMalloc.  Large objects must be handled one of two ways
@@ -434,6 +434,6 @@ namespace MMgc
             Free(loToFree);
     }
 #endif // !AVMPLUS_SAMPLER
-#endif // DEBUG
+#endif // GCDEBUG
 }
 

@@ -101,7 +101,12 @@ package flash.system
 
 
 
-        public native function get state():String;
+        public function get state():String
+        {
+            return internalGetState();
+        }
+
+        private native function internalGetState():String;
 
         /**
         * Run the code blobs passed into the constructor in order and enter the event loop.

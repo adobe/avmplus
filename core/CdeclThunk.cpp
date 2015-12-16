@@ -11,6 +11,15 @@
 
 #include "CdeclThunk.h"
 
+#ifdef _MSC_VER
+// squelch unreferenced parameter warnings
+#pragma warning(disable : 4100) 
+#define ALIGN_TO(NUM, DECL) __declspec(align(NUM)) DECL
+#else // ndef _MSC_VER
+#define ALIGN_TO(NUM, DECL) DECL __attribute__((aligned(NUM)))
+#endif // ndef _MSC_VER
+
+//#define CDECL_VERBOSE 1
 namespace avmplus
 {
     // stores arbitrary Avm values without allocation
@@ -18,7 +27,7 @@ namespace avmplus
     {
     private:
         enum { _tagBits = 3 };
-        double _d __attribute__((aligned(16)));
+        ALIGN_TO(16, double _d);
         Atom _a;
 
         double* dblPtr()
@@ -77,6 +86,18 @@ namespace avmplus
         double getDouble()
         {
             return AvmCore::number(_a);
+        }
+        int32_t getInt32()
+        {
+            return AvmCore::integer(_a);
+        }
+        uint32_t getUInt32()
+        {
+            return AvmCore::toUInt32(_a);
+        }
+        int32_t getBoolean()
+        {
+            return AvmCore::boolean(_a);
         }
 
         void set(Atom a, Traits* t)
@@ -225,6 +246,10 @@ namespace avmplus
 
         bool needArguments()
         {
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            //For Halfmoon, we have one more flag to accomodate in arguments. 
+            return (m_methInfo->needArguments() || m_methInfo->needArgsArrInMethodSig())? true : false;
+#endif
             return m_methInfo->needArguments() ? true : false;
         }
 
@@ -254,7 +279,7 @@ namespace avmplus
             {
                 AvmCore* core = m_methInfo->pool()->core;
 
-                core->console << "argc bad: " << m_methInfo->format(core) << " : " << argc << "\n";
+                core->console << "argc bad: "; m_methInfo->print(core->console) << " : " << argc << "\n";
             }
 #endif
             AvmAssert(argc < 0 || m_methSig->argcOk(argc));
@@ -457,23 +482,51 @@ namespace avmplus
     // lay out an argument description
     // on x86-32, an argument description is exactly a stack layout
     // on ARM, the first 4 words are r0-r3 and the rest is exactly a stack layout
+    // on ARM64, first 8 double words are v0-v7 floating point, then r0 -r7, then overflow registers
+    // with natural alignment.
     // on x86-64, it will no doubt be more complicated...
     class ArgDescLayout
     {
     protected:
         void* m_dst;
-#ifdef AVMPLUS_ARM
+#if defined(AVMPLUS_ARM) || defined(AVMPLUS_AMD64)
         void* m_minDst;
+#if defined(AVMPLUS_64BIT)
+        void* m_dstFP;
+        int   m_fpParamCount;
+        int   m_paramCount;
+        const int m_numIntReg;
+        const int m_numFloatReg;
+#endif
 #endif
 
     public:
         // NULL dst is legal for measuring a call layout
-        ArgDescLayout(void* dst) : m_dst(dst)
-#ifdef AVMPLUS_ARM
-        , m_minDst((void*)((uintptr_t)dst + 16)) // must make room for a1-a4 always
+        ArgDescLayout(void* dst) :
+#if defined(AVMPLUS_ARM) && defined(AVMPLUS_64BIT)
+        m_dstFP(dst)   // First 8 FP registers (v0-v7) always
+        , m_dst((void*)((uintptr_t)dst + 64)) // First 8 FP registers (v0-v7) always
+        , m_minDst((void*)((uintptr_t)dst + 128)) // then x0-x7(8*8) always
+        , m_fpParamCount(0) // count for first 8 FP parameters
+        , m_paramCount(0) // count for first 8 non FP parameters
+        , m_numIntReg(8)
+        , m_numFloatReg(8)
+#elif defined(AVMPLUS_AMD64)
+        m_dstFP(dst)   // First 8 FP registers (v0-v7) always
+        , m_dst((void*)((uintptr_t)dst + 64)) // First 8 FP registers xmm0-xmm7 always
+        , m_minDst((void*)((uintptr_t)dst + 112)) // then (rdi,rsi,rdx,rcx,r8,r9) always
+        , m_fpParamCount(0) // count for first m_numFloatReg FP parameters
+        , m_paramCount(0) // count for first m_numIntReg non FP parameters
+        , m_numIntReg(6)
+        , m_numFloatReg(8)       
+#else
+        m_dst(dst)
+#ifdef AVMPLUS_ARM //32 bit ARM
+        , m_minDst((void*)((uintptr_t)dst + 16)) // must make room for a1-a4(4*4) always
+#endif
 #endif
         {
-#ifdef AVMPLUS_ARM
+#if defined(AVMPLUS_ARM) && !defined(AVMPLUS_64BIT)
             AvmAssert(!(7 & (uintptr_t)dst));
 #else
             AvmAssert(!(15 & (uintptr_t)dst));
@@ -482,7 +535,7 @@ namespace avmplus
 
         void* argEnd()
         {
-#ifdef AVMPLUS_ARM
+#if defined(AVMPLUS_ARM) || defined(AVMPLUS_AMD64)
             return (m_dst > m_minDst) ? m_dst : m_minDst;
 #else
             return m_dst;
@@ -492,25 +545,71 @@ namespace avmplus
         // TODO really just platform int? that's what AtomMethodProc style uses
         int32_t* int32Arg()
         {
+#if (defined(AVMPLUS_ARM) && defined(AVMPLUS_64BIT)) || defined(AVMPLUS_AMD64)
+            //First 8 Non FP params should go to generic registers x0-x7(8 byte). memory starting from m_dst
+            if(++m_paramCount <= m_numIntReg){
+                int32_t* result = (int32_t*)m_dst;
+                m_dst = (void*)(8 + (uintptr_t)m_dst);
+                return result;
+            }else { // Remaining push to m_minDst, 4 byte
+                int32_t* result = (int32_t*)m_minDst;
+#ifdef AVMPLUS_AMD64
+                m_minDst = (void*)((7 + (uintptr_t)m_minDst)& ~7);
+                m_minDst = (void*)(8 + (uintptr_t)m_minDst);
+#else
+                m_minDst = (void*)(4 + (uintptr_t)m_minDst);
+#endif
+                return result;
+            }
+#else
             int32_t* result = (int32_t*)m_dst;
             m_dst = (void*)(4 + (uintptr_t)m_dst);
             return result;
+#endif
         }
 
         double* doubleArg()
         {
+#if (defined(AVMPLUS_ARM) && defined(AVMPLUS_64BIT)) || defined(AVMPLUS_AMD64)
+            //First 8 FP params should go to FP registers. memory starting from m_dstFP
+            if(++m_fpParamCount <= m_numFloatReg){
+                double* result = (double* )m_dstFP;
+                m_dstFP = (void*)(8 + (uintptr_t)m_dstFP);
+                return result;
+            }else { // Take care of 8 byte alignment and push to m_minDst
+                m_minDst = (void*)((7 + (uintptr_t)m_minDst)& ~7);
+                double* result = (double* )m_minDst;
+                m_minDst = (void*)(8 + (uintptr_t)m_minDst);
+                return result;
+            }
+#else
             // TODO: doubles on ARM may need to be aligned, but because we have only
             // two arg sizes (4 and 8 bytes) it won't affect us right now
             double* result = (double* )m_dst;
             m_dst = (void*)(8 + (uintptr_t)m_dst);
             return result;
+#endif
         }
 
         void** ptrArg()
         {
+#if (defined(AVMPLUS_ARM) && defined(AVMPLUS_64BIT)) || defined(AVMPLUS_AMD64)
+            //First 8 Non FP params should go to generic registers x0-x7. memory starting from m_dst
+            if(++m_paramCount <= m_numIntReg){
+                void** result = (void**)m_dst;
+                m_dst = (void*)(8 + (uintptr_t)m_dst);
+                return result;
+            }else { // Take care of 8 byte alignment and push to m_minDst
+                m_minDst = (void*)((7 + (uintptr_t)m_minDst)& ~7);
+                void** result = (void**)m_minDst;
+                m_minDst = (void*)(8 + (uintptr_t)m_minDst);
+                return result;
+            }
+#else
             void** result = (void**)m_dst;
             m_dst = (void*)(4 + (uintptr_t)m_dst);
             return result;
+#endif
         }
     };
 
@@ -547,7 +646,13 @@ namespace avmplus
         {
             l.ptrArg(); // argv
             l.int32Arg(); // argc
+            
+        // In halfmoon, ArrayObject is created in function prologue by calling
+        // llCreateRestHelper/llCreateArgumentHelper and calling convention doesn't accept ArrayObject*
+        // In GO, ArrayObject is created and send as parameter.
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
             l.ptrArg(); // rest
+#endif
         }
         l.ptrArg(); // MethodEnv
         return (int32_t)(uintptr_t)l.argEnd();
@@ -593,8 +698,18 @@ namespace avmplus
             size += sizeof(void*);
         return size;
     }
+    
+#if defined (VMCFG_HALFMOON_AOT_RUNTIME) && defined (AVMPLUS_ARM)          // Fixing HMAOT bug
+    typedef void* (*ArgCoercer)(void* callee, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp, void* calleeArgDescBuf);
+    extern "C" Atom coerce32CdeclShim(void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp);
+    extern "C" double coerceNCdeclShim(void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp);
+    extern "C" Atom returnCoercerN(Traits* retTraits, MethodEnv* env);
+    extern "C" double returnCoercerN32(Traits* retTraits, MethodEnv* env);
+    extern "C" Atom returnCoercer32(Traits* retTraits, MethodEnv* env);
 
-#if defined(AVMPLUS_IA32)
+#else 
+    
+#if defined(AVMPLUS_IA32) || defined (AVMPLUS_AMD64)
     // pseudo-cross-compiler macros for inline assembly...
     // gcc/x86 in particular isn't really production grade
 #ifdef _WIN32
@@ -608,33 +723,44 @@ namespace avmplus
 #else
     // gcc doesn't support naked inline functions despite the clear use for them
     // this stuff is hackery to help development -- gcc targets should have .s files for production
-#define ASM_FUNC_BEGIN(R, N, A) typedef R (* N##_type)A; static void*  N##_container () { \
-        void* result; \
-        __asm__ (" mov $L"#N"_astart, %[result]" : [result] "=r" (result)); \
-        goto ret; asmlbl: \
-        __asm__ (" .intel_syntax noprefix "); \
-        __asm__ ("L"#N"_astart: ");
-#define ASM_FUNC_END(N) __asm__ (" .att_syntax noprefix "); ret: if (result == 0) goto asmlbl; return result; } N##_type N = (N##_type)N##_container();
+#ifdef AVMPLUS_AMD64
+    #define ASM_FUNC_BEGIN(R, N, A) typedef R (* N##_type)A; static void*  N##_container () { \
+            void* result; \
+            __asm__ (" movabsq $L"#N"_astart, %[result]" : [result] "=r" (result)); \
+            goto ret; asmlbl: \
+            __asm__ (" .intel_syntax noprefix "); \
+            __asm__ ("L"#N"_astart: ");
+    #define ASM_FUNC_END(N) __asm__ (" .att_syntax noprefix "); ret: if (result == 0) goto asmlbl; return result; } N##_type N = (N##_type)N##_container();
+    #define ASM_REDIR(F) __asm__ ( "pushq qword[_"#F"]\n retq");
+#else
+    #define ASM_FUNC_BEGIN(R, N, A) typedef R (* N##_type)A; static void*  N##_container () { \
+            void* result; \
+            __asm__ (" mov $L"#N"_astart, %[result]" : [result] "=r" (result)); \
+            goto ret; asmlbl: \
+            __asm__ (" .intel_syntax noprefix "); \
+            __asm__ ("L"#N"_astart: ");
+    #define ASM_FUNC_END(N) __asm__ (" .att_syntax noprefix "); ret: if (result == 0) goto asmlbl; return result; } N##_type N = (N##_type)N##_container();
+    #define ASM_REDIR(F) __asm__ ( "push [_"#F"]\n ret");
+#endif       
 #define ASM1(X) __asm__ ( #X );
 #define ASM2(X,Y) __asm__ ( #X","#Y );
 #define ASM_CALL(X) __asm__ ("call _"#X"\n");
-#define ASM_REDIR(F) __asm__ ( "push [_"#F"]\n ret");
 #endif
 #elif defined(AVMPLUS_ARM)
     // gcc doesn't support naked inline functions despite the clear use for them
     // this stuff is hackery to help development -- gcc targets should have .s files for production
 #define ASM_BP __asm__("stmdb sp!, {a1, a2, a3, a4}\n swi 0x80\n ldmia sp!, {a1, a2, a3, a4}")
 #define ASM_FUNC_BEGIN(R, N, A) \
-        extern R N A; \
-        __asm__(".section __TEXT,__text,regular,pure_instructions"); \
-        __asm__(".align 2"); \
-        __asm__(".globl _"#N" "); \
-        __asm__("_"#N": ");
+extern R N A; \
+__asm__(".section __TEXT,__text,regular,pure_instructions"); \
+__asm__(".align 2"); \
+__asm__(".globl _"#N" "); \
+__asm__("_"#N": ");
 #define ASM_FUNC_END(N)
 #define ASM_REDIR(F) __asm__ ( "b _"#F" ");
-
+    
 #endif
-
+    
     // prototype for an argument coercer
     // env is MethodEnv coercing for
     // callerArgDesc is an opaque description of the arguments to be found via callerArgDesc
@@ -642,9 +768,9 @@ namespace avmplus
     // calleeArgDescBuf is the argument buffer into which coerced arguments are writter
     // returns a pointer to a function used for return value conversion or NULL is none is needed
     typedef void* (*ArgCoercer)(void* callee, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp, void* calleeArgDescBuf);
-
+    
     extern "C" {
-
+        
         // core of the thunking mechanism...
         // doesn't necessarily return an int32_t... the N/double variant is identical
         // -- callee is the cdecl method to invoke
@@ -654,22 +780,26 @@ namespace avmplus
         // -- calleeArgDesc is an opaque description of the types of variadic arguments in callerAp
         // -- callerAp represents the arguments to coerce
         ASM_FUNC_BEGIN(Atom, coerce32CdeclShim,
-                (void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp))
+                       (void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp))
 #ifdef AVMPLUS_ARM
         __asm__("stmdb  sp!, {v1, v2, v3, v7, lr}");
         __asm__("mov v7, sp");
+        //First four arguments are passed in registersa1-a4 and other are pushed in stack in reverse order.
+        //remember 5 registers are pushed in stack and after that sp is copied to v7
         // a1 = callee
         // a2 = calleeArgDescBufSize
         // a3 = argCoercer
         // a4 = env
-        // [v7] = retTraits
-        // [v7, #4] = callerArgDesc
-        // [v7, #8] = callerAp
+        // [v7, #20] = retTraits
+        // [v7, #24] = callerArgDesc
+        // [v7, #28] = callerAp
         __asm__("sub sp, sp, a2"); // make room for args
-        __asm__("and sp, sp, #-8"); // double word align
+        __asm__("bic sp, sp, #7"); // double word align
         __asm__("mov v2, a3"); // save off argCoercer
         __asm__("mov v3, a4"); // save off env
 
+        //Prepare to call argCoercer
+        //Remember:First four arguments are passed in registersa1-a4 and other are pushed in stack in reverse order.
         // a1 stays callee
         __asm__("mov a2, a4"); // pass env
         __asm__("ldr a3, [v7, #20]"); // pass retTraits
@@ -681,7 +811,11 @@ namespace avmplus
         __asm__("mov v1, a1"); // save off callee
         __asm__("bl _via_v2"); // call coercer!
         __asm__("add sp, sp, #8"); // restore stack
-        __asm__("mov v2, a1"); // remember returnCoercer
+        __asm__("mov v2, a1"); // save returnCoercer
+        
+        //Prepare to call implementation ( actual AOTed function )
+        //Remember:First four arguments are passed in registersa1-a4 and other are pushed in stack in reverse order.
+        // a1 stays callee
         __asm__("ldmia  sp!, {a1, a2, a3, a4}"); // move first 4 arg words into registers
         __asm__("bl _via_v1"); // call the implementation!
         __asm__("mov sp, v7"); // restore stack
@@ -692,6 +826,90 @@ namespace avmplus
         __asm__("ldmia  sp!, {v1, v2, v3, v7, pc}"); // done!
         __asm__("_via_v1: bx v1");
         __asm__("_via_v2: bx v2");
+#elif defined(AVMPLUS_AMD64)
+        __asm__("pushq rbp"); // save base pointer
+        __asm__("movq rbp, rsp"); // save stack pointer in base pointer
+        //save callee saved registers
+        __asm__("pushq rbx");
+        __asm__("pushq r12");
+        __asm__("pushq r13");
+        __asm__("pushq r14");
+        __asm__("pushq r15");
+        __asm__("movq rbx, rsp"); // save stack pointer
+        
+        // [rbp] = saved rbp
+        // [rbp+8] = return address
+        // [rdi] = callee
+        // [rsi] = calleeArgDescBufSize
+        // [rdx] = argCoercer
+        // [rcx] = env
+        // [r8] = retTraits
+        // [r9] = callerArgDesc
+        // [rbp+16] = callerAp
+
+        // Calling function register
+        // r12 - r15, rbx
+        // r10-r15 temporary register; used to return long double arguments
+        // st1-st7 temporary registers; used to return long double arguments
+        __asm__("addq rsi, 0x15"); // move stack pointer by Arg size
+        __asm__("andq rsi, 0xfffffffffffffff0"); //  16 byte aligned
+        __asm__("subq rsp, rsi");
+        __asm__("subq rsp, 0x8");
+        __asm__("movq rsi, rsp"); // save stack pointer in callerArgDescBufSize
+        
+        // save arguments to temporary register, which are callee maintained
+        __asm__("movq r15, rdi"); // callee
+        __asm__("movq r12, rdx"); // argCoercer
+        __asm__("movq r13, rcx"); // env
+        __asm__("movq r14, r8"); // retTraits
+
+        // fill register for argument passing to argCoercer
+        __asm__("movq rcx, r9"); //  callerArgDesc -> rcx
+        __asm__("movq r9, rsi"); //  calleeArgDescBuf -> r9
+        __asm__("movq r8, [rbp+16]"); //  callerAp -> r8
+        __asm__("movq rdx, r14"); //  retTraits -> rdx
+        __asm__("movq rsi, r13"); //env -> rsi
+        __asm__("callq r12"); //  map args: argCoercer(callee, env, retTraits, callerArgDesc, callerAp, callerArgDescBuf);
+        __asm__("movq r12, rax"); //  save result mapping func
+
+        // mov all the arguments from stack to the register -- 8 float, 6 integer/pointer 
+        __asm__("movsd xmm0, [rsp]");
+        __asm__("movsd xmm1, [rsp+8]");
+        __asm__("movsd xmm2, [rsp+16]");
+        __asm__("movsd xmm3, [rsp+24]");
+        __asm__("movsd xmm4, [rsp+32]");
+        __asm__("movsd xmm5, [rsp+40]");
+        __asm__("movsd xmm6, [rsp+48]");
+        __asm__("movsd xmm7, [rsp+56]");
+        __asm__("movq rdi, [rsp+64]");
+        __asm__("movq rsi, [rsp+72]");
+        __asm__("movq rdx, [rsp+80]");
+        __asm__("movq rcx, [rsp+88]");
+        __asm__("movq r8, [rsp+96]");
+        __asm__("movq r9, [rsp+104]");
+        __asm__("addq rsp, 0x70"); //stack pointer moved - 112
+
+        __asm__("callq r15"); //  call method
+        __asm__("movq rsp, rbx"); // restore stack
+        __asm__("cmpq r12, 0");
+        __asm__("je coerce32CdeclShim_done"); 
+        __asm__("subq rsp, 0x8");
+        __asm__("movq rdx, r13"); //  env - rdx
+        __asm__("movq rsi, r14"); //  retTraits - rsi
+        __asm__("movq rdi, rax"); //  return value - rdi
+        __asm__("callq r12"); //  map return value: retCoercer(retTraits, env)
+        __asm__("coerce32CdeclShim_done:");
+        __asm__("xorq rdx, rdx");
+        __asm__("movq rsp, rbx"); // restore stack
+        __asm__("popq r15");
+        __asm__("popq r14");
+        __asm__("popq r13");
+        __asm__("popq r12");
+        __asm__("popq rbx");
+        __asm__("movq rsp, rbp"); // restore stack
+        __asm__("popq rbp");
+        __asm__("retq");
+
 #else
 #ifdef _WIN32
         (void)callee;
@@ -742,11 +960,11 @@ namespace avmplus
         ASM1(       ret)
 #endif
         ASM_FUNC_END(coerce32CdeclShim)
-
+        
         ASM_FUNC_BEGIN(double, coerceNCdeclShim, (void* callee,
-                unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp))
+                                                  unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp))
 #ifdef _WIN32
-                (void)callee;
+        (void)callee;
         (void)calleeArgDescBufSize;
         (void)argCoercer;
         (void)env;
@@ -754,22 +972,22 @@ namespace avmplus
         (void)callerArgDesc;
         (void)callerAp;
 #endif
+#ifdef AVMPLUS_AMD64
+        __asm__("subq rsp, 0x8"); // 16 byte aligned
+        __asm__("callq qword[_coerce32CdeclShim]");
+        __asm__("addq rsp, 0x8");
+        __asm__("retq");
+#else
         ASM_REDIR(coerce32CdeclShim) // exact same impl
+#endif
         ASM_FUNC_END(coerceNCdeclShim)
-
-        // Number => something
-        Atom returnCoercerNImpl(double n, Traits* retTraits, MethodEnv* env)
-        {
-            AvmValue v;
-
-            v.setDouble(n);
-            return v.get(env->toplevel(), retTraits);
-        }
-
+        
         // Number => some 32
         ASM_FUNC_BEGIN(Atom, returnCoercerN, (Traits* retTraits, MethodEnv* env))
 #ifdef AVMPLUS_ARM
         __asm__("b _returnCoercerNImpl"); // straight through
+#elif defined(AVMPLUS_AMD64)
+        //TODO: Function for AMD64
 #else
         ASM1(       push ebp) // this is necessary to keep pthreads happy!
         ASM2(       mov ebp, esp)
@@ -784,34 +1002,29 @@ namespace avmplus
         ASM1(       ret)
 #endif
         ASM_FUNC_END(returnCoercerN)
-
+        
 #ifndef AVMPLUS_ARM
         ASM_FUNC_BEGIN(Atom, returnCoercerNPop, (Traits* retTraits, MethodEnv* env))
-        ASM1(       push ebp) // this is necessary to keep pthreads happy!
-        ASM2(       mov ebp, esp)
-        ASM1(       fstp st(0)) // callee will have left a value on the FP stack
-        ASM1(       pop ebp)
-        ASM1(       ret)
+        #ifdef AVMPLUS_AMD64
+            //TODO: Function for AMD64
+        #else
+            ASM1(       push ebp) // this is necessary to keep pthreads happy!
+            ASM2(       mov ebp, esp)
+            ASM1(       fstp st(0)) // callee will have left a value on the FP stack
+            ASM1(       pop ebp)
+            ASM1(       ret)
+        #endif
         ASM_FUNC_END(returnCoercerNPop)
 #endif
-
-        // something => Number
-        double returnCoercerN32Impl(Atom a, Traits* /*retTraits*/, MethodEnv* env)
-        {
-            Traits* calleeRT = env->method->getMethodSignature()->returnTraits();
-            AvmValue v;
-
-            v.set(a, calleeRT);
-
-            return v.getDouble();
-        }
-
+        
         // some 32 => Number
         ASM_FUNC_BEGIN(double, returnCoercerN32, (Traits* retTraits, MethodEnv* env))
 #ifdef AVMPLUS_ARM
         __asm__("mov a2, a3"); // a2 is a dummy
         __asm__("mov a3, a4");
         __asm__("b _returnCoercerN32Impl");
+#elif defined(AVMPLUS_AMD64)
+        //TODO: Function for AMD64
 #else
         ASM1(       push ebp) // this is necessary to keep pthreads happy!
         ASM2(       mov ebp, esp)
@@ -824,23 +1037,15 @@ namespace avmplus
         ASM1(       ret)
 #endif
         ASM_FUNC_END(returnCoercerN32)
-
-        // something => something
-        Atom returnCoercer32Impl(Atom a, Traits* retTraits, MethodEnv* env)
-        {
-            Traits* calleeRT = env->method->getMethodSignature()->returnTraits();
-            AvmValue v;
-
-            v.set(a, calleeRT);
-            return v.get(env->toplevel(), retTraits);
-        }
-
+        
         // some 32 => some 32
         ASM_FUNC_BEGIN(Atom, returnCoercer32, (Traits* retTraits, MethodEnv* env))
 #ifdef AVMPLUS_ARM
         __asm__("mov a2, a3"); // a2 is a dummy
         __asm__("mov a3, a4");
         __asm__("b _returnCoercer32Impl");
+#elif defined(AVMPLUS_AMD64)
+        //TODO: Function for AMD64
 #else
         ASM1(       push ebp) // this is necessary to keep pthreads happy!
         ASM2(       mov ebp, esp)
@@ -853,7 +1058,44 @@ namespace avmplus
         ASM1(       ret)
 #endif
         ASM_FUNC_END(returnCoercer32)
+        
+    }
 
+    
+    
+#endif  //(VMCFG_HALFMOON_AOT_RUNTIME) && defined (AVMPLUS_ARM)    
+    
+    
+    extern "C" {
+    // something => something
+    Atom returnCoercer32Impl(Atom a, Traits* retTraits, MethodEnv* env)
+    {
+        Traits* calleeRT = env->method->getMethodSignature()->returnTraits();
+        AvmValue v;
+        
+        v.set(a, calleeRT);
+        return v.get(env->toplevel(), retTraits);
+    }
+    
+    // something => Number
+    double returnCoercerN32Impl(Atom a, Traits* /*retTraits*/, MethodEnv* env)
+    {
+        Traits* calleeRT = env->method->getMethodSignature()->returnTraits();
+        AvmValue v;
+        
+        v.set(a, calleeRT);
+        
+        return v.getDouble();
+    }
+    
+    // Number => something
+    Atom returnCoercerNImpl(double n, Traits* retTraits, MethodEnv* env)
+    {
+        AvmValue v;
+        
+        v.setDouble(n);
+        return v.get(env->toplevel(), retTraits);
+    }
     }
 
     // returns any function required to coerce the callee's return type to the
@@ -865,12 +1107,14 @@ namespace avmplus
             return NULL;
         if (callerRT == VOID_TYPE)
         {
-#ifndef AVMPLUS_ARM
+#if defined(AVMPLUS_ARM) || defined(AVMPLUS_AMD64)
+                return NULL;
+#else
             if (calleeRT == NUMBER_TYPE)
                 return (void*)returnCoercerNPop;
             else
-#endif
                 return NULL;
+#endif
         }
         // both integral types? no conversion
         if ((callerRT == INT_TYPE || callerRT == UINT_TYPE) &&
@@ -878,29 +1122,53 @@ namespace avmplus
             return NULL;
         // is callee a double returner?
         if (calleeRT == NUMBER_TYPE)
-            return (void*)returnCoercerN; // Number => 32
+#if defined(AVMPLUS_AMD64)
+            return (void*)returnCoercerNImpl;
+#else
+            return (void*)returnCoercerN; // Number => 32 -> returnCoercerNImpl
+#endif
         // how about caller?
         if (callerRT == NUMBER_TYPE)
-            return (void*)returnCoercerN32; // 32 => Number
+#if defined(AVMPLUS_AMD64)
+            return (void*)returnCoercerN32Impl;
+#else
+            return (void*)returnCoercerN32; // 32 => Number -> returnCoercerN32Impl
+#endif
         // everything else
-        return (void*)returnCoercer32; // 32 => 32
+#if defined(AVMPLUS_AMD64)
+        return (void*)returnCoercer32Impl;
+#else
+        return (void*)returnCoercer32; // 32 => 32, 64 to 64 -> returnCoercer32Impl
+#endif
     }
 
-    static int32_t arg32(va_list& ap)
+    static int32_t arg32(va_list_wrapper& ap)
     {
-        return va_arg(ap, int32_t); // x86-64?
+        return va_arg(ap.m_list, int32_t); // x86-64?
     }
 
     static int32_t arg32(APType& ap)
     {
         int32_t result = *(int32_t *)ap;
-        ap = (APType)((uintptr_t)ap + sizeof(int32_t)); // x86-64?
+        ap = (APType)((uintptr_t)ap + sizeof(Atom)); //ap is internally stored as Atom
         return result;
     }
 
-    static double argN(va_list& ap)
+    static void* argPtr(va_list_wrapper& ap)
     {
-        return va_arg(ap, double);
+        return va_arg(ap.m_list, void*);
+    }
+    
+    static void* argPtr(APType& ap)
+    {
+        void* result = (void*)(*(uintptr_t *)ap);
+        ap = (APType)((uintptr_t)ap + sizeof(uintptr_t));
+        return result;
+    }
+
+    static double argN(va_list_wrapper& ap)
+    {
+        return va_arg(ap.m_list, double);
     }
 
     static double argN(APType& ap)
@@ -918,7 +1186,7 @@ namespace avmplus
         if (callerT == NUMBER_TYPE)
             v.setDouble(argN(ap));
         else
-            v.set((Atom)arg32(ap), callerT);
+            v.set((Atom)argPtr(ap), callerT);
         return v.get(toplevel, NULL);
     }
 
@@ -931,26 +1199,53 @@ namespace avmplus
         {
             if (calleeT == NUMBER_TYPE)
                 *l.doubleArg() = argN(callerAp);
-            else
+            else if (calleeT == INT_TYPE || calleeT == UINT_TYPE || calleeT == BOOLEAN_TYPE )
+#if (defined(AVMPLUS_64BIT) && defined(AVMPLUS_ARM)) || defined(AVMPLUS_AMD64)
+            //On ARM64 bit, only 4 bytes are overwritten,in some cases padding is required so just clear next 4 bytes.
+                *(int64_t*)l.int32Arg() = arg32(callerAp);
+#else
                 *l.int32Arg() = arg32(callerAp);
+#endif
+            else
+                *l.ptrArg() = argPtr(callerAp);
+        }
+        // Handling cases where callerT != calleeT, for default arguments, callerT is NULL
+        else if(calleeT == INT_TYPE || calleeT == UINT_TYPE || calleeT == BOOLEAN_TYPE)
+        {
+#if (defined(AVMPLUS_64BIT) && defined(AVMPLUS_ARM)) || defined(AVMPLUS_AMD64)
+            //On ARM64 bit, only 4 bytes are overwritten,in some cases padding is required so just clear next 4 bytes.
+            AvmValue v;
+            v.set((Atom)argPtr(callerAp), callerT);
+            if(calleeT == INT_TYPE)
+                *(int64_t*)l.int32Arg() = v.getInt32();
+            else if(calleeT == UINT_TYPE)
+                *(int64_t*)l.int32Arg() = v.getUInt32();
+            else if(calleeT == BOOLEAN_TYPE)
+                *(int64_t*)l.int32Arg() = v.getBoolean();
+#else
+            //For 32 bit, keeping same code as in else block at the last.
+            AvmValue v;
+            v.set((Atom)argPtr(callerAp), callerT);
+            *l.ptrArg() = (void*)v.get(toplevel, calleeT);
+#endif
         }
         else if (calleeT == NUMBER_TYPE)
         {
             AvmValue v;
-            v.set((Atom)arg32(callerAp), callerT);
+            v.set((Atom)argPtr(callerAp), callerT);
             *l.doubleArg() = v.getDouble();
         }
         else if (callerT == NUMBER_TYPE)
         {
             AvmValue v;
             v.setDouble(argN(callerAp));
-            *l.int32Arg() = v.get(toplevel, calleeT);
+            *l.ptrArg() = (void*)v.get(toplevel, calleeT);
         }
         else
         {
             AvmValue v;
-            v.set((Atom)arg32(callerAp), callerT);
-            *l.int32Arg() = v.get(toplevel, calleeT);
+            v.set((Atom)argPtr(callerAp), callerT);
+            *l.ptrArg() = (void*)v.get(toplevel, calleeT);
         }
     }
 
@@ -961,7 +1256,7 @@ namespace avmplus
     }
 
     // coerces a single argument and writes it into an AtomList
-    static void coerceArg(Toplevel* toplevel, AtomList &atoms, Traits* calleeT, va_list& callerAp, Traits* callerT)
+    static void coerceArg(Toplevel* toplevel, AtomList &atoms, Traits* calleeT, va_list_wrapper& callerAp, Traits* callerT)
     {
       AvmCore* core = toplevel->core();
       
@@ -974,7 +1269,7 @@ namespace avmplus
       else
       {
         AvmValue v;
-        v.set((Atom)arg32(callerAp), callerT);
+        v.set((Atom)argPtr(callerAp), callerT);
         atoms.add((Atom)v.get(toplevel, calleeT));
       }
     }
@@ -985,7 +1280,7 @@ namespace avmplus
     }
 
     // coerces a single argument and writes it to an "ap" style arg list
-    static void coerceArg(Toplevel* toplevel, APType& ap, Traits* calleeT, va_list& callerAp, Traits* callerT)
+    static void coerceArg(Toplevel* toplevel, APType& ap, Traits* calleeT, va_list_wrapper& callerAp, Traits* callerT)
     {
         AvmCore* core = toplevel->core();
 
@@ -998,14 +1293,14 @@ namespace avmplus
             }
             else
             {
-                *(int32_t*)ap = arg32(callerAp);
-                ap = (APType)(sizeof(int32_t) + (uintptr_t)ap);
+                *(uintptr_t*)ap = (uintptr_t)argPtr(callerAp);
+                ap = (APType)(sizeof(uintptr_t) + (uintptr_t)ap);
             }
         }
         else if (calleeT == NUMBER_TYPE)
         {
             AvmValue v;
-            v.set((Atom)arg32(callerAp), callerT);
+            v.set((Atom)argPtr(callerAp), callerT);
             *(double* )ap = v.getDouble();
             ap = (APType)(sizeof(double) + (uintptr_t)ap);
         }
@@ -1019,19 +1314,19 @@ namespace avmplus
         else
         {
             AvmValue v;
-            v.set((Atom)arg32(callerAp), callerT);
-            *(int32_t*)ap = v.get(toplevel, calleeT);
-            ap = (APType)(sizeof(int32_t) + (uintptr_t)ap);
+            v.set((Atom)argPtr(callerAp), callerT);
+            *(uintptr_t*)ap = v.get(toplevel, calleeT);
+            ap = (APType)(sizeof(uintptr_t) + (uintptr_t)ap);
         }
     }
 
     static void coerceArgAtomI(Toplevel* toplevel, APType& ap, Traits* calleeT, ...)
     {
-        va_list va;
+        va_list_wrapper va;
 
-        va_start(va, calleeT);
+        va_start(va.m_list, calleeT);
         coerceArg(toplevel, ap, calleeT, va, NULL);
-        va_end(va);
+        va_end(va.m_list);
     }
 
     static void coerceArgAtom(Toplevel* toplevel, APType& ap, Traits* calleeT, Atom a)
@@ -1039,22 +1334,37 @@ namespace avmplus
         coerceArgAtomI(toplevel, ap, calleeT, a);
     }
 
-    static void handleRest(Toplevel*, ArgDescLayout& l, ArrayObject *rest)
+    static void handleRest(Toplevel*, ArgDescLayout& l, ArrayObject *rest, bool needArguments)
     {
         uint32_t argc = rest->getDenseLength();
         Atom *argv = rest->getDenseCopy();
 
         *l.ptrArg() = argv; // TODO argv
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
         *l.int32Arg() = argc; // TODO argc
+#else
+        //In halfmoon, this is added extra
+#if (defined(AVMPLUS_64BIT) && defined(AVMPLUS_ARM)) || defined(AVMPLUS_AMD64)
+        //On ARM64 bit, only 4 bytes are overwritten,in some cases padding is required so just clear next 4 bytes.
+        *(int64_t*)l.int32Arg() = needArguments ? argc-1 : argc ;
+#else
+        *l.int32Arg() = needArguments ? argc-1 : argc ;
+#endif
+#endif
+        // In halfmoon, ArrayObject is created in function prologue by calling
+        // llCreateRestHelper/llCreateArgumentHelper and calling convention doesn't accept ArrayObject*
+        // In GO, ArrayObject is created and send as parameter.
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
         *l.ptrArg() = rest; // rest
+#endif
     }
 
-    static void handleRest(Toplevel*, APType&, ArrayObject*)
+    static void handleRest(Toplevel*, APType&, ArrayObject*, bool needArguments)
     {
         AvmAssert(false); // AP doesn't handle rest in the CC
     }
     
-    static void handleRest(Toplevel*, AtomList&, ArrayObject*)
+    static void handleRest(Toplevel*, AtomList&, ArrayObject*, bool needArguments)
     {
         AvmAssert(false);
     }
@@ -1083,7 +1393,15 @@ namespace avmplus
 
             AvmAssert(callerT != VOID_TYPE);
             Atom a = coerceArgToAny(toplevel, callerApTemp, callerT);
+            
+            // In halfmoon, ArrayObject is created in function prologue by calling llCreateArgumentHelper
+            // and 'this' is required to call env->createArguments there.
+            // In GO, env->createArguments is called here itself and ArrayObject is send as parameter.
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
             args = env->createArguments(&a, 0);
+#else
+            args = toplevel->arrayClass()->newarray(&a, 1);
+#endif        
         }
 
         for (;;)
@@ -1190,6 +1508,14 @@ namespace avmplus
             while (argc < regArgs) // optional...
             {
                 Traits* calleeT = calleeTypeIter.nextType();
+                
+#if CDECL_VERBOSE
+                if (calleeT)
+                    core->console << " calleeT: " << calleeT->formatClassName() << "\n";
+                else
+                    core->console << " calleeT: *\n";
+#endif
+                
                 coerceArgAtom(toplevel, argDescWriter, calleeT, ms->getDefaultValue(optNum++));
                 argc++;
             }
@@ -1199,12 +1525,12 @@ namespace avmplus
         {
             if (!argsOrRest)
                 argsOrRest = args ? args : toplevel->arrayClass()->newArray(0);
-            handleRest(toplevel, argDescWriter, argsOrRest);
+            handleRest(toplevel, argDescWriter, argsOrRest, calleeTypeIter.needArguments());
         }
         return argc;
     }
 
-    static void passBaseArgs(MethodEnv* env, va_list& callerAp, ArgDescLayout& l)
+    static void passBaseArgs(MethodEnv* env, va_list_wrapper& callerAp, ArgDescLayout& l)
     {
         (void)callerAp;
         (void)l;
@@ -1218,7 +1544,7 @@ namespace avmplus
         (void)env;
     }
 
-    static void passTailArgs(MethodEnv* env, va_list& callerAp, ArgDescLayout& l)
+    static void passTailArgs(MethodEnv* env, va_list_wrapper& callerAp, ArgDescLayout& l)
     {
         (void)callerAp;
         (void)l;
@@ -1249,14 +1575,14 @@ namespace avmplus
         AvmCore* core = info->pool()->core;
         argCoerceLoop(env, callerTypeIter, callerAp, calleeTypeIter, l);
 #if CDECL_VERBOSE
-        core->console << "argCoercer: " << info->format(core) << " ";
+        core->console << "argCoercer: "; info->print(core->console) << " ";
         if (callerRT)
-            core->console << callerRT->format(core);
+            callerRT->print(core->console);
         else
             core->console << "*";
         core->console << " -> ";
         if (calleeRT)
-            core->console << calleeRT->format(core);
+            calleeRT->print(core->console);
         else
             core->console << "*";
         core->console << "\n";
@@ -1289,7 +1615,7 @@ namespace avmplus
     {
         PtrArgDescIter callerTypeIter((void*)callerArgDesc, env->core());
 
-        return argCoercer(callee, env, retTraits, callerTypeIter, *(va_list*)callerAp, calleeArgDescBuf);
+        return argCoercer(callee, env, retTraits, callerTypeIter, *(va_list_wrapper*)callerAp, calleeArgDescBuf);
     }
 
     // callerArgDesc is a value containing nybbles describing arg types
@@ -1297,7 +1623,7 @@ namespace avmplus
     {
         ImmArgDescIter callerTypeIter(callerArgDesc, env->core());
 
-        return argCoercer(callee, env, retTraits, callerTypeIter, *(va_list*)callerAp, calleeArgDescBuf);
+        return argCoercer(callee, env, retTraits, callerTypeIter, *(va_list_wrapper*)callerAp, calleeArgDescBuf);
     }
 
     // amount of stack space needed to call the given method cdecl style
@@ -1312,7 +1638,7 @@ namespace avmplus
     // calls "env" with supplied variadic arguments described by the "immediate" flavor of argument
     // description in argDesc
     // returns an int32_t value
-    Atom coerce32CdeclArgDescEnter(Traits* retTraits, uintptr_t argDesc, MethodEnv* env, va_list ap)
+    Atom coerce32CdeclArgDescEnter(Traits* retTraits, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         MethodInfo* info = env->method;
         Atom result = coerce32CdeclShim(
@@ -1324,7 +1650,7 @@ namespace avmplus
     // calls "env" with supplied variadic arguments described by the "pointer" flavor of argument
     // description in argDesc
     // returns an int32_t value
-    Atom coerce32CdeclArgDescEnter(Traits* retTraits, char* argDesc, MethodEnv* env, va_list ap)
+    Atom coerce32CdeclArgDescEnter(Traits* retTraits, char* argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         MethodInfo* info = env->method;
         Atom result = coerce32CdeclShim(
@@ -1351,7 +1677,7 @@ namespace avmplus
     // calls "env" with supplied variadic arguments described by the "immediate" flavor of argument
     // description in argDesc
     // returns a double value
-    double coerceNCdeclArgDescEnter(uintptr_t argDesc, MethodEnv* env, va_list ap)
+    double coerceNCdeclArgDescEnter(uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         MethodInfo* info = env->method;
         AvmCore* core = env->core();
@@ -1365,7 +1691,7 @@ namespace avmplus
     // calls "env" with supplied variadic arguments described by the "pointer" flavor of argument
     // description in argDesc
     // returns a double value
-    double coerceNCdeclArgDescEnter(char* argDesc, MethodEnv* env, va_list ap)
+    double coerceNCdeclArgDescEnter(char* argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         MethodInfo* info = env->method;
         AvmCore* core = env->core();
@@ -1410,7 +1736,7 @@ namespace avmplus
     }
 
     // convert arguments to ap style argument block, returning "argc"
-    int32_t argDescArgsToAp(void* calleeArgDescBuf, uintptr_t argDesc, MethodEnv* env, va_list ap)
+    int32_t argDescArgsToAp(void* calleeArgDescBuf, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         APArgDescIter calleeTypeIter(-1, env->method);
         ImmArgDescIter callerTypeIter(argDesc, env->core());
@@ -1418,7 +1744,7 @@ namespace avmplus
         return argCoerceLoop(env, callerTypeIter, ap, calleeTypeIter, dst) - 1;
     }
 
-    int32_t argDescArgsToAp(void* calleeArgDescBuf, char* argDesc, MethodEnv* env, va_list ap)
+    int32_t argDescArgsToAp(void* calleeArgDescBuf, char* argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         APArgDescIter calleeTypeIter(-1, env->method);
         PtrArgDescIter callerTypeIter(argDesc, env->core());
@@ -1450,7 +1776,7 @@ namespace avmplus
     }
 
     // convert arguments to Atoms
-    void argDescArgsToAtomv(Atom* args, uintptr_t argDesc, MethodEnv* env, va_list ap)
+    void argDescArgsToAtomv(Atom* args, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         AvmCore* core = env->core();
         ImmArgDescIter callerTypeIter(argDesc, core);
@@ -1459,7 +1785,7 @@ namespace avmplus
         argCoerceLoop(env, callerTypeIter, ap, calleeTypeIter, dst);
     }
 
-    void argDescArgsToAtomv(Atom* args, char* argDesc, MethodEnv* env, va_list ap)
+    void argDescArgsToAtomv(Atom* args, char* argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         AvmCore* core = env->core();
         PtrArgDescIter callerTypeIter(argDesc, core);
@@ -1469,7 +1795,7 @@ namespace avmplus
     }
     
     // convert arguments to AtomList
-    void argDescArgsToAtomList(AtomList& dst, uintptr_t argDesc, MethodEnv* env, va_list ap)
+    void argDescArgsToAtomList(AtomList& dst, uintptr_t argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         AvmCore* core = env->core();
         ImmArgDescIter callerTypeIter(argDesc, core);
@@ -1477,7 +1803,7 @@ namespace avmplus
         argCoerceLoop(env, callerTypeIter, ap, calleeTypeIter, dst);
     }
 
-    void argDescArgsToAtomList(AtomList& dst, char* argDesc, MethodEnv* env, va_list ap)
+    void argDescArgsToAtomList(AtomList& dst, char* argDesc, MethodEnv* env, va_list_wrapper ap)
     {
         AvmCore* core = env->core();
         PtrArgDescIter callerTypeIter(argDesc, core);

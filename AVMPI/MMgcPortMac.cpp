@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MMgc.h"
+#include "../other-licenses/wtf/AddressSpaceRandomization.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +82,24 @@ static int get_mmap_fdes(int delta)
 
 void* AVMPI_reserveMemoryRegion(void *address, size_t size)
 {
+	// We are introducing randomisation of address if the passed-in address in NULL. 
+	// In this case the address obtained from the randomisation is passed as the hint
+	// to the mmap. But the result of mmap is dependent on availability (for mapping) 
+	// of that specific part of virtual memory starting at that address. Non-availability 
+	// means that the nearest available memory to the hint is returned. Prev code ensured 
+	// that the hint and the result of mmap were the same. And becasue we pass in a random
+	// value the two are very often not the same and we release the reserved memory region 
+	// and early return. This boolean basically prevents the early return in such cases 
+	// when we randomise the hint passed to mmap.
+
+	bool isRandomised = false;
+#ifdef AVMPLUS_64BIT
+	if (!address) {
+		address = WTF::getRandomPageBase();
+        isRandomised = true;
+    }
+#endif // AVMPLUS_64BIT
+
     void *addr = (char*)mmap(address,
                              size,
                              PROT_NONE,
@@ -90,7 +109,7 @@ void* AVMPI_reserveMemoryRegion(void *address, size_t size)
     // the man page for mmap documents it returns -1 to signal failure.
     if (addr == (void *)-1) return NULL;
 
-    if(address && address != addr) {
+    if(address && !isRandomised && address != addr) {
         // fail if we didn't get the right address
         AVMPI_releaseMemoryRegion(addr, size);
         return NULL;

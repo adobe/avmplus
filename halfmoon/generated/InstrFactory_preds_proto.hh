@@ -68,6 +68,9 @@ static bool isNaryStmt1(InstrKind k);
 /// true if given InstrKind is instance of UnaryStmt
 static bool isUnaryStmt(InstrKind k);
 
+/// true if given InstrKind is instance of DebugInstr2
+static bool isDebugInstr2(InstrKind k);
+
 /// true if given InstrKind is instance of CallStmt2
 static bool isCallStmt2(InstrKind k);
 
@@ -76,6 +79,9 @@ static bool isNaryStmt2(InstrKind k);
 
 /// true if given InstrKind is instance of BinaryStmt
 static bool isBinaryStmt(InstrKind k);
+
+/// true if given InstrKind is instance of GetlocalStmt
+static bool isGetlocalStmt(InstrKind k);
 
 /// true if given InstrKind is instance of Hasnext2Stmt
 static bool isHasnext2Stmt(InstrKind k);

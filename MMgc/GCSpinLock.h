@@ -26,7 +26,7 @@ namespace MMgc
         REALLY_INLINE explicit GCAcquireSpinlock(vmpi_spin_lock_t *spinlock) :
             m_spinlock(spinlock)
         {
-        #ifdef _DEBUG
+        #ifdef GCDEBUG
             bool r =
         #endif
             VMPI_lockAcquire(m_spinlock);
@@ -36,7 +36,7 @@ namespace MMgc
 
         REALLY_INLINE ~GCAcquireSpinlock()
         {
-        #ifdef _DEBUG
+        #ifdef GCDEBUG
             bool r =
         #endif
             VMPI_lockRelease(m_spinlock);

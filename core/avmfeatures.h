@@ -6,9 +6,11 @@
 //  If you feel you need to make changes below, instead edit the configuration
 //  file and rerun it to get a new version of this file.
 //
-//  This Source Code Form is subject to the terms of the Mozilla Public
-//  License, v. 2.0. If a copy of the MPL was not distributed with this
-//  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+///*
+//*  This Source Code Form is subject to the terms of the Mozilla Public
+//*  License, v. 2.0. If a copy of the MPL was not distributed with this
+//*  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//*/
 #undef VMCFG_32BIT
 #undef VMCFG_64BIT
 #undef MMGC_64BIT
@@ -62,6 +64,9 @@
 #undef VMCFG_AOT
 #undef VMCFG_AOTSHELL
 #undef VMCFG_CDECL
+#undef VMCFG_HALFMOON_AOT_RUNTIME
+#undef VMCFG_HALFMOON_AOT_COMPILER
+#undef AVMPLUS_VERBOSE
 #undef VMCFG_BUFFER_GUARD
 #undef VMCFG_MACH_EXCEPTIONS
 #undef VMCFG_INTERPRETER
@@ -457,10 +462,28 @@
 
 /* AVMFEATURE_AOT
  *
- * Enables the ahead-of-time compiler.
+ * Enables runtime libraries for the ahead-of-time sdk.
  */
 #if !defined AVMFEATURE_AOT || AVMFEATURE_AOT != 0 && AVMFEATURE_AOT != 1
 #  error "AVMFEATURE_AOT must be defined and 0 or 1 (only)."
+#endif
+
+
+/* AVMFEATURE_HALFMOON_AOT_RUNTIME
+ *
+ * Enables Halfmoon runtime libraries for the ahead-of-time sdk.
+ */
+#if !defined AVMFEATURE_HALFMOON_AOT_RUNTIME || AVMFEATURE_HALFMOON_AOT_RUNTIME != 0 && AVMFEATURE_HALFMOON_AOT_RUNTIME != 1
+#   define AVMFEATURE_HALFMOON_AOT_RUNTIME 0
+#endif
+
+
+/* AVMFEATURE_HALFMOON_AOT_COMPILER
+ *
+ * Enables Halfmoon-based ahead-of-time compiler.
+ */
+#if !defined AVMFEATURE_HALFMOON_AOT_COMPILER || AVMFEATURE_HALFMOON_AOT_COMPILER != 0 && AVMFEATURE_HALFMOON_AOT_COMPILER != 1
+#   define AVMFEATURE_HALFMOON_AOT_COMPILER 0
 #endif
 
 
@@ -885,11 +908,7 @@
 #    error "AVMSYSTEM_64BIT is required for AVMSYSTEM_AMD64"
 #  endif
 #endif
-#if AVMSYSTEM_ARM
-#  if AVMSYSTEM_64BIT
-#    error "AVMSYSTEM_64BIT is precluded for AVMSYSTEM_ARM"
-#  endif
-#endif
+
 
 #if AVMSYSTEM_SPARC
 #  if AVMSYSTEM_64BIT
@@ -959,10 +978,23 @@
 #  endif
 #endif
 #if AVMFEATURE_AOT
-#if AVMSYSTEM_IA32+AVMSYSTEM_ARM != 1
-#  error "Exactly one of AVMSYSTEM_IA32,AVMSYSTEM_ARM must be defined."
+#if AVMSYSTEM_IA32+AVMSYSTEM_ARM+AVMSYSTEM_AMD64 != 1
+#  error "Exactly one of AVMSYSTEM_AMD64, AVMSYSTEM_IA32,AVMSYSTEM_ARM must be defined."
 #endif
 
+#endif
+#if AVMFEATURE_HALFMOON_AOT_RUNTIME
+#  if !AVMFEATURE_AOT
+#    error "AVMFEATURE_AOT is required for AVMFEATURE_HALFMOON_AOT_RUNTIME"
+#  endif
+#endif
+#if AVMFEATURE_HALFMOON_AOT_COMPILER
+#  if !AVMFEATURE_HALFMOON
+#    error "AVMFEATURE_HALFMOON is required for AVMFEATURE_HALFMOON_AOT_COMPILER"
+#  endif
+#  if !AVMFEATURE_JIT
+#    error "AVMFEATURE_JIT is required for AVMFEATURE_HALFMOON_AOT_COMPILER"
+#  endif
 #endif
 #if AVMFEATURE_BUFFER_GUARD
 #if AVMFEATURE_AOT != 1
@@ -1061,6 +1093,12 @@
 
 #if AVMSYSTEM_IA32+AVMSYSTEM_AMD64+AVMSYSTEM_ARM+AVMSYSTEM_PPC+AVMSYSTEM_SPARC+AVMSYSTEM_MIPS+AVMSYSTEM_SH4 > 1
 #  error "At most one of AVMSYSTEM_IA32,AVMSYSTEM_AMD64,AVMSYSTEM_ARM,AVMSYSTEM_PPC,AVMSYSTEM_SPARC,AVMSYSTEM_MIPS,AVMSYSTEM_SH4 must be defined."
+#endif
+#if AVMFEATURE_HALFMOON_AOT_COMPILER+AVMFEATURE_AOT > 1
+#  error "At most one of AVMFEATURE_HALFMOON_AOT_COMPILER,AVMFEATURE_AOT must be defined."
+#endif
+#if AVMFEATURE_HALFMOON_AOT_COMPILER+AVMFEATURE_HALFMOON_AOT_RUNTIME > 1
+#  error "At most one of AVMFEATURE_HALFMOON_AOT_COMPILER,AVMFEATURE_HALFMOON_AOT_RUNTIME must be defined."
 #endif
 #if AVMFEATURE_WORDCODE_INTERP+AVMFEATURE_ABC_INTERP > 1
 #  error "At most one of AVMFEATURE_WORDCODE_INTERP,AVMFEATURE_ABC_INTERP must be defined."
@@ -1178,7 +1216,7 @@
 #if AVMSYSTEM_MAC
 #  define AVMPLUS_MAC
 #endif
-#if AVMSYSTEM_MAC
+#if AVMSYSTEM_MAC || AVMTWEAK_PEPPER_MAC
 #  define MMGC_MAC
 #endif
 #if AVMSYSTEM_WIN32
@@ -1243,6 +1281,18 @@
 #endif
 #if AVMFEATURE_AOT
 #  define VMCFG_CDECL
+#endif
+#if AVMFEATURE_HALFMOON_AOT_RUNTIME
+#  define VMCFG_HALFMOON_AOT_RUNTIME
+#endif
+#if AVMFEATURE_HALFMOON_AOT_RUNTIME
+#  define AVMPLUS_VERBOSE
+#endif
+#if AVMFEATURE_HALFMOON_AOT_COMPILER
+#  define VMCFG_HALFMOON_AOT_COMPILER
+#endif
+#if AVMFEATURE_HALFMOON_AOT_COMPILER
+#  define AVMPLUS_VERBOSE
 #endif
 #if AVMFEATURE_BUFFER_GUARD
 #  define VMCFG_BUFFER_GUARD

@@ -65,12 +65,17 @@ const int kBufferPadding = 16;
     // it cannot go in CodegenLIR.h to avoid a dependency cycle.
     struct JitConfig
     {
-        // Generate inline fastpaths, introducing new control flow.
+        // Generate inline fastpaths for arithmetic and conversions, introducing new control flow.
         // Distinct from non-speculative inlining and specialization.
         bool opt_inline;
+        // Generate speculative fastpath for read of a simple array.
+        // NOTE: Default is false, as this does not appear to be profitable when smash protection checks are included.
+		bool opt_array_read_fastpath;
+        // Generate vector element access inline for integral index type.
+		bool opt_inline_vector_access;
 
         // Initialize with default options.
-        JitConfig() : opt_inline(true) {}
+        JitConfig() : opt_inline(true), opt_array_read_fastpath(false), opt_inline_vector_access(true) {}
     };
 #endif
 
@@ -81,7 +86,6 @@ const int kBufferPadding = 16;
         nanojit::Config njconfig;
         // options for CodegenLIR
         JitConfig jitconfig;
-
     #endif
         /**
          * The verbose flag may be set to display each bytecode
@@ -321,6 +325,15 @@ const int kBufferPadding = 16;
             kSWF20,             // SWF20 (Flash Player 11.7 Geary)
             kSWF21,             // SWF21 (Flash Player 11.8 Harrison)
             kSWF22,             // SWF22 (Flash Player 11.9 Irving)
+			kSWF23,             // SWF23 (Flash Player 12.0 Jones)
+			kSWF24,             // SWF24 (Flash Player 13.0 King)
+			kSWF25,             // SWF25 (Flash Player 14.0 Lombard)
+			kSWF26,             // SWF26 (Flash Player 15.0 Market)
+			kSWF27,             // SWF27 (Flash Player 16.0 Noe)
+			kSWF28,             // SWF28 (Flash Player 17.0 Octavia)
+			kSWF29,             // SWF29 (Flash Player 18.0 Presidio)
+			kSWF30,             // SWF30 (Flash Player 19.0 Quint)
+//ADD_PREVIOUS_VERSIONED_LINE_WITH_FPINFO
 
             VersionCount,
 
@@ -721,7 +734,7 @@ const int kBufferPadding = 16;
          * The GC used by this AVM instance
          */
         MMgc::GC * const gc;
-
+		
 #ifdef _DEBUG
         // Only the thread used to create the AvmCore is allowed to modify currentMethodFrame (and thus, use EnterCodeContext).
         // We don't enforce this in Release builds, but check for it and assert in Debug builds.
@@ -965,6 +978,12 @@ const int kBufferPadding = 16;
         virtual void tryHook();
 #endif
         virtual void catchHook(CatchAction action);
+        
+    protected:
+        virtual BaseExecMgr* createExecMgr()
+        {
+            return new (gc) BaseExecMgr(this);
+        }
 
 #ifdef DEBUGGER
     public:
@@ -1569,6 +1588,15 @@ const int kBufferPadding = 16;
          * to type string using the ECMAScript coercion rules.
          */
         Stringp string(Atom atom);
+
+		/**
+         * Returns the passed atom's string representation.
+         * string(..) coerces to type string if the passed atom
+		 * is not a string but safeString(..) bypasses the coercion
+		 * if the atom is a ScriptObject to prevent corruption at the 
+		 * actionscript level using toString, valueOf, etc. 
+         */
+		Stringp safeString(Atom atom);
 
         Stringp coerce_s(Atom atom);
 

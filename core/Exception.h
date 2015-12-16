@@ -7,7 +7,7 @@
 #ifndef __avmplus_Exception__
 #define __avmplus_Exception__
 
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
     extern "C" void llvm_unwind();
 #endif
 
@@ -172,7 +172,7 @@ namespace avmplus
         }
         ~ExceptionFrame() { endTry(); }
         void beginTry(AvmCore* core);
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
         void beginLlvmUnwindTry(AvmCore* core);
 #endif
         void endTry();
@@ -194,7 +194,7 @@ namespace avmplus
         CallStackNode*      callStack;
 #endif /* DEBUGGER */
         CatchAction         catchAction;
-#ifdef VMCFG_AOT
+#if defined(VMCFG_AOT) && !defined(VMCFG_HALFMOON_AOT_RUNTIME)
         int                 llvmUnwindStyle;
 #endif
     // ------------------------ DATA SECTION END

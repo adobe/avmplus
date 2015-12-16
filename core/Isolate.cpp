@@ -471,18 +471,21 @@ throw_terminated_error:
             {
                 GCRef<ByteArrayObject> ba = toplevel->byteArrayClass()->constructByteArray();
                 ba->writeObject(value);
+                // FIXME: The ByteArray::Buffer class should be opaque outside of the ByteArray class.
+                // FIXME: The code below is essentially duplicated from ByteArrayObject::makeChannelItem().
 		        ByteArray::Buffer* buffer = ba->GetByteArray().getUnderlyingBuffer();
 			    ByteArray::Buffer* copy = mmfx_new(ByteArray::Buffer);
 			    copy->capacity = buffer->capacity;
 			    copy->length = buffer->length;
 			    if (buffer->array) {
-				    copy->array = mmfx_new_array_opt(uint8_t, buffer->capacity, MMgc::kCanFailAndZero);
+				    copy->array = ByteArrayBuffer_alloc_CanFailAndZero(buffer->capacity);
                     if (copy->array) {
 				        VMPI_memcpy(copy->array, buffer->array, buffer->length);
                     }
 			    } else {
 				    copy->array = NULL;
 			    }
+                copy->copyOnWrite = false;
                 m_value = copy;
             }
 
@@ -903,7 +906,7 @@ throw_terminated_error:
             // in progress wait until it is completed and then
             // start a new one.
             while (m_signaledWaiters > 0) {
-                cond.wait(0);
+                cond.wait(1);
             }
             
             if (m_waiterCount > 0) {
@@ -1119,6 +1122,7 @@ throw_terminated_error:
 		{
 			m_safepointMgr->leave(&m_spRecord);
 			m_spRecord.setLocationAndDesc( NULL, Isolate::INVALID_DESC );
+			m_safepointMgr = NULL; // make it safe to leaveSafepoint() more than once.
 		}
     }
 

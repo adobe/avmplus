@@ -32,6 +32,11 @@ namespace avmshell {
         return internalStop();
     }
 
+    void ShellWorkerObject::start()
+    {
+        return internalStart();
+    }
+    
     ShellWorkerClass::ShellWorkerClass(avmplus::VTable *cvtable)
         : avmplus::ClassClosure(cvtable)
     {
@@ -52,6 +57,11 @@ namespace avmshell {
     {
         printf("%s\n", avmplus::StUTF8String(core()->internString(s)).c_str());
         fflush(stdout);
+    }
+    
+    avmplus::String* ShellWorkerObject::internalGetState()
+    {
+        return this->get_state();
     }
     
     ShellWorkerObject* ShellWorkerClass::getCurrentWorker()

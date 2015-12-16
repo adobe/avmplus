@@ -8,6 +8,12 @@
 #define __avmplus_PoolObject__
 
 
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+namespace compile_abc {
+    class PoolInfo;   // Things the AOT compiler tracks about this pool
+}
+#endif
+
 namespace avmplus
 {
 #ifdef VMCFG_NANOJIT
@@ -87,6 +93,7 @@ namespace avmplus
         friend class AbcParser;
         friend class ConstantStringContainer;
         friend class DomainMgr;
+        friend class halfmoon::JitFriend;
 
         PoolObject(AvmCore* core, ScriptBuffer& sb, const uint8_t* startpos, ApiVersion apiVersion);
 
@@ -273,6 +280,10 @@ namespace avmplus
     #endif
 
     GC_DATA_END(PoolObject)
+        
+    #ifdef VMCFG_HALFMOON_AOT_COMPILER
+        compile_abc::PoolInfo* poolInfo;   // Things the AOT compiler tracks about this pool
+    #endif
     // ------------------------ DATA SECTION END
     };
 }

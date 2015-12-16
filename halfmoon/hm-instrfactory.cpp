@@ -34,7 +34,7 @@ InstrGraph* InstrFactory::buildTemplate(InstrKind kind) {
 #include "generated/InstrFactory_buildTemplate_cases.hh"
 
   default: {
-    assert(false && "unknown opcode");
+    AvmAssert(false && "unknown opcode");
     return NULL;
   }
   }
@@ -56,10 +56,11 @@ InstrInfo* InfoManager::get(InstrKind kind, InstrFactory* factory) {
   InfoKey key = { kind, 0 };
   InstrInfo* info = instr_infos_.get(key);
   if (!info) {
-    InstrGraph* ir = factory->hasTemplate(kind) ?
-        factory->buildTemplate(kind) : NULL;
-    const Type** insig = factory->buildInputSignature(kind);
-    const Type** outsig = factory->buildOutputSignature(kind);
+    InstrFactory newfactory(alloc_, &factory->lattice(), &factory->infoManager());
+    InstrGraph* ir = newfactory.hasTemplate(kind) ?
+        newfactory.buildTemplate(kind) : NULL;
+    const Type** insig = newfactory.buildInputSignature(kind);
+    const Type** outsig = newfactory.buildOutputSignature(kind);
     info = new (alloc_)
         InstrInfo(INSTR::createInfo(kind, insig, outsig, ir));
     instr_infos_.put(key, info);
@@ -78,10 +79,11 @@ InstrInfo* InfoManager::get(InstrKind kind, int argc, InstrFactory* factory) {
   InfoKey key = { kind, argc };
   InstrInfo* info = (InstrInfo*) instr_infos_.get(key);
   if (!info) {
-    InstrGraph* ir = factory->hasTemplate(kind) ?
-        factory->buildTemplate(kind) : NULL;
-    const Type** insig = factory->buildInputSignature(kind);
-    const Type** outsig = factory->buildOutputSignature(kind);
+    InstrFactory newfactory(alloc_, &factory->lattice(), &factory->infoManager());
+    InstrGraph* ir = newfactory.hasTemplate(kind) ?
+        newfactory.buildTemplate(kind) : NULL;
+    const Type** insig = newfactory.buildInputSignature(kind);
+    const Type** outsig = newfactory.buildOutputSignature(kind);
     info = new (alloc_)
         InstrInfo(INSTR::createInfo(kind, argc, insig, outsig, ir));
     instr_infos_.put(key, info);
@@ -118,7 +120,7 @@ const Type** InstrFactory::copySig(const Type* t) {
 ///
 NaryStmt0* InstrFactory::newNaryStmt0(InstrKind kind, Def* effect, int argc,
                                     Def* args[]) {
-  assert(isNaryStmt0(kind) && "invalid opcode for n-ary statement");
+  AvmAssert(isNaryStmt0(kind) && "invalid opcode for n-ary statement");
   InstrInfo* info = infos_.get<NaryStmt0>(kind, argc, this);
   NaryStmt0* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt0(info);
   // placement new to initialize uses.
@@ -134,8 +136,8 @@ NaryStmt0* InstrFactory::newNaryStmt0(InstrKind kind, Def* effect, int argc,
 /// Convert an instruction to the specified kind of nary statement.
 ///
 NaryStmt0* InstrFactory::toNaryStmt0(InstrKind k, Instr* instr) {
-  assert(isNaryStmt0(kind(instr)) && "unsupported source opcode for statement conversion");
-  assert(isNaryStmt0(k) && "invalid target opcode for statement conversion");
+  AvmAssert(isNaryStmt0(kind(instr)) && "unsupported source opcode for statement conversion");
+  AvmAssert(isNaryStmt0(k) && "invalid target opcode for statement conversion");
   NaryStmt0* stmt = cast<NaryStmt0>(instr);
   stmt->info = infos_.get<NaryStmt0>(k, stmt->arg_count(), this);
   return stmt;
@@ -145,7 +147,7 @@ NaryStmt0* InstrFactory::toNaryStmt0(InstrKind k, Instr* instr) {
 ///
 NaryStmt1* InstrFactory::newNaryStmt1(InstrKind kind, Def* effect, Def* param,
                                       int argc, Def* args[]) {
-  assert(isNaryStmt1(kind) && "invalid opcode for n-ary statement");
+  AvmAssert(isNaryStmt1(kind) && "invalid opcode for n-ary statement");
   InstrInfo* info = infos_.get<NaryStmt1>(kind, argc, this);
   NaryStmt1* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt1(info);
   // placement new to initialize uses.
@@ -163,7 +165,7 @@ NaryStmt1* InstrFactory::newNaryStmt1(InstrKind kind, Def* effect, Def* param,
 ///
 NaryStmt2* InstrFactory::newNaryStmt2(InstrKind kind, Def* effect, Def* param1,
                                       Def* param2, int varargc, Def* varargs[]) {
-  assert(isNaryStmt2(kind) && "invalid opcode");
+  AvmAssert(isNaryStmt2(kind) && "invalid opcode");
   InstrInfo* info = infos_.get<NaryStmt2>(kind, varargc, this);
   NaryStmt2* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt2(info);
   // placement new to initialize Uses
@@ -183,7 +185,7 @@ NaryStmt2* InstrFactory::newNaryStmt2(InstrKind kind, Def* effect, Def* param1,
 NaryStmt3* InstrFactory::newNaryStmt3(InstrKind kind, Def* effect, Def* param1,
                                       Def* param2, Def* param3, int varargc,
                                       Def* varargs[]) {
-  assert(isNaryStmt3(kind) && "invalid opcode");
+  AvmAssert(isNaryStmt3(kind) && "invalid opcode");
   InstrInfo* info = infos_.get<NaryStmt3>(kind, varargc, this);
   NaryStmt3* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt3(info);
   // placement new to initialize Uses
@@ -204,7 +206,7 @@ NaryStmt3* InstrFactory::newNaryStmt3(InstrKind kind, Def* effect, Def* param1,
 NaryStmt4* InstrFactory::newNaryStmt4(InstrKind kind, Def* effect, Def* param1,
                                       Def* param2, Def* param3, Def* param4,
                                       int varargc, Def* varargs[]) {
-  assert(isNaryStmt4(kind) && "invalid opcode");
+  AvmAssert(isNaryStmt4(kind) && "invalid opcode");
   InstrInfo* info = infos_.get<NaryStmt4>(kind, varargc, this);
   NaryStmt4* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt4(info);
   // placement new to initialize Uses
@@ -226,7 +228,7 @@ NaryStmt4* InstrFactory::newNaryStmt4(InstrKind kind, Def* effect, Def* param1,
 NaryStmt4* InstrFactory::newNaryStmt4(InstrKind kind, Def* effect, Def* param1,
                                       Def* param2, Def* param3, Def* param4, Def* param5,
                                       int varargc, Def* varargs[]) {
-  assert(isNaryStmt4(kind) && "invalid opcode");
+  AvmAssert(isNaryStmt4(kind) && "invalid opcode");
   varargc++;
   InstrInfo* info = infos_.get<NaryStmt4>(kind, varargc, this);
   NaryStmt4* stmt = new (alloc_, info->num_uses, sizeof(Use)) NaryStmt4(info);
@@ -250,7 +252,7 @@ NaryStmt4* InstrFactory::newNaryStmt4(InstrKind kind, Def* effect, Def* param1,
 ///
 CallStmt2* InstrFactory::createCallStmt2(InstrKind kind, Def* effect, Def* param,
                                          Def* obj, int varargc) {
-  assert(isCallStmt2(kind) && "invalid opcode for call statement");
+  AvmAssert(isCallStmt2(kind) && "invalid opcode for call statement");
   InstrInfo* info = infos_.get<CallStmt2>(kind, varargc, this);
   CallStmt2* call = new (alloc_, info->num_uses, sizeof(Use)) CallStmt2(info);
   // placement new to initialize Uses
@@ -295,8 +297,8 @@ CallStmt2* InstrFactory::newCallStmt2(InstrKind kind, Def* effect, Def* param,
 /// Convert an instruction to the specified kind of call statement.
 ///
 CallStmt2* InstrFactory::toCallStmt2(InstrKind k, Instr* instr) {
-  assert(isCallStmt2(kind(instr)) && "invalid source opcode for conversion");
-  assert(isCallStmt2(k) && "invalid target opcode for conversion");
+  AvmAssert(isCallStmt2(kind(instr)) && "invalid source opcode for conversion");
+  AvmAssert(isCallStmt2(k) && "invalid target opcode for conversion");
   CallStmt2* stmt = cast<CallStmt2>(instr);
   stmt->info = infos_.get<CallStmt2>(k, stmt->vararg_count(), this);
   return stmt;
@@ -307,7 +309,7 @@ CallStmt2* InstrFactory::toCallStmt2(InstrKind k, Instr* instr) {
 ///
 CallStmt3* InstrFactory::createCallStmt3(InstrKind kind, Def* effect, Def* param,
                                       Def* index, Def* obj, int varargc) {
-  assert(isCallStmt3(kind) && "invalid opcode for call statement");
+  AvmAssert(isCallStmt3(kind) && "invalid opcode for call statement");
   InstrInfo* info = infos_.get<CallStmt3>(kind, varargc, this);
   CallStmt3* call = new (alloc_, info->num_uses, sizeof(Use)) CallStmt3(info);
   // placement new to initialize Uses
@@ -346,8 +348,8 @@ CallStmt3* InstrFactory::newCallStmt3(InstrKind kind, Def* effect, Def* param,
 /// Convert an instruction to the specified kind of call statement.
 ///
 CallStmt3* InstrFactory::toCallStmt3(InstrKind k, Instr* instr) {
-  assert(isCallStmt3(kind(instr)) && "invalid source opcode for conversion");
-  assert(isCallStmt3(k) && "invalid target opcode for conversion");
+  AvmAssert(isCallStmt3(kind(instr)) && "invalid source opcode for conversion");
+  AvmAssert(isCallStmt3(k) && "invalid target opcode for conversion");
   CallStmt3* stmt = cast<CallStmt3>(instr);
   stmt->info = infos_.get<CallStmt3>(k, stmt->vararg_count(), this);
   return stmt;
@@ -358,7 +360,7 @@ CallStmt3* InstrFactory::toCallStmt3(InstrKind k, Instr* instr) {
 CallStmt4* InstrFactory::newCallStmt4(InstrKind kind, Def* effect, Def* param,
                                       Def* ns, Def* index, Def* obj,
                                       int varargc, Def* varargs[]) {
-  assert(isCallStmt4(kind) && "invalid opcode for call statement 4");
+  AvmAssert(isCallStmt4(kind) && "invalid opcode for call statement 4");
   InstrInfo* info = infos_.get<CallStmt4>(kind, varargc, this);
   CallStmt4* call = new (alloc_, info->num_uses, sizeof(Use)) CallStmt4(info);
   // placement new to initialize Uses
@@ -379,7 +381,7 @@ CallStmt4* InstrFactory::newCallStmt4(InstrKind kind, Def* effect, Def* param,
 /// and output type
 ///
 ConstantExpr* InstrFactory::newConstantExpr(InstrKind kind, const Type* type) {
-  assert(isConstantExpr(kind) && "invalid opcode for constant expr");
+  AvmAssert(isConstantExpr(kind) && "invalid opcode for constant expr");
   ConstantExpr* expr = new (alloc_)
       ConstantExpr(infos_.get<ConstantExpr>(kind, this));
   new (expr->value()) Def(expr, type);
@@ -389,7 +391,7 @@ ConstantExpr* InstrFactory::newConstantExpr(InstrKind kind, const Type* type) {
 /// creates new instance of UnaryExpr with given args
 ///
 UnaryExpr* InstrFactory::newUnaryExpr(InstrKind k, Def* val) {
-  assert(isUnaryExpr(k) && "invalid opcode for UnaryExpr");
+  AvmAssert(isUnaryExpr(k) && "invalid opcode for UnaryExpr");
   UnaryExpr* instr = new (alloc_) UnaryExpr(infos_.get<UnaryExpr>(k, this));
   new (&instr->value_in()) Use(instr, val);
   new (instr->value_out()) Def(instr);
@@ -399,8 +401,8 @@ UnaryExpr* InstrFactory::newUnaryExpr(InstrKind k, Def* val) {
 /// performs in-place InstrKind conversion on instance of UnaryExpr
 ///
 UnaryExpr* InstrFactory::toUnaryExpr(InstrKind k, Instr* instr) {
-  assert(isUnaryExpr(kind(instr)) && "invalid source opcode for UnaryExpr conversion");
-  assert(isUnaryExpr(k) && "invalid target opcode for UnaryExpr conversion");
+  AvmAssert(isUnaryExpr(kind(instr)) && "invalid source opcode for UnaryExpr conversion");
+  AvmAssert(isUnaryExpr(k) && "invalid target opcode for UnaryExpr conversion");
   UnaryExpr* cvt = (UnaryExpr*)instr;
   cvt->info = infos_.get<UnaryExpr>(k, this);
   return cvt;
@@ -409,7 +411,7 @@ UnaryExpr* InstrFactory::toUnaryExpr(InstrKind k, Instr* instr) {
 /// creates new instance of BinaryExpr with given args
 ///
 BinaryExpr* InstrFactory::newBinaryExpr(InstrKind k, Def* lhs, Def* rhs) {
-  assert(isBinaryExpr(k) && "invalid opcode for BinaryExpr");
+  AvmAssert(isBinaryExpr(k) && "invalid opcode for BinaryExpr");
   BinaryExpr* instr = new (alloc_) BinaryExpr(infos_.get<BinaryExpr>(k, this));
   new (&instr->lhs_in()) Use(instr, lhs);
   new (&instr->rhs_in()) Use(instr, rhs);
@@ -420,8 +422,8 @@ BinaryExpr* InstrFactory::newBinaryExpr(InstrKind k, Def* lhs, Def* rhs) {
 /// performs in-place InstrKind conversion on instance of BinaryExpr
 ///
 BinaryExpr* InstrFactory::toBinaryExpr(InstrKind k, Instr* instr) {
-  assert(isBinaryExpr(kind(instr)) && "invalid source opcode for BinaryExpr conversion");
-  assert(isBinaryExpr(k) && "invalid target opcode for BinaryExpr conversion");
+  AvmAssert(isBinaryExpr(kind(instr)) && "invalid source opcode for BinaryExpr conversion");
+  AvmAssert(isBinaryExpr(k) && "invalid target opcode for BinaryExpr conversion");
   BinaryExpr* cvt = (BinaryExpr*)instr;
   cvt->info = infos_.get<BinaryExpr>(k, this);
   return cvt;
@@ -430,7 +432,7 @@ BinaryExpr* InstrFactory::toBinaryExpr(InstrKind k, Instr* instr) {
 /// creates new instance of UnaryStmt with given args
 ///
 UnaryStmt* InstrFactory::newUnaryStmt(InstrKind k, Def* effect, Def* val) {
-  assert(isUnaryStmt(k) && "invalid opcode for UnaryStmt");
+  AvmAssert(isUnaryStmt(k) && "invalid opcode for UnaryStmt");
   UnaryStmt* instr = new (alloc_) UnaryStmt(infos_.get<UnaryStmt>(k, this));
   new (&instr->effect_in()) Use(instr, effect);
   new (&instr->value_in()) Use(instr, val);
@@ -442,8 +444,8 @@ UnaryStmt* InstrFactory::newUnaryStmt(InstrKind k, Def* effect, Def* val) {
 /// performs in-place InstrKind conversion on instance of UnaryStmt
 ///
 UnaryStmt* InstrFactory::toUnaryStmt(InstrKind k, Instr* instr) {
-  assert(isUnaryStmt(kind(instr)) && "invalid source opcode for UnaryStmt conversion");
-  assert(isUnaryStmt(k) && "invalid target opcode for UnaryStmt conversion");
+  AvmAssert(isUnaryStmt(kind(instr)) && "invalid source opcode for UnaryStmt conversion");
+  AvmAssert(isUnaryStmt(k) && "invalid target opcode for UnaryStmt conversion");
   UnaryStmt* cvt = (UnaryStmt*)instr;
   cvt->info = infos_.get<UnaryStmt>(k, this);
   return cvt;
@@ -452,7 +454,7 @@ UnaryStmt* InstrFactory::toUnaryStmt(InstrKind k, Instr* instr) {
 /// creates new instance of BinaryStmt with given args
 ///
 BinaryStmt* InstrFactory::newBinaryStmt(InstrKind k, Def* effect, Def* lhs, Def* rhs) {
-  assert(isBinaryStmt(k) && "invalid opcode for BinaryStmt");
+  AvmAssert(isBinaryStmt(k) && "invalid opcode for BinaryStmt");
   BinaryStmt* instr = new (alloc_) BinaryStmt(infos_.get<BinaryStmt>(k, this));
   new (&instr->effect_in()) Use(instr, effect);
   new (&instr->lhs_in()) Use(instr, lhs);
@@ -465,8 +467,8 @@ BinaryStmt* InstrFactory::newBinaryStmt(InstrKind k, Def* effect, Def* lhs, Def*
 /// performs in-place InstrKind conversion on instance of BinaryStmt
 ///
 BinaryStmt* InstrFactory::toBinaryStmt(InstrKind k, Instr* instr) {
-  assert(isBinaryStmt(kind(instr)) && "invalid source opcode for BinaryStmt conversion");
-  assert(isBinaryStmt(k) && "invalid target opcode for BinaryStmt conversion");
+  AvmAssert(isBinaryStmt(kind(instr)) && "invalid source opcode for BinaryStmt conversion");
+  AvmAssert(isBinaryStmt(k) && "invalid target opcode for BinaryStmt conversion");
   BinaryStmt* cvt = (BinaryStmt*)instr;
   cvt->info = infos_.get<BinaryStmt>(k, this);
   return cvt;
@@ -641,7 +643,7 @@ SwitchInstr* InstrFactory::newSwitchInstr(Def* sel, int num_cases, int argc,
 /// create a VoidStmt with the given effect input.
 ///
 VoidStmt* InstrFactory::newVoidStmt(InstrKind kind, Def* pred) {
-  assert(isVoidStmt(kind));
+  AvmAssert(isVoidStmt(kind));
   VoidStmt* block = new (alloc_) VoidStmt(infos_.get<VoidStmt>(kind, this));
   new (&block->effect_in()) Use(block, pred);
   new (block->effect_out()) Def(block);
@@ -654,7 +656,7 @@ VoidStmt* InstrFactory::newVoidStmt(InstrKind kind, Def* pred) {
 /// then to a label, because in the mean time we lose track of goto's arity.
 ///
 void initGotoTarget(GotoInstr* G, LabelInstr* to) {
-  assert(!G->target && to);
+  AvmAssert(!G->target && to);
   G->target = to;
   GotoInstr* N = to->preds;
   if (!N) {
@@ -699,7 +701,7 @@ LabelInstr* InstrFactory::newLabelInstr(int paramc) {
 /// but leave arg array uninitialized
 ///
 StopInstr* InstrFactory::createStopInstr(InstrKind k, int argc) {
-  assert(isStopInstr(k) && "invalid opcode for StopInstr");
+  AvmAssert(isStopInstr(k) && "invalid opcode for StopInstr");
   return new (alloc_) StopInstr(infos_.get<StopInstr>(k, this), argc,
                                 new (alloc_) Use[argc]);
 }
@@ -717,7 +719,7 @@ StopInstr* InstrFactory::newStopInstr(InstrKind k, Def* effect, Def* data) {
 ///
 StopInstr* InstrFactory::newStopInstr(InstrKind k, Def* effect,
                                       int data_argc, Def* data_args[]) {
-  assert(isStopInstr(k) && "invalid opcode for StopInstr");
+  AvmAssert(isStopInstr(k) && "invalid opcode for StopInstr");
   int argc = data_argc + 1;
   StopInstr* stop = createStopInstr(k, argc);
   new (&stop->args[0]) Use(stop, effect);
@@ -754,6 +756,22 @@ SetlocalInstr* InstrFactory::newSetlocalInstr(int index, Def* state, Def* val) {
   // placement new to initialize defs
   new (setlocal->state_out()) Def(setlocal);
   return setlocal;
+}
+    
+/// create a new getlocal statament with the given tuple index,
+/// state tuple, and value to set
+///
+GetlocalStmt* InstrFactory::newGetlocalStmt(int index, Def* effect, Def* state, Def* val) {
+  GetlocalStmt* stmt = new (alloc_)
+      GetlocalStmt(infos_.get<GetlocalStmt>(HR_getlocal, this), index);
+  // placement new to initialize uses
+  new (&stmt->effect_in()) Use(stmt, effect);
+  new (&stmt->state_in()) Use(stmt, state);
+  new (&stmt->value_in()) Use(stmt, val);
+  // placement new to initialize defs
+  new (stmt->effect_out()) Def(stmt);
+  new (stmt->value_out()) Def(stmt);
+  return stmt;
 }
 
 /// Create a new new-style safepoint statement with the given inputs.
@@ -802,6 +820,18 @@ DebugInstr* InstrFactory::newDebugInstr(InstrKind kind, Def* effect, Def* val) {
   // placement new to initialize uses
   new (&debuginstr->effect_in()) Use(debuginstr, effect);
   new (&debuginstr->value_in()) Use(debuginstr, val);
+  // placement new to initialize defs
+  new (debuginstr->effect_out()) Def(debuginstr);
+  return debuginstr;
+}
+    
+DebugInstr2* InstrFactory::newDebugInstr2(InstrKind kind, Def* effect, Def* val1, Def* val2) {
+  DebugInstr2* debuginstr = new (alloc_)
+      DebugInstr2(infos_.get<DebugInstr2>(kind, this));
+  // placement new to initialize uses
+  new (&debuginstr->effect_in()) Use(debuginstr, effect);
+  new (&debuginstr->uses[1]) Use(debuginstr, val1);
+  new (&debuginstr->uses[2]) Use(debuginstr, val2);
   // placement new to initialize defs
   new (debuginstr->effect_out()) Def(debuginstr);
   return debuginstr;
@@ -970,7 +1000,7 @@ void Copier::copyArm(ArmInstr* oldarm, ArmInstr* newarm) {
 }
 
 Instr* Copier::do_default(Instr* /*instr*/) {
-  assert(false && "InstrShape not supported");
+  AvmAssert(false && "InstrShape not supported");
   return 0;
 }
 
@@ -988,7 +1018,7 @@ Instr* Copier::do_ArmInstr(ArmInstr* i) {
   ArmInstr* a = new (to_alloc_) ArmInstr(i->info);
   a->arm_pos = i->arm_pos;
   a->owner = i->owner;
-  assert(false && "If owner can be a shallow copy, then remove this assert, otherwise fix this method!!!");
+  AvmAssert(false && "If owner can be a shallow copy, then remove this AvmAssert, otherwise fix this method!!!");
   return a;
 }
 
@@ -1066,6 +1096,10 @@ Instr* Copier::do_LabelInstr(LabelInstr* label) {
 
 Instr* Copier::do_SetlocalInstr(SetlocalInstr* oldset) {
   return new (to_alloc_) SetlocalInstr(oldset->info, oldset->index);
+}
+
+Instr* Copier::do_GetlocalStmt(GetlocalStmt* oldset) {
+  return new (to_alloc_) GetlocalStmt(oldset->info, oldset->index);
 }
 
 } // namespace halfmoon

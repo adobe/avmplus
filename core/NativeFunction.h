@@ -134,6 +134,15 @@ namespace avmplus
         AvmThunkNativeMethodHandler method;
         AvmThunkNativeFunctionHandler function;
     };
+
+    // Allows casts between pointers to methods and pointers to functions, or 
+    // casts between pointers to methods from different types, so long as the 
+    // pointer size is the same.
+    template<typename TO, typename FROM> TO force_cast(FROM from) {
+      typedef int checkSameSize[sizeof(TO)>=sizeof(FROM) ? 1 : -1]; // simple static assert
+      union { FROM from; TO to; } u = { from };
+      return u.to;
+    }
 #endif
 
     struct NativeMethodInfo
@@ -190,6 +199,9 @@ namespace avmplus
             bool getCompiledInfo(NativeMethodInfo *info, AvmThunkNativeHandler* handlerOut, Multiname &returnTypeName, uint32_t i) const;
             bool hasBuiltins() const { return methodCount || classCount; }
             const AOTInfo* get_aotInfo() const { return aotInfo; }
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            bool getNeedArgsArrInMethodSigFlag(uint32_t i) const;
+#endif
         #endif
 
             void fillInMethods(const NativeMethodInfo* methodEntry);
@@ -221,12 +233,15 @@ namespace avmplus
         const AOTInfo*                          aotInfo;
         const AvmThunkNativeFunctionHandler*    compiledMethods;
         const uint32_t                          compiledMethodCount;
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        const int32_t*                          compiledMethodFlagsArr;
+#endif
         #endif
     };
 
 #ifdef VMCFG_AOT
     #define _NATIVE_METHOD_CAST_PTR(CLS, PTR) \
-        reinterpret_cast<AvmThunkNativeMethodHandler>((void(CLS::*)())(PTR))
+        reinterpret_cast<AvmThunkNativeMethodHandler>(force_cast<void(CLS::*)()>(PTR))
  
     #define AVMTHUNK_DECLARE_NATIVE_INITIALIZER(NAME) \
         extern PoolObject* initBuiltinABC_##NAME(AvmCore* core, Domain* domain); \
@@ -273,9 +288,8 @@ namespace avmplus
         _AVMTHUNK_NATIVE_METHOD(avmplus::Namespace, METHID, IMPL)
 
 #ifdef VMCFG_AOT
-    // AOT build env is ok with designated inits
     #define AVMTHUNK_NATIVE_FUNCTION(METHID, IMPL) \
-        { { function: reinterpret_cast<AvmThunkNativeFunctionHandler>(IMPL) }, (GprMethodProc)avmplus::NativeID::METHID##_thunk, avmplus::NativeID::METHID },
+        { { force_cast<AvmThunkNativeMethodHandler>(IMPL) }, (GprMethodProc)avmplus::NativeID::METHID##_thunk, avmplus::NativeID::METHID },
     #define AVMTHUNK_END_NATIVE_METHODS() \
         { { NULL }, NULL, -1 } };
 #else

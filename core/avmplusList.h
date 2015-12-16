@@ -78,77 +78,248 @@ namespace avmplus
     //
     // For an elucidation of the meaning of "slop" in create() and getSize(): see 
     // the documentation on DataListHelper.
+	
+    template<class STORAGE>
+	struct ListData
+	{
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+		uint32_t	cookie;			// XOR of 'len' and per-session secret, for hardening against smashing length
+		#endif
+		STORAGE entries[1];
 
-    template<class STORAGE, uint32_t slop>
-    struct ListData
-    {
-        uint32_t    len;            // Invariant: Must *never* exceed kListMaxLength
-        MMgc::GC*   _gc;
-        STORAGE     entries[1];     // Lying: Really holds capacity()
-        
-        // add an empty, inlined ctor to avoid spurious warnings in MSVC2008
+        // An empty, inlined ctor is needed to avoid spurious warnings in MSVC2008.
         REALLY_INLINE explicit ListData() {}
+	};
+	
+    template<class STORAGE, uint32_t slop>
+    struct ListHeader
+    {
+		typedef ListData<STORAGE> LISTDATA;
+		
+		LISTDATA*	data;
+        MMgc::GC*   m_gc;
+		#ifdef VMCFG_PARTITION_LIST_DATA
+		uint32_t	capacity;
+		#endif
+        uint32_t    len;            // Invariant: Must *never* exceed kListMaxLength
 
-        REALLY_INLINE MMgc::GC* gc() { return _gc; }
-        REALLY_INLINE void set_gc(MMgc::GC* g) { _gc = g; }
+        // An empty, inlined ctor is needed to avoid spurious warnings in MSVC2008.
+        REALLY_INLINE explicit ListHeader() {}
+		
+		REALLY_INLINE ~ListHeader()
+		{
+			// We expect objects to clean up after themselves and zero their state.
+			// See GC::RCObjectZeroCheck().
+			m_gc = NULL;
+			len = 0;
+			#ifdef VMCFG_PARTITION_LIST_DATA
+				capacity = 0;
+			#endif
+		}
 
-        REALLY_INLINE static ListData<STORAGE, slop>* create(MMgc::GC* gc, size_t totalElements)
+        REALLY_INLINE MMgc::GC* gc() { return m_gc; }
+        REALLY_INLINE void set_gc(MMgc::GC* g) { m_gc = g; }
+		
+        REALLY_INLINE static LISTDATA* allocData(MMgc::GC* gc, size_t totalElements)
         {
-            using namespace MMgc;
-            
-            FixedMalloc* const fm = FixedMalloc::GetFixedMalloc();
-            void* mem = fm->Alloc(GCHeap::CheckForAllocSizeOverflow(sizeof(ListData<STORAGE, slop>) + slop,
-                                                                    GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE))),
-                                  kNone);
-            if (gc)
-            {
-                 gc->SignalDependentAllocation(fm->Size(mem));
-            }
-            return ::new (mem) ListData<STORAGE, slop>();
+			using namespace MMgc;
+			size_t size = GCHeap::CheckForAllocSizeOverflow(sizeof(LISTDATA) + slop,
+															GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE)));
+			void* mem = ::malloc(size);
+			if (!mem)
+			{
+				GCHeap::SignalExternalFreeMemory(size);
+				mem = ::malloc(size);
+				if (!mem) GCHeap::GetGCHeap()->Abort();
+			}
+			if (gc) gc->SignalDependentAllocation(size);
+			LISTDATA* newBuffer = ::new(mem)ListData<STORAGE>();
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				newBuffer->cookie = MMgc::GCHeap::secret;
+			#endif
+			return newBuffer;
+		}
+		
+        REALLY_INLINE void freeData()
+        {
+			if (m_gc) m_gc->SignalDependentDeallocation(getSize() + slop);
+			::free(data);
+			data = NULL;
         }
-
-        REALLY_INLINE static void free(MMgc::GC* gc, void* mem)
+		
+        REALLY_INLINE size_t getSize() const
         {
-            MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc();
-            if (gc) gc->SignalDependentDeallocation(fm->Size(mem));
-            fm->Free(mem);
+			#ifdef VMCFG_PARTITION_LIST_DATA
+            	return sizeof(LISTDATA) + ((capacity - 1) * sizeof(STORAGE));
+			#else
+				return MMgc::GC::Size(data);
+			#endif
         }
+		
+		REALLY_INLINE uint32_t getCapacity() const
+		{
+			#ifdef VMCFG_PARTITION_LIST_DATA
+				return capacity;
+			#else
+				return uint32_t((MMgc::GC::Size(data) - offsetof(LISTDATA, entries)) / sizeof(STORAGE));
+			#endif
 
-        REALLY_INLINE static size_t getSize(void* mem)
-        {
-            MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc();
-            return fm->Size(mem) - slop;
-        } 
+		}
+		
+		REALLY_INLINE void setLength(uint32_t newlength)
+		{
+			len = newlength;
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				AvmAssert(data != NULL);
+				data->cookie = MMgc::GCHeap::secret ^ newlength;
+			#endif
+		}
+		
+		REALLY_INLINE void setLengthUnchecked(uint32_t newlength)
+		{
+			// Corrupt length field for testing purposes.
+			// We deliberately omit updating the cookie here.
+			len = newlength;
+		}
+		
+		REALLY_INLINE uint32_t getLength() const
+		{
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				AvmAssert(data != NULL);
+				if ((len ^ MMgc::GCHeap::secret) != data->cookie)
+				{
+					MMgc::GCHeap::GetGCHeap()->Abort();
+				}
+			#endif
+			return len;
+		}
+		
+        REALLY_INLINE void gcTrace(MMgc::GC* gc)
+		{
+			// Do nothing -- buffer does not contain traceable pointers.
+			(void)gc;
+		}
+		
     };
 
     // TracedListData *always* allocates via GC.
     template<class STORAGE>
-    struct TracedListData : public MMgc::GCTraceableObject
+	struct TracedListData : public MMgc::GCTraceableObject
+	{
+		// With smash protection, XOR of 'len' and per-session secret, for hardening against smashing length.
+		// Without smash protection, the cookie is a secondary copy of the length nedded for gcTrace().
+		uint32_t	cookie;
+
+		STORAGE entries[1];
+
+        // An empty, inlined ctor is needed to avoid spurious warnings in MSVC2008.
+        REALLY_INLINE explicit TracedListData() {}
+
+		virtual bool gcTrace(MMgc::GC* gc, size_t cursor);
+	};
+
+    template<class STORAGE>
+    struct TracedListHeader
     {
+		typedef TracedListData<STORAGE> LISTDATA;
+
+        LISTDATA*	data;			// This is written with explicit WB
         uint32_t    len;            // Invariant: Must *never* exceed kListMaxLength
-        STORAGE     entries[1];     // Lying: Really holds capacity()
 
-        REALLY_INLINE explicit TracedListData() { }
+        // Explicitly clear buffer pointer so wbData() always sees a valid value there.
+        REALLY_INLINE explicit TracedListHeader() : data(NULL) {}
+		
+		REALLY_INLINE ~TracedListHeader()
+		{
+			len = 0;
+		}
 
-        REALLY_INLINE static TracedListData<STORAGE>* create(MMgc::GC* gc, size_t totalElements)
+        REALLY_INLINE static LISTDATA* allocData(MMgc::GC* gc, size_t totalElements)
         {
-            return new (gc, MMgc::kExact, MMgc::GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE))) TracedListData<STORAGE>();
+			// It is essential that no allocations take place betwen the initial creation of the TracedListData object
+			// and the initialization of the cookie field.  In particular, the C++ constructor for TracedListData must
+			// be empty, or at least must not be able to invoke the garbage collector.  If gcTrace() is invoked before
+			// the cookie is set, for example, while tracing the stack,  we will incorrectly interpret the initial zero
+			// value of the cookie as a bogus length value due to the XOR encryption.
+            LISTDATA* newBuffer = new (gc, MMgc::kExact, MMgc::GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE))) TracedListData<STORAGE>();
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				newBuffer->cookie = MMgc::GCHeap::secret;  // 0 ^ secret
+			#else
+				newBuffer->cookie = 0;
+			#endif
+			return newBuffer;
         }
         
-        REALLY_INLINE static void free(MMgc::GC* gc, void* mem)
+		REALLY_INLINE void freeData()
         {
-            gc->Free(mem);
+			// Reset length to zero.  The buffer may contain references that are no longer properly counted.
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				data->cookie = MMgc::GCHeap::secret;
+			#else
+				data->cookie = 0;
+			#endif
+			// In the past, we used an explicit GC:Free() call here, and indeed this case is probably the poster child for
+			// a benign use of that dangerous API.  Despite the name, an explicit GC::Free() is actually just a hint, and if
+			// GC activity is already in progress, the object will be abandoned, to be later reclaimed by GC in the normal
+			// fashion.  Unfortunately, however, the object is zeroed out while remaining traceable, and that breaks our GC
+			// tracer.  The intent is to avoid unnecessary retention of referenced objects, which we can do just as effectively
+			// for TracedListData by clearing the count.  We do, however, give up the earlier reclamation of the TracedListData
+			// object itself.  It may be worth revisiting GC::AbortFree() and its zeroing behavior, perhaps moving the
+			// responsibility for cleanup back to its callers.  For now, we just clear the data member, and allow GC to reclaim
+			// the bufer.
+			data = NULL;
         }
         
-        REALLY_INLINE static size_t getSize(void* mem)
+        REALLY_INLINE size_t getSize() const
         {
-            return MMgc::GC::Size(mem);
+            return MMgc::GC::Size(data);
         }
+		
+		REALLY_INLINE uint32_t getCapacity() const
+		{
+			return uint32_t((MMgc::GC::Size(data) - offsetof(LISTDATA, entries)) / sizeof(STORAGE));
+		}
+		
+		REALLY_INLINE void setLength(uint32_t newlength)
+		{
+			len = newlength;
+			AvmAssert(data != NULL);
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				data->cookie = MMgc::GCHeap::secret ^ newlength;
+			#else
+				data->cookie = newlength;
+			#endif
+		}
+		
+		REALLY_INLINE void setLengthUnchecked(uint32_t newlength)
+		{
+			// Corrupt length field for testing purposes.
+			// We deliberately omit updating the cookie here.
+			len = newlength;
+		}
+		
+		REALLY_INLINE uint32_t getLength() const
+		{
+			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+				AvmAssert(data != NULL);			
+			    if ((len ^ MMgc::GCHeap::secret) != data->cookie)
+				{
+					MMgc::GCHeap::GetGCHeap()->Abort();
+				}
+			#else
+				// Verify secondary length is correct.
+				AvmAssert(len == data->cookie);
+			#endif
+			return len;
+		}
+		
+        REALLY_INLINE void gcTrace(MMgc::GC* gc)
+		{
+			gc->TraceLocation(&data);
+		}
         
-        virtual bool gcTrace(MMgc::GC* gc, size_t cursor);
-        
-        REALLY_INLINE MMgc::GC* gc() { return MMgc::GC::GetGC(this); }
-        REALLY_INLINE void set_gc(MMgc::GC* _gc) { AvmAssert(_gc == gc()); (void)_gc; }
+        REALLY_INLINE MMgc::GC* gc() { return MMgc::GC::GetGC(data); }
+        REALLY_INLINE void set_gc(MMgc::GC* g) { (void)g; }
     };
     
     // ----------------------------
@@ -186,12 +357,13 @@ namespace avmplus
         typedef T STORAGE;
         
         // (syntactic sugar)
-        typedef ListData<STORAGE, align> LISTDATA;
+		typedef ListHeader<STORAGE, align> LISTHEADER;
+		typedef typename LISTHEADER::LISTDATA LISTDATA;
 
         // Store the data at the address, using WB if necessary.
         // Any pointer already stored there will be overwritten (but not freed); the caller
         // must ensure that old pointers are freed.
-        static void wbData(const void* container, LISTDATA** address, LISTDATA* data);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
         
         // Load the item and do any conversion necessary from STORAGE to TYPE.
         static TYPE load(LISTDATA* data, uint32_t index);
@@ -224,15 +396,15 @@ namespace avmplus
         typedef MMgc::GCObject* TYPE;
         typedef TYPE OPAQUE_TYPE;
         typedef MMgc::GCObject* STORAGE;
-        typedef TracedListData<STORAGE> LISTDATA;
+        typedef TracedListHeader<STORAGE> LISTHEADER;
+		typedef LISTHEADER::LISTDATA LISTDATA;
         
-        static void wbData(const void* container, LISTDATA** address, LISTDATA* data);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
         static void clearRange(LISTDATA* data, uint32_t start, uint32_t count);
         static void moveRange(LISTDATA* data, uint32_t srcStart, uint32_t dstStart, uint32_t count);
-        static void gcTrace(MMgc::GC* gc, LISTDATA** loc);
     };
 
     // ----------------------------
@@ -243,15 +415,15 @@ namespace avmplus
         typedef MMgc::RCObject* TYPE;
         typedef TYPE OPAQUE_TYPE;
         typedef MMgc::RCObject* STORAGE;
-        typedef TracedListData<STORAGE> LISTDATA;
+        typedef TracedListHeader<STORAGE> LISTHEADER;
+		typedef LISTHEADER::LISTDATA LISTDATA;
         
-        static void wbData(const void* container, LISTDATA** address, LISTDATA* data);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
         static void clearRange(LISTDATA* data, uint32_t start, uint32_t count);
         static void moveRange(LISTDATA* data, uint32_t srcStart, uint32_t dstStart, uint32_t count);
-        static void gcTrace(MMgc::GC* gc, LISTDATA** loc);
     };
 
     // ----------------------------
@@ -263,16 +435,16 @@ namespace avmplus
         typedef Atom TYPE;
         typedef OpaqueAtom OPAQUE_TYPE;
         typedef Atom STORAGE;
-        typedef TracedListData<STORAGE> LISTDATA;
+        typedef TracedListHeader<STORAGE> LISTHEADER;
+		typedef LISTHEADER::LISTDATA LISTDATA;
 
-        static void wbData(const void* container, LISTDATA** address, LISTDATA* data);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storePointer(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
         static void clearRange(LISTDATA* data, uint32_t start, uint32_t count);
         static void moveRange(LISTDATA* data, uint32_t srcStart, uint32_t dstStart, uint32_t count);
-        static void gcTrace(MMgc::GC* gc, LISTDATA** loc);
     };
 
     // ----------------------------
@@ -283,15 +455,15 @@ namespace avmplus
         typedef MMgc::GCObject* TYPE;
         typedef TYPE OPAQUE_TYPE;
         typedef MMgc::GCWeakRef* STORAGE;
-        typedef TracedListData<STORAGE> LISTDATA;
+		typedef TracedListHeader<STORAGE> LISTHEADER;
+		typedef LISTHEADER::LISTDATA LISTDATA;
 
-        static void wbData(const void* container, LISTDATA** address, LISTDATA* data);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
         static void clearRange(LISTDATA* data, uint32_t start, uint32_t count);
         static void moveRange(LISTDATA* data, uint32_t srcStart, uint32_t dstStart, uint32_t count);
-        static void gcTrace(MMgc::GC* gc, LISTDATA** loc);
     };
 
     // ----------------------------
@@ -326,11 +498,6 @@ namespace avmplus
         // Set m_data->len from 'newlength', but if newlength exceeds the max
         // length then abort.
         void set_length_guarded(uint32_t newlength);
-
-        // Set data->len from 'newlength', but if newlength exceeds the max
-        // length then abort.
-        static
-        void set_length_guarded(typename ListHelper::LISTDATA* data, uint32_t newlength);
         
         // Return true if list has no elements. equivalent to length()==0.
         bool isEmpty() const;
@@ -346,6 +513,13 @@ namespace avmplus
         // Most code should never need to use this method; it's provided mainly for
         // Array / Vector code that needs this level of control.
         void set_length(uint32_t len);
+		
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+		// Set vector length without any checks, and without adjusting capacity.
+		// With vector smash protection enabled, this is expected to abort execution.
+		// This is test infrastructure for 'avmshell' only, and is not normally exposed to the user.
+		void set_length_unchecked(uint32_t len);
+		#endif
 
         // Return the maximum number of items the ListImpl can contain without needing to allocate
         // more memory.
@@ -466,18 +640,13 @@ namespace avmplus
 
         void ensureCapacityExtra(uint32_t cap, uint32_t extra);
         
-        // null the m_data pointer and free the storage
-        void freeData(MMgc::GC* gc);
-
         // This function shouldn't be called directly; it's intended to be called
         // only by ensureCapacity(), which does an inline capacity check
         // before calling (which is a clear performance win).
         void FASTCALL ensureCapacityImpl(uint32_t cap);
-
-        static typename ListHelper::LISTDATA* allocData(MMgc::GC* gc, uint32_t cap);
-
+		
     private:
-        typename ListHelper::LISTDATA* m_data; // If GC-allocated, this is written with explicit WB
+        typename ListHelper::LISTHEADER m_header;
     };
 
     // ----------------------------

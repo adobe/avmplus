@@ -50,11 +50,30 @@ enum ApiVersion {
     kApiVersion_AIR_3_8 = 31,
 	kApiVersion_SWF_22 = 32,
 	kApiVersion_AIR_3_9 = 33,
-    kApiVersion_VM_INTERNAL = 34
+	kApiVersion_SWF_23 = 34,
+	kApiVersion_AIR_4_0 = 35,
+	kApiVersion_SWF_24 = 36,
+	kApiVersion_AIR_13_0 = 37,
+	kApiVersion_SWF_25 = 38,
+	kApiVersion_AIR_14_0 = 39,
+	kApiVersion_SWF_26 = 40,
+	kApiVersion_AIR_15_0 = 41,
+	kApiVersion_SWF_27 = 42,
+	kApiVersion_AIR_16_0 = 43,
+	kApiVersion_SWF_28 = 44,
+	kApiVersion_AIR_17_0 = 45,
+	kApiVersion_SWF_29 = 46,
+	kApiVersion_AIR_18_0 = 47,
+	kApiVersion_SWF_30 = 48,
+	kApiVersion_AIR_19_0 = 49,
+//ADD_PREVIOUS_2_VERSIONED_LINES_INCREMENT_LAST_VALUE
+    kApiVersion_VM_INTERNAL = 50
+//REPLACE_PREVIOUS_LINE_INCREMENT_LAST_VALUE_BY_2
 };
 
 enum {
-    kApiVersion_count = 35
+    kApiVersion_count = 51
+//REPLACE_PREVIOUS_LINE_INCREMENT_LAST_VALUE_BY_2
 };
 
 extern const char* const kApiVersionNames[kApiVersion_count];

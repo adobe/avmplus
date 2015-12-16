@@ -289,7 +289,7 @@ namespace avmplus
 
 #ifdef VMCFG_AOT
     template <typename ADT>
-    ArrayObject::ArrayObject(VTable *vtable, ScriptObject* proto, MethodEnv *env, ADT argDesc, uint32_t argc, va_list ap, bool simple/*=false*/)
+    ArrayObject::ArrayObject(VTable *vtable, ScriptObject* proto, MethodEnv *env, ADT argDesc, uint32_t argc, va_list_wrapper ap, bool simple/*=false*/)
         : ScriptObject(vtable, proto, 0)
 #ifdef DEBUGGER
 		, m_created(false)
@@ -311,8 +311,8 @@ namespace avmplus
 #endif
     }
 
-    template ArrayObject::ArrayObject(VTable*, ScriptObject*, MethodEnv*, uint32_t, uint32_t, va_list, bool simple/*=false*/);
-    template ArrayObject::ArrayObject(VTable*, ScriptObject*, MethodEnv*, char*, uint32_t, va_list, bool simple/*=false*/);
+    template ArrayObject::ArrayObject(VTable*, ScriptObject*, MethodEnv*, uint32_t, uint32_t, va_list_wrapper, bool simple/*=false*/);
+    template ArrayObject::ArrayObject(VTable*, ScriptObject*, MethodEnv*, char*, uint32_t, va_list_wrapper, bool simple/*=false*/);
 #endif // VMCFG_AOT
 
     // ----------------- "get" methods
@@ -852,6 +852,7 @@ convert_and_set_sparse:
             if (isDense())
             {
                 uint32_t oldDenseLength = m_denseArray.length();
+
                 if (oldDenseLength == 0 && oldLength == 0)
                 {
                     // We are "dense" but actually empty; we usually get
@@ -868,14 +869,24 @@ convert_and_set_sparse:
                 {
                     if (newLength > m_denseStart)
                     {
-                        m_denseArray.set_length(newLength - m_denseStart);
-                        if (m_canBeSimple) {
-                            AvmAssert(m_denseStart == 0);
-                            m_lengthIfSimple = newLength;
-                        }
-                        m_denseUsed = calcDenseUsed();
-                        // Shouldn't need to check for sparseness if we are reducing length.
-                        AvmAssert(!shouldBeSparse(newLength - m_denseStart, m_denseUsed));
+						// wmaddox 2015.06.22
+						// If we delete the last (non-hole) item from the dense area, we set its length to zero and reset m_denseStart -- see
+						// ArrayObject::delDenseUintProperty().  We can thus arrive here attempting to *expand* the dense area, which fills the
+						// new slots with nullObjecAtom instead of atomNotFound, and which also breaks the expectation (asserted below) that no
+						// sparseness check is needed.  Make sure we are actually shrinking the dense area, otherwise, leave it alone.  This issue
+						// was discovered by temporarily disabling the dense fastpath to stress the general case when testing insertAt/removeAt.
+						
+						if ((newLength - m_denseStart) < oldDenseLength)
+						{
+							m_denseArray.set_length(newLength - m_denseStart);
+							m_denseUsed = calcDenseUsed();
+							// Shouldn't need to check for sparseness if we are reducing length.
+							AvmAssert(!shouldBeSparse(newLength - m_denseStart, m_denseUsed));
+						}
+						if (m_canBeSimple) {
+							AvmAssert(m_denseStart == 0);
+							m_lengthIfSimple = newLength;
+						}
                     }
                     else
                     {
@@ -1205,7 +1216,7 @@ unshift_sparse:
     {
         verify();
 
-// OPTIMIZEME, probably other dense cases could be handled too
+		// OPTIMIZEME, probably other dense cases could be handled too
         if (this->isDense() &&
             that != NULL &&
             that->isDense() &&
@@ -1315,6 +1326,120 @@ unshift_sparse:
             return true;
         }
         return false;
+    }
+
+
+	void ArrayObject::AS3_insertAt(int32_t index, Atom element)
+	{
+		uint32_t len = getLengthProperty();
+		uint32_t insertPoint = NativeObjectHelpers::ClampIndexInt(index, len);
+		
+		verify();
+		// OPTIMIZEME: We might extend the dense array with holes to allow
+		// insertions beyond the next unallocated position, provided the load
+		// factor remains high enough. See AS3_push().
+#ifndef VMCFG_DEBUG_STRESS_SPARSE_ARRAY
+		// For a sealed Array subclass, isDense() is always false.
+		// This is important, as we rely on setUintProperty() to
+		// enforce the restrictions.
+        if (isDense() &&
+            insertPoint >= m_denseStart &&
+            insertPoint <= m_denseStart + m_denseArray.length())
+		{
+            m_denseArray.insert(insertPoint - m_denseStart, element);
+            m_denseUsed++;
+            AvmAssert(m_denseUsed == calcDenseUsed());
+            m_length++;
+            if (m_canBeSimple) m_lengthIfSimple++;
+        }
+		else
+#endif
+		{
+			// The treatment of sparse arrays is horribly inefficient,
+			// but mimics what our implementation of splice() does.
+			// If you want performance, use Vector, or keep your arrays dense.
+
+			// Shift the remaining elements up.
+			uint32_t i = len;
+			// Note: i is unsigned, can't check if --i >=0.
+			while (i > insertPoint)
+			{
+				--i;
+				setUintProperty(i+1, getUintProperty(i));
+			}
+			
+			setUintProperty(insertPoint, element);
+			setLengthProperty(len+1);
+		}
+		verify();
+	}
+
+	
+	Atom ArrayObject::AS3_removeAt(int32_t index)
+    {
+        Atom out = NULL;
+		uint32_t len = getLengthProperty();
+
+        if (len == 0)
+        {
+            return undefinedAtom;
+        }
+                
+		uint32_t removePoint = NativeObjectHelpers::ClampIndexInt(index, len);
+		
+		verify();
+#ifndef VMCFG_DEBUG_STRESS_SPARSE_ARRAY
+		// For a sealed Array subclass, isDense() is always false.
+		// This is important, as we rely on setUintProperty() to
+		// enforce the restrictions.
+        if (isDense() &&
+            removePoint >= m_denseStart &&
+            removePoint < m_denseStart + m_denseArray.length())
+        {
+            out = m_denseArray.removeAt(removePoint - m_denseStart);
+			if (out == atomNotFound)
+			{
+				out = undefinedAtom;
+			}
+			else
+			{
+				m_denseUsed--;
+			}
+            AvmAssert(m_denseUsed == calcDenseUsed());
+            m_length--;
+            if (m_canBeSimple) m_lengthIfSimple--;
+            if (m_denseArray.isEmpty()) m_denseStart = 0;
+        }
+		else
+#endif
+		if (removePoint < len)
+		{
+			// The treatment of sparse arrays is horribly inefficient,
+			// but mimics what our implementation of splice() does.
+			// If you want performance, use Vector, or keep your arrays dense.
+			
+			// Copy out the element we are going to remove.
+			out = getUintProperty(removePoint);
+			
+			// Shift the remaining elements down.
+			if (removePoint < len-1)
+			{
+				for (uint32_t i=removePoint+1; i<len; i++)
+				{
+					setUintProperty(i-1, getUintProperty(i));
+				}
+			}
+			
+			// Delete the uppermost element (we've made a copy at a lower index).
+			delUintProperty (len-1);
+			setLengthProperty(len-1);
+		}
+		else
+		{
+			out = undefinedAtom;
+		}
+		verify();
+        return out;
     }
 
     uint32_t ArrayObject::getLengthProperty()

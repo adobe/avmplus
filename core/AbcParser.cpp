@@ -49,7 +49,11 @@ namespace avmplus
                 void *sha1 = (void *)(code.getBuffer() + 4);
                 for(uint32_t i = 0; i < nAOTInfos; i++)
                 {
-                    const AOTInfo *aotInfo = &aotInfos[i];
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+                    const AOTInfo *aotInfo = aotInfos[i];   // in halfmoon, array of pointers to AOTInfo
+#else
+                    const AOTInfo *aotInfo = &aotInfos[i];  // in GO, array of AOTInfo
+#endif
                     AvmAssert(aotInfo != NULL);
 
                     MMGC_STATIC_ASSERT(sizeof(aotInfo->origABCSHA1) == 20);
@@ -846,6 +850,12 @@ namespace avmplus
 #ifdef VMCFG_AOT
             if (isCompiled)
                 info->setAotCompiled(handler);
+
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            if(natives->getNeedArgsArrInMethodSigFlag(i))
+                info->setNeedArgsArrInMethodSig();
+#endif
+
 #endif
 
             if (core->config.methodNames)
@@ -1007,14 +1017,11 @@ namespace avmplus
 
             int code_length = readU30(pos);
 
-            if (code_length <= 0
-#ifdef VMCFG_AOT
-                && !info->needActivation() // AOT allows a dummy body so that it can represent activation traits
-#endif
-                )
-            {
+#ifndef VMCFG_AOT // AOT can have empty method bodies
+            if (code_length <= 0) {
                 toplevel->throwVerifyError(kInvalidCodeLengthError, core->toErrorString(code_length));
             }
+#endif
 
             // check to see if we are trying to jump past the file end or the beginning.
             if ( pos < abcStart || pos+code_length >= abcEnd )
@@ -1157,8 +1164,15 @@ namespace avmplus
             else
             {
 #ifdef VMCFG_AOT
-                if (info->needActivation())
+                const uint8_t* traits_pos = pos;
+                int nameCount = readU30(pos);
+                if (info->needActivation()
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME // In the testcase abcasm/nullCheck/D.abs, nameCount equals 1. So, the AvmAssert(namecount==0) may not be valid
+                    || nameCount > 0
+#endif
+                    )
                 {
+                    pos = traits_pos;
                     Namespacep ns = NULL;
                     Stringp name = NULL;
                     #ifdef AVMPLUS_VERBOSE
@@ -1180,12 +1194,12 @@ namespace avmplus
                                               TRAITSTYPE_ACTIVATION,
                                               NULL);
                         info->init_activationTraits(act);
-                        pool->aotInfo->activationTraits[method_index] = act;
                 } else
 #endif
                 {
-                    // native methods should not have bodies!
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
                     toplevel->throwVerifyError(kIllegalNativeMethodBodyError, core->toErrorString(info));
+#endif
                 }
             }
         }
@@ -1200,6 +1214,9 @@ namespace avmplus
         AvmAssert(natives != 0);
         pool->isBuiltin = natives->hasBuiltins();
         pool->aotInfo = natives->get_aotInfo();
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        const_cast<AOTInfo*>(pool->aotInfo)->pools.push_back(std::make_pair(pool, pool->core));
+#endif
 #else
         pool->isBuiltin = (natives != NULL);
 #endif
@@ -1852,9 +1869,6 @@ namespace avmplus
             script->setStaticInit();
 
             pool->_scripts.set(i, traits);
-#ifdef VMCFG_AOT
-            pool->aotInfo->scriptTraits[i] = traits;
-#endif
         }
 
         return true;

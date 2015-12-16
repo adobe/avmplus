@@ -73,6 +73,7 @@ namespace avmplus
         T        elements[1];     // Actually max(1,capacity())
 
         friend class CodegenLIR; // for offsetof(elements)
+        friend class halfmoon::JitFriend; // for offsetof(elements)
     };
 }
 

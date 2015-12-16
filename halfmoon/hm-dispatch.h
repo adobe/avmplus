@@ -40,7 +40,7 @@ typename KIND_ADAPTER::dispatch_return_type do_instr(KIND_ADAPTER* a, Instr* ins
   switch (kind(instr)) {
 #include "generated/KindAdapter_cases.hh"
   default:
-    assert(false && "unknown opcode");
+    AvmAssert(false && "unknown opcode");
     return a->do_default(instr);
   }
 }
@@ -76,7 +76,7 @@ typename SHAPE_ADAPTER::dispatch_return_type do_shape(SHAPE_ADAPTER* a, Instr* i
   switch (shape(instr)) {
 #include "generated/ShapeAdapter_cases.hh"
   default:
-    assert(false && "unknown shape");
+    AvmAssert(false && "unknown shape");
     return a->do_default(instr);
   }
 }

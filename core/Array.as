@@ -17,6 +17,16 @@ package
         public static const RETURNINDEXEDARRAY:uint = 8;
         public static const NUMERIC:uint = 16;
 
+        // Functions insertAt() and removeAt() are AS3 extensions not present in ECMAscript.
+        // They are defined only in the AS3 namespace to avoid breaking ES3 compatibility,
+        // thus we do not define prototype.insertAt and prototype.removeAt.
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function insertAt(index:int, element:*):void
+
+        [API(CONFIG::SWF_30)]
+        AS3 native function removeAt(index:int):*
+
         // E262 {DontEnum, DontDelete}
         public native function get length():uint
         public native function set length(newLength:uint)

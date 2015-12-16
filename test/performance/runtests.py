@@ -125,6 +125,7 @@ class PerformanceRuntest(RuntestBase):
         self.tests = self.getTestsList(self.args)
         if self.rebuildtests:
             self.rebuildTests()
+            self.cleanup()
             exit()
         # Load root .asc_args and .java_args files
         self.parseRootConfigFiles()
@@ -141,7 +142,7 @@ class PerformanceRuntest(RuntestBase):
         if self.junitlog:
             outfile=convertPerformanceToJunit(self.junitlog+'.txt',self.junitlog+'.xml',self.junitlogname)
             print("wrote results in junit format to %s" % outfile)
-        #self.cleanup()
+        self.cleanup()
 
     def getTestsList(self, args):
         '''If an index file is being used, we only run the files in the index list'''

@@ -56,14 +56,14 @@ bool checkResultTypes(Instr* instr, bool check_model) {
   for (; !d.empty(); d.popFront(), s.popFront()) {
     const Type* def_type = type(d.front());
     const Type* sig_type = s.front();
-    assert(def_type && "Type not defined");
+    AvmAssert(def_type && "Type not defined");
 
     if (!subtypeof(def_type, sig_type)) {
-      assert(false);
+      AvmAssert(false);
     }
 
     if (check_model) {
-      assert(submodelof(def_type, sig_type));
+      AvmAssert(submodelof(def_type, sig_type));
     }
   }
 
@@ -96,28 +96,28 @@ void printLinkedUsers(Def& d) {
 }
 
 bool checkStartEnd(InstrGraph* ir) {
-  // regress/bug_515935.abc fails because of this assert, which is for(;;)
+  // regress/bug_515935.abc fails because of this AvmAssert, which is for(;;)
   // abcbuilder optimizes away the loop condition into a true
   // and removes the return in the loop exit block. 
   // TODO: add cktimeout instruction at backedges if interrupts enabled
-  // otherwise assert fail is ok.
-  assert(ir->begin && (ir->end || ir->exit) && "Start or stop is missing");
+  // otherwise AvmAssert fail is ok.
+  AvmAssert(ir->begin && (ir->end || ir->exit) && "Start or stop is missing");
   return true;
 }
 
 bool checkOneEnd(InstrGraph* ir, Instr* end, InstrKind k) {
-  assert(!end || kind(end) == k);
+  AvmAssert(!end || kind(end) == k);
   if (!end)
     return true;
   for (EachBlock b(ir); !b.empty(); b.popFront()) {
     Instr* block_end = ir->blockEnd(b.front());
-    assert(block_end == end || kind(block_end) != k);
+    AvmAssert(block_end == end || kind(block_end) != k);
   }
   return true;
 }
 
 bool checkUses(InstrGraph* ir) {
-  assert(checkStartEnd(ir));
+  AvmAssert(checkStartEnd(ir));
   Allocator scratch;
   Allocator0 scratch0(scratch);
 
@@ -137,10 +137,10 @@ bool checkUses(InstrGraph* ir) {
     int id = instr->id;
 
     if (instr == ir->end) {
-      assert(uses[id] == 0);
+      AvmAssert(uses[id] == 0);
       continue;
     } else if (kind(instr) == HR_start || kind(instr) == HR_template) {
-      assert(instr == ir->begin);
+      AvmAssert(instr == ir->begin);
     }
 
     // Count the number of uses of each result of i.
@@ -160,11 +160,11 @@ bool checkUses(InstrGraph* ir) {
         printf("use count mismatch %s%d.%d\n", kInstrPrefix, id, pos);
         printf("scanned: "); printScannedUsers(pos, uses[id]);
         printf("linked:  "); printLinkedUsers(def);
-        assert(!"Use count mismatch");
+        AvmAssert(!"Use count mismatch");
       }
 
       // Ensure each linear result has only one use.
-      //assert(!isLinear(type(def)) || use_count == 1);
+      //AvmAssert(!isLinear(type(def)) || use_count == 1);
     }
   }
 
@@ -202,15 +202,15 @@ void TypeChecker::report(int arg_number, const Use& arg, const Type* sig_type,
 
 void TypeChecker::fail() {
   /* breakpoint here to debug */
-  assert(false && "typecheck failed");
+  AvmAssert(false && "typecheck failed");
 }
 
 bool TypeChecker::do_default(Instr* instr) {
   // All inputs must have a type and not UN.
   for (ArrayRange<Use> u = useRange(instr); !u.empty(); u.popFront()) {
     const Use& use = u.front();
-    assert(&use != NULL && "input was null");
-    assert(type(use) /*&& !isBottom(type(use))*/);
+    AvmAssert(&use != NULL && "input was null");
+    AvmAssert(type(use) != NULL /*&& !isBottom(type(use))*/);
   }
   if (hasInputSignature(instr)) {
     // Check types from signature.
@@ -230,7 +230,7 @@ bool TypeChecker::do_default(Instr* instr) {
       }
     }
   } else {
-    assert(numUses(instr) == 0 && "missing input signature");
+    AvmAssert(numUses(instr) == 0 && "missing input signature");
   }
 
   return true;
@@ -243,7 +243,7 @@ bool checkTypes(Instr* instr, bool check_model) {
 
 bool checkTypes(InstrGraph* g, bool check_model) {
   Allocator scratch;
-  assert(checkUses(g));
+  AvmAssert(checkUses(g));
   for (AllInstrRange iter(g); !iter.empty(); iter.popFront())
     if (!checkTypes(iter.front(), check_model))
       return false;
@@ -251,12 +251,12 @@ bool checkTypes(InstrGraph* g, bool check_model) {
 }
 
 bool AbcBuilder::checkFrame(Def* frame[], int sp, int scopep) {
-  assert(sp >= stack_base_ - 1);
-  assert(scopep >= scope_base_ - 1);
-  assert(scopep < stack_base_);
+  AvmAssert(sp >= stack_base_ - 1);
+  AvmAssert(scopep >= scope_base_ - 1);
+  AvmAssert(scopep < stack_base_);
   FrameRange<Def*> d = frameRange(frame);
   for (; !d.empty(); d.popFront())
-    assert(d.front());
+    AvmAssert(d.front() != NULL);
   return true;
 }
 
@@ -280,19 +280,19 @@ bool checkPruned(InstrGraph* ir) {
   for (AllInstrRange i(ir); !i.empty(); i.popFront()) {
     Instr* instr = i.front();
     for (AllUsesRange u(instr); !u.empty(); u.popFront())
-      assert(marked.get(user(u.front())->id) && "user not linked");
+      AvmAssert(marked.get(user(u.front())->id) && "user not linked");
     if (kind(instr) == HR_label)
       for (PredRange p(cast<LabelInstr>(instr)); !p.empty(); p.popFront())
-        assert(marked.get(p.front()->id) && "goto not linked");
+        AvmAssert(marked.get(p.front()->id) && "goto not linked");
     if (kind(instr) == HR_catchblock) {
       CatchBlockInstr* cblock = cast<CatchBlockInstr>(instr);
       for (ExceptionEdgeRange p(cblock); !p.empty(); p.popFront()) {
-        assert(p.front()->from->catch_blocks != NULL);
+        AvmAssert(p.front()->from->catch_blocks != NULL);
         bool found = false;
         for (CatchBlockRange r(p.front()->from); !r.empty(); r.popFront()) {
           if (r.front() == cblock) found = true;
         }
-        assert(found);
+        AvmAssert(found);
       }
     }
     if (isBlockEnd(instr)) {
@@ -306,15 +306,15 @@ bool checkPruned(InstrGraph* ir) {
           if (!found) {
             printf("missing exception back edge: i%d -> i%d", end->id, r.front()->id);
           }
-          assert(found);
+          AvmAssert(found);
         }
       }
     }
   }
   if (ir->end)
-    assert(marked.get(ir->end->id) && "end not linked");
+    AvmAssert(marked.get(ir->end->id) && "end not linked");
   if (ir->exit)
-    assert(marked.get(ir->exit->id) && "exit not linked");
+    AvmAssert(marked.get(ir->exit->id) && "exit not linked");
   return true;
 }
 
@@ -338,8 +338,8 @@ void checkSSABlock(BSI* block, Seq<BSI*>** children, BitSet* visited, BSI** bloc
     for (ArrayRange<Use> u = useRange(instr); !u.empty();) {
       Instr* def_instr = definer(def(u.popFront()));
       BlockStartInstr* def_block = blockmap[def_instr->id];
-      assert(def_block && "definer not linked");
-      assert(visited->get(def_block->blockid) && "def doesn't dominate use");
+      AvmAssert(def_block && "definer not linked");
+      AvmAssert(visited->get(def_block->blockid) && "def doesn't dominate use");
     }
   }
   for (SeqRange<BSI*> r(children[blockid]); !r.empty(); )
@@ -398,7 +398,7 @@ struct LirBlock {
   }
 
   void setSucc(int i, LirBlock* s, Allocator& a) {
-    assert(s && i >= 0 && i < num_succs);
+    AvmAssert(s && i >= 0 && i < num_succs);
     succs[i] = s;
     s->preds = new (a) seq_t(this, s->preds);
     if (linear_id >= s->linear_id &&
@@ -536,7 +536,7 @@ public:
     LirBlock* blocks = last_block = new (alloc) LirBlock(last_ins, 0, num_blocks++);
     LirReader r(last_ins);
     for (LIns* ins = r.read(); !ins->isop(LIR_start); ins = r.read()) {
-      assert(getStatus(ins) == kNeverUsed);
+      AvmAssert(getStatus(ins) == kNeverUsed);
       num_ins++;
       blocks->first_ins = ins;
       LIns* prev = r.peek();
@@ -723,7 +723,7 @@ public:
   }
 
   void use(LIns* use_ins, LIns* def_ins) {
-    assert(insmap->containsKey(def_ins) && insmap->containsKey(use_ins));
+    AvmAssert(insmap->containsKey(def_ins) && insmap->containsKey(use_ins));
     checkDominates(def_ins, use_ins);
     checkRetired(def_ins, use_ins);
   }
@@ -829,7 +829,7 @@ bool checkLir(Fragment* fragment, AvmLogControl* logc) {
     } while (ins != b->first_ins);
   }
 
-  assert(!cfg.error); // assert while cfg still in scope so we can debug.
+  AvmAssert(!cfg.error); // AvmAssert while cfg still in scope so we can debug.
   return !cfg.error;
 }
 

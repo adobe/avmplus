@@ -64,7 +64,7 @@ ABC_OP(         1,       1,     -2,    0,        ifge)                  // 0x18
 ABC_OP(         1,       0,     -2,    0,        ifstricteq)            // 0x19  
 ABC_OP(         1,       0,     -2,    0,        ifstrictne)            // 0x1A  
 ABC_OP(         2,       0,     -1,    0,        lookupswitch)          // 0x1B  
-ABC_OP(         0,       0,     -1,    0,        pushwith)              // 0x1C  
+ABC_OP(         0,       1,     -1,    0,        pushwith)              // 0x1C
 ABC_OP(         0,       0,     0,     0,        popscope)              // 0x1D  
 ABC_OP(         0,       1,     -1,    0,        nextname)              // 0x1E  
 ABC_OP(         0,       1,     -1,    0,        hasnext)               // 0x1F  
@@ -84,7 +84,7 @@ ABC_OP(         1,       0,     1,     0,        pushstring)            // 0x2C
 ABC_OP(         1,       0,     1,     0,        pushint)               // 0x2D  
 ABC_OP(         1,       0,     1,     0,        pushuint)              // 0x2E  
 ABC_OP(         1,       0,     1,     0,        pushdouble)            // 0x2F  
-ABC_OP(         0,       0,     -1,    0,        pushscope)             // 0x30  
+ABC_OP(         0,       1,     -1,    0,        pushscope)             // 0x30  
 ABC_OP(         1,       0,     1,     0,        pushnamespace)         // 0x31  
 ABC_OP(         2,       1,     1,     0,        hasnext2)              // 0x32  
 ABC_OP(        -1,       1,     0,     1,        lix8)                  // 0x33  
@@ -116,9 +116,9 @@ ABC_OP(         2,       1,     0,     0,        callproplex)           // 0x4C
 ABC_OP(         -1,      1,     0,     1,        callinterface)         // 0x4D  
 ABC_OP(         2,       1,     -1,    0,        callsupervoid)         // 0x4E  
 ABC_OP(         2,       1,     -1,    0,        callpropvoid)          // 0x4F  
-ABC_OP(         0,       0,     0,     0,        sxi1)                  // 0x50  
-ABC_OP(         0,       0,     0,     0,        sxi8)                  // 0x51  
-ABC_OP(         0,       0,     0,     0,        sxi16)                 // 0x52  
+ABC_OP(         0,       1,     0,     0,        sxi1)                  // 0x50  
+ABC_OP(         0,       1,     0,     0,        sxi8)                  // 0x51  
+ABC_OP(         0,       1,     0,     0,        sxi16)                 // 0x52  
 ABC_OP(         1,       1,     0,     0,        applytype)             // 0x53  
 ABC_OP_F(       1,       0,     1,     0,        pushfloat4)            // 0x54  
 ABC_OP(         1,       1,     1,     0,        newobject)             // 0x55  
@@ -147,7 +147,7 @@ ABC_UNUSED_OP(  -1,      0,     0,     0,        0x6B)                  // 0x6B
 ABC_OP(         1,       1,     0,     0,        getslot)               // 0x6C  
 ABC_OP(         1,       1,     -2,    0,        setslot)               // 0x6D  
 ABC_OP(         1,       0,     1,     0,        getglobalslot)         // 0x6E  
-ABC_OP(         1,       0,     -1,    0,        setglobalslot)         // 0x6F  
+ABC_OP(         1,       1,     -1,    0,        setglobalslot)         // 0x6F  
 ABC_OP(         0,       1,     0,     0,        convert_s)             // 0x70  
 ABC_OP(         0,       1,     0,     0,        esc_xelem)             // 0x71  
 ABC_OP(         0,       1,     0,     0,        esc_xattr)             // 0x72  

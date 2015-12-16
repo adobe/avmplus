@@ -10,13 +10,13 @@
 #ifdef _MSC_VER
 // "behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized"
 #pragma warning(disable:4345) // b/c GCObject doesn't have a ctor
-#ifdef _DEBUG
-// we turn on exceptions in DEBUG builds
+#ifdef GCDEBUG
+// we turn on exceptions in GCDEBUG builds
 #pragma warning(disable:4291) // no matching operator delete found; memory will not be freed if initialization throws an exception
 #endif
 #endif
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
 
 namespace MMgc
 {
@@ -148,4 +148,4 @@ namespace MMgc
     }
 }
 
-#endif // _DEBUG
+#endif // GCDEBUG

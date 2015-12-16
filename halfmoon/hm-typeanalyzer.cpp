@@ -56,10 +56,10 @@ void TypeAnalyzer::computeTypes(Instr* instr) {
     }
   }
 
-  assert(checkTypes(instr, false /* check_model */));
+  AvmAssert(checkTypes(instr, false /* check_model */));
   do_instr(this, instr);
   coerceOutputModels(instr);
-  assert(checkResultTypes(instr, false /* check_model */));
+  AvmAssert(checkResultTypes(instr, false /* check_model */));
 }
 
 /// default handler, called if TA defines no overload
@@ -91,7 +91,7 @@ void TypeAnalyzer::do_default(Instr* instr) {
 #if 0
       if (result_type == ALL || result_type == TOPDATA) {
         printf("instr = %s, result_type = %s\n", name(instr), typeName(result_type));
-        assert(false && "illegal result type");
+        AvmAssert(false && "illegal result type");
       }
 #endif
       setType(&d.front(), result_type);
@@ -99,7 +99,7 @@ void TypeAnalyzer::do_default(Instr* instr) {
 
   } else {
     // instr has no outputs
-    assert(numDefs(instr) == 0 && "missing output signature");
+    AvmAssert(numDefs(instr) == 0 && "missing output signature");
   }
 }
 
@@ -112,7 +112,7 @@ void TypeAnalyzer::do_default(Instr* instr) {
 void TypeAnalyzer::doTemplateInstr(Instr* instr) {
   propagateTypes(instr);
   StopInstr* ret = subgraph(instr)->returnStmt();
-  assert(numDefs(instr) == numUses(ret));
+  AvmAssert(numDefs(instr) == numUses(ret));
   ArrayRange<Def> d = defRange(instr);
   ArrayRange<Use> u = useRange(ret);
   for (; !d.empty(); d.popFront(), u.popFront())
@@ -218,12 +218,26 @@ void TypeAnalyzer::do_loadsuperinitenv(UnaryExpr* instr) {
 
 void TypeAnalyzer::do_loadenv_env(BinaryExpr* instr) {
   const Type* disp_id_type = type(instr->lhs_in());
-  assert(isConst(disp_id_type));
+  AvmAssert(isConst(disp_id_type));
   int disp_id = ordinalVal(disp_id_type);
 
   MethodInfo* caller = getMethod(type(instr->rhs_in()));
   MethodInfo* callee = caller->pool()->getMethodInfo(disp_id);
   return setType(instr->value_out(), lattice_->makeEnvType(callee));
+}
+
+void TypeAnalyzer::do_getlocal(GetlocalStmt* instr) {
+  const Type* t = lattice_->changeModel(type(instr->value_in()), kModelAtom);
+  // Setlocal coerces the object to an atom, modelfixer coerces the getlocal back to the original type.
+  // But there is no model fixer for an integer type that is both int and uint (both constraints).
+  // So, faut de mieux, we pick one.
+  if (isNumber(t)) {
+    const NumberType* nt = (const NumberType*)t;
+    if (nt->isInt() && nt->isUInt())
+       t = lattice_->int_type;
+  }
+  setStmtType(instr, t);
+  setType(instr->value_out(), t);
 }
 
 // adapters to convert C++ bool to BoolKind into and out of stubs
@@ -355,16 +369,16 @@ void TypeAnalyzer::do_arm(ArmInstr* arm) {
 bool checkUnion(Lattice* lattice, const Type* t1, const Type* t2) {
   const Type* u1 = lattice->makeUnion(t1, t2);
   const Type* u2 = lattice->makeUnion(t2, t1);
-  assert(*u1 == *u2);
-  assert(*u2 == *u1);
+  AvmAssert(*u1 == *u2);
+  AvmAssert(*u2 == *u1);
   return true;
 }
 #endif
 
-/// Helper function just to assert that makeUnion is commutative.
+/// Helper function just to AvmAssert that makeUnion is commutative.
 ///
 const Type* phi_reduce(Lattice* lattice, const Type* t1, const Type* t2) {
-  assert(checkUnion(lattice, t1, t2));
+  AvmAssert(checkUnion(lattice, t1, t2));
   return lattice->makeUnion(t1, t2);
 }
 
@@ -565,10 +579,10 @@ void TypeAnalyzer::do_getouterscope(BinaryExpr* instr) {
 void TypeAnalyzer::do_cknull(UnaryStmt* instr) {
   const Type* value = type(instr->value_in());
   const Type* not_null = lattice_->makeNotNull(value);
-  if (isBottom(not_null)) {
-      // Don't allow this type to go to bottom, so make up something wide enough to hold it
-      return setStmtType(instr, lattice_->makeNotNull(lattice_->makeUnion(value, lattice_->atom_type[kTypeNullable])));
-  }
+//  if (isBottom(not_null)) {
+//      // Don't allow this type to go to bottom, so make up something wide enough to hold it
+//      return setStmtType(instr, lattice_->makeNotNull(lattice_->makeUnion(value, lattice_->atom_type[kTypeNullable])));
+//  }
   return setStmtType(instr, not_null);
 }
 
@@ -617,7 +631,7 @@ bool isCastCall(Lattice* l, const Type* object_type, uint32_t slot,
   if (slot_traits && slot_traits->base == builtin.class_itraits &&
       slot_traits->getCreateClassClosureProc() == NULL) {
     // if this class C is user-defined then C(1+ args) means coerce<C>
-    assert(slot_traits->itraits != NULL && "Class with unknown instance traits");
+    AvmAssert(slot_traits->itraits != NULL && "Class with unknown instance traits");
     return (*t = l->makeType(slot_traits->itraits)), true;
   }
   return false;

@@ -12,18 +12,21 @@ namespace avmplus
     template<class T, class ListHelper>
     ListImpl<T,ListHelper>::ListImpl(MMgc::GC* gc,
                         uint32_t capacity,
-                        const T* args) : m_data(NULL)
+                        const T* args)
     {
+		m_header.set_gc(gc);
         uint32_t const allocCap = (capacity < kListMinCapacity) ? kListMinCapacity : capacity;
-        typename ListHelper::LISTDATA* newData = allocData(gc, allocCap);
-        ListHelper::wbData(this, &m_data, newData);
+        typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, allocCap);
+        ListHelper::wbData(this, m_header, newData, allocCap);
 
         if (args != NULL)
         {
             for (uint32_t i = 0; i < capacity; i++)
-                ListHelper::storeInEmpty(m_data, i, args[i]);
+                ListHelper::storeInEmpty(m_header.data, i, args[i]);
             set_length_guarded(capacity);
-        }
+        } else {
+			m_header.setLength(0);
+		}
     }
 
     template<class T, class ListHelper>
@@ -37,23 +40,7 @@ namespace avmplus
     {
         if (newlength > kListMaxLength)
             MMgc::GCHeap::SignalObjectTooLarge();
-        m_data->len = newlength;
-    }
-    
-    template<class T, class ListHelper>
-    void ListImpl<T,ListHelper>::set_length_guarded(typename ListHelper::LISTDATA* data, uint32_t newlength)
-    {
-        if (newlength > kListMaxLength)
-            MMgc::GCHeap::SignalObjectTooLarge();
-        data->len = newlength;
-    }
-    
-    template<class T, class ListHelper>
-    void ListImpl<T,ListHelper>::freeData(MMgc::GC* gc)
-    {
-        typename ListHelper::LISTDATA* data = m_data;
-        m_data = NULL;
-        ListHelper::LISTDATA::free(gc, data);
+		m_header.setLength(newlength);
     }
 
     template<class T, class ListHelper>
@@ -62,31 +49,32 @@ namespace avmplus
         // Normally, m_data can't be null, but a call to destroy() can
         // cause this to happen. This is necessary for certain shutdown
         // conditions in Flash/AIR.
-        if (m_data != NULL)
+        if (m_header.data != NULL)
         {
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
-            if (m_data->gc()->GetAttachedSampler())
-                ((avmplus::IMemorySampler *)m_data->gc()->GetAttachedSampler())->recordDeallocation(this, 0);
+            if (m_header.gc()->GetAttachedSampler())
+                ((avmplus::IMemorySampler *)m_header.gc()->GetAttachedSampler())->recordDeallocation(this, 0);
 #endif
-            if (m_data->len > 0)
-                ListHelper::clearRange(m_data, 0, m_data->len);
-            freeData(m_data->gc()); // note that this leaves m_data set to NULL.
+			uint32_t len = m_header.getLength();
+            if (len > 0)
+                ListHelper::clearRange(m_header.data, 0, len);
+            m_header.freeData(); // note that this leaves m_header.data set to NULL.
         }
     }
 
     template<class T, class ListHelper>
     REALLY_INLINE bool ListImpl<T,ListHelper>::isDestroyed() const
     {
-        return m_data == NULL;
+        return m_header.data == NULL;
     }
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::set_length(uint32_t len)
     {
-        if (m_data->len != len)
+		uint32_t const oldlen = m_header.getLength();
+        if (oldlen != len)
         {
             ensureCapacity(len);
-            uint32_t const oldlen = m_data->len;
             uint32_t start, count;
             if (len < oldlen)
             {
@@ -98,32 +86,41 @@ namespace avmplus
                 start = oldlen;
                 count = len - oldlen;
             }
-            ListHelper::clearRange(m_data, start, count);
+            ListHelper::clearRange(m_header.data, start, count);
             set_length_guarded(len);
         }
     }
+	
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+    template<class T, class ListHelper>
+    void ListImpl<T,ListHelper>::set_length_unchecked(uint32_t len)
+	{
+		m_header.setLengthUnchecked(len);
+	}
+#endif
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::set_capacity(uint32_t cap)
     {
-        AvmAssert(m_data != NULL);
+        AvmAssert(m_header.data != NULL);
         if (cap < kListMinCapacity)
             cap = kListMinCapacity;
         if (capacity() != cap)
         {
-            MMgc::GC* const gc = m_data->gc();
+            MMgc::GC* const gc = m_header.gc();
             AvmAssert(cap > kListMinCapacity);
-            uint32_t len = m_data->len;
+            uint32_t len = m_header.getLength();
             // keep existing length if possible (but don't let it exceed cap)
             if (len > cap)
                 len = cap;
-            typename ListHelper::LISTDATA* newData = allocData(gc, cap);
+            typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, cap);
             if (len > 0)
-                VMPI_memcpy(newData->entries, m_data->entries, len * sizeof(typename ListHelper::STORAGE));
-            set_length_guarded(newData, len);
-            // don't call ListHelper::clearRange here; we want the refCounts to be transferred
-            freeData(gc);
-            ListHelper::wbData(this, &m_data, newData);
+                VMPI_memcpy(newData->entries, m_header.data->entries, len * sizeof(typename ListHelper::STORAGE));
+            // Don't call ListHelper::clearRange here; we want the refCounts to be transferred.
+			// The old references will be invalidated in freeData, which resets the length to zero.
+            m_header.freeData();
+            ListHelper::wbData(this, m_header, newData, cap);
+            set_length_guarded(len);
 
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
             if (gc->GetAttachedSampler())
@@ -138,62 +135,64 @@ namespace avmplus
     void ListImpl<T,ListHelper>::add(T value)
     {
         // Sanity check.
-        AvmAssert(m_data->len <= capacity());
+        AvmAssert(m_header.getLength() <= capacity());
 
         // OPTIMIZEME, this method may be worth inlining
-        ensureCapacityExtra(m_data->len, 1);
-        ListHelper::storeInEmpty(m_data, m_data->len, value);
-        set_length_guarded(m_data->len+1);
+		uint32_t const len = m_header.getLength();
+        ensureCapacityExtra(len, 1);
+        ListHelper::storeInEmpty(m_header.data, len, value);
+        set_length_guarded(len+1);
     }
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::add(const ListImpl<T,ListHelper>& that)
     {
         uint32_t const n = that.length();
-        // If m_data->len + n overflows uint32_t then ensureCapacityExtra 
-        // will not return.
-        ensureCapacityExtra(m_data->len, n);
+		uint32_t const len = m_header.getLength();
+        // If len + n overflows uint32_t then ensureCapacityExtra will not return.
+        ensureCapacityExtra(len, n);
         for (uint32_t i = 0; i < n; ++i)
-            ListHelper::storeInEmpty(m_data, m_data->len + i, that.get(i));
+            ListHelper::storeInEmpty(m_header.data, len + i, that.get(i));
         // No overflow here for reasons stated above.
-        set_length_guarded(m_data->len + n);
+        set_length_guarded(len + n);
     }
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::insert(uint32_t index, T value, uint32_t count)
     {
         // Sanity check
-        AvmAssert(m_data->len <= capacity());
+        AvmAssert(m_header.getLength() <= capacity());
 
-        // If m_data->len + count overflows uint32_t then ensureCapacityExtra 
-        // will not return.
-        ensureCapacityExtra(m_data->len, count);
-        if (index < m_data->len)
-            ListHelper::moveRange(m_data, index, index + count, m_data->len - index);
+		uint32_t const len = m_header.getLength();
+        // If len + count overflows uint32_t then ensureCapacityExtra will not return.
+        ensureCapacityExtra(len, count);
+        if (index < len)
+            ListHelper::moveRange(m_header.data, index, index + count, len - index);
         else
-            index = m_data->len;
+            index = len;
         for (uint32_t i = 0; i < count; ++i)
-            ListHelper::store(m_data, index + i, value);
+            ListHelper::store(m_header.data, index + i, value);
         // No overflow here for reasons stated above.
-        set_length_guarded(m_data->len + count);
+        set_length_guarded(len + count);
     }
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::clear()
     {
-        AvmAssert(m_data != NULL);
-        if (m_data->len > 0)
+        AvmAssert(m_header.data != NULL);
+		
+		uint32_t const len = m_header.getLength();
+        if (len > 0)
         {
-            ListHelper::clearRange(m_data, 0, m_data->len);
-            m_data->len = 0;    // Clears length, no check needed
+            ListHelper::clearRange(m_header.data, 0, len);
+			m_header.setLength(0);
         }
         if (capacity() > kListMinCapacity)
         {
-            MMgc::GC* const gc = m_data->gc();
-            typename ListHelper::LISTDATA* newData = allocData(gc, kListMinCapacity);
-            newData->len = 0;   // Clears length, no length needed
-            freeData(gc);
-            ListHelper::wbData(this, &m_data, newData);
+            MMgc::GC* const gc = m_header.gc();
+            typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, kListMinCapacity);
+            m_header.freeData();
+            ListHelper::wbData(this, m_header, newData, kListMinCapacity);
 
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
             if (gc->GetAttachedSampler())
@@ -203,15 +202,16 @@ namespace avmplus
 #endif
         }
 
-        AvmAssert(m_data->len == 0);
+        AvmAssert(m_header.len == 0);
     }
 
 #ifdef VMCFG_FLOAT
     template<>
     inline int32_t ListImpl<float4_t,DataListHelper<float4_t, 16> >::indexOf(float4_t value) const
     {
-        for (uint32_t i = 0, n = m_data->len; i < n; i++)
-            if (f4_eq_i(DataListHelper<float4_t, 16>::load(m_data, i), value))
+		uint32_t const len = m_header.getLength();
+        for (uint32_t i = 0, n = len; i < n; i++)
+            if (f4_eq_i(DataListHelper<float4_t, 16>::load(m_header.data, i), value))
                 return int32_t(i);
         return -1;
     }
@@ -220,8 +220,9 @@ namespace avmplus
     template<class T, class ListHelper>
     int32_t ListImpl<T,ListHelper>::indexOf(T value) const
     {
-        for (uint32_t i = 0, n = m_data->len; i < n; i++)
-            if (ListHelper::load(m_data, i) == value)
+		uint32_t const len = m_header.getLength();
+        for (uint32_t i = 0, n = len; i < n; i++)
+            if (ListHelper::load(m_header.data, i) == value)
                 return int32_t(i);
         return -1;
     }
@@ -230,8 +231,9 @@ namespace avmplus
     template<>
     inline int32_t ListImpl<float4_t,DataListHelper<float4_t, 16> >::lastIndexOf(float4_t value) const
     {
-        for (uint32_t i = m_data->len; i > 0; i--)
-            if (f4_eq_i(DataListHelper<float4_t, 16>::load(m_data, i-1), value))
+		uint32_t const len = m_header.getLength();
+        for (uint32_t i = len; i > 0; i--)
+            if (f4_eq_i(DataListHelper<float4_t, 16>::load(m_header.data, i-1), value))
                 return int32_t(i);
         return -1;
     }
@@ -240,8 +242,9 @@ namespace avmplus
     template<class T, class ListHelper>
     int32_t ListImpl<T,ListHelper>::lastIndexOf(T value) const
     {
-        for (uint32_t i = m_data->len; i > 0; i--)
-            if (ListHelper::load(m_data, i-1) == value)
+		uint32_t const len = m_header.getLength();
+        for (uint32_t i = len; i > 0; i--)
+            if (ListHelper::load(m_header.data, i-1) == value)
                 return int32_t(i);
         return -1;
     }
@@ -250,15 +253,16 @@ namespace avmplus
     T ListImpl<T,ListHelper>::removeAt(uint32_t index)
     {
         AvmAssert(!isEmpty());
-        uint32_t const len_minus_1 = m_data->len - 1;
+		uint32_t const len = m_header.getLength();
+        uint32_t const len_minus_1 = len - 1;
         AvmAssert(index <= len_minus_1);
-        T const old = ListHelper::load(m_data, index);
-        ListHelper::clearRange(m_data, index, 1);
+        T const old = ListHelper::load(m_header.data, index);
+        ListHelper::clearRange(m_header.data, index, 1);
         if (index < len_minus_1)
         {
-            ListHelper::moveRange(m_data, index+1, index, len_minus_1 - index);
+            ListHelper::moveRange(m_header.data, index+1, index, len_minus_1 - index);
         }
-        m_data->len = len_minus_1;    // Reduces length, no check needed.
+		m_header.setLength(len_minus_1); // Reduces length, no check needed.
         return old;
     }
 
@@ -269,17 +273,18 @@ namespace avmplus
     T ListImpl<T,ListHelper>::removeLast()
     {
         AvmAssert(!isEmpty());
-        uint32_t const index = m_data->len - 1;
-        T const old = ListHelper::load(m_data, index);
-        ListHelper::clearRange(m_data, index, 1);
-        m_data->len = index;    // Reduces length, no check needed.
+		uint32_t const len = m_header.getLength();
+        uint32_t const index = len - 1;
+        T const old = ListHelper::load(m_header.data, index);
+        ListHelper::clearRange(m_header.data, index, 1);
+		m_header.setLength(index); // Reduces length, no check needed.
         return old;
     }
 
     template<class T, class ListHelper>
     void FASTCALL ListImpl<T,ListHelper>::ensureCapacityImpl(uint32_t cap)
     {
-        AvmAssert(m_data != NULL);
+        AvmAssert(m_header.data != NULL);
         AvmAssert(capacity() >= kListMinCapacity);
         AvmAssert(cap > capacity());
 
@@ -293,14 +298,16 @@ namespace avmplus
         cap += (cap/4);
 
         AvmAssert(cap > kListMinCapacity);
-        MMgc::GC* const gc = m_data->gc();
-        typename ListHelper::LISTDATA* newData = allocData(gc, cap);
-
-        VMPI_memcpy(newData->entries, m_data->entries, m_data->len * sizeof(typename ListHelper::STORAGE));
-        newData->len = m_data->len;   // No check needed, copies a valid datum
-        // don't call ListHelper::clearRange here; we want the refCounts to be transferred
-        freeData(gc);
-        ListHelper::wbData(this, &m_data, newData);
+        MMgc::GC* const gc = m_header.gc();
+        typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, cap);
+		uint32_t const len = m_header.getLength();
+        VMPI_memcpy(newData->entries, m_header.data->entries, len * sizeof(typename ListHelper::STORAGE));
+        // Don't call ListHelper::clearRange here; we want the refCounts to be transferred.
+		// The old references will be invalidated in freeData, which resets the length to zero.
+        m_header.freeData();
+        ListHelper::wbData(this, m_header, newData, cap);
+		// Even though the length stays the same, we may need to set the cookie in the newly-allocated buffer.
+		m_header.setLength(len);
 
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
         if (gc->GetAttachedSampler())
@@ -313,13 +320,12 @@ namespace avmplus
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::insert(uint32_t index, const T* args, uint32_t argc)
     {
-        uint32_t const len = m_data->len;
+        uint32_t const len = m_header.getLength();
 
-        // If m_data->len + argc overflows uint32_t then ensureCapacityExtra
-        // will not return.
+        // If len + argc overflows uint32_t then ensureCapacityExtra will not return.
         ensureCapacityExtra(len, argc);
         if (index < len)
-            ListHelper::moveRange(m_data, index, index + argc, len - index);
+            ListHelper::moveRange(m_header.data, index, index + argc, len - index);
         else
             index = len;
 
@@ -328,17 +334,17 @@ namespace avmplus
         if (args != NULL)
         {
             for (uint32_t i = 0; i < argc; ++i)
-                ListHelper::storeInEmpty(m_data, index + i, args[i]);
+                ListHelper::storeInEmpty(m_header.data, index + i, args[i]);
         }
 
         // No overflow check required for reasons stated above.
-        set_length_guarded(m_data->len + argc);
+        set_length_guarded(len + argc);
     }
 
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::splice(uint32_t insertPoint, uint32_t insertCount, uint32_t deleteCount, const T* args)
     {
-        uint32_t const len = m_data->len;
+        uint32_t const len = m_header.getLength();
     
         // We only need to expand if we are inserting more than we are deleting,
         // so don't bother calling it unless that's the case, as it means we don't
@@ -349,12 +355,12 @@ namespace avmplus
             ensureCapacityExtra(len, insertCount - deleteCount);
         if (insertCount < deleteCount)
         {
-            ListHelper::clearRange(m_data, insertPoint + insertCount, deleteCount - insertCount);
-            ListHelper::moveRange(m_data, insertPoint + deleteCount, insertPoint + insertCount, len - insertPoint - deleteCount);
+            ListHelper::clearRange(m_header.data, insertPoint + insertCount, deleteCount - insertCount);
+            ListHelper::moveRange(m_header.data, insertPoint + deleteCount, insertPoint + insertCount, len - insertPoint - deleteCount);
         }
         else if (insertCount > deleteCount)
         {
-            ListHelper::moveRange(m_data, insertPoint, insertPoint + insertCount - deleteCount, len - insertPoint);
+            ListHelper::moveRange(m_header.data, insertPoint, insertPoint + insertCount - deleteCount, len - insertPoint);
         }
         
         // allow args == NULL, which leaves the inserted entries empty
@@ -363,7 +369,14 @@ namespace avmplus
         {
             for (uint32_t i = 0; i < insertCount; ++i)
             {
-                ListHelper::store(m_data, insertPoint + i, args[i]);
+                ListHelper::store(m_header.data, insertPoint + i, args[i]);
+            }
+        }
+		else
+        {
+            for (uint32_t i = 0; i < insertCount; ++i)
+            {
+                ListHelper::store(m_header.data, insertPoint + i, NULL);
             }
         }
 
@@ -374,7 +387,7 @@ namespace avmplus
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::splice(uint32_t insertPoint, uint32_t insertCount, uint32_t deleteCount, const ListImpl<T,ListHelper>& that, uint32_t thatOffset)
     {
-        uint32_t const len = m_data->len;
+        uint32_t const len = m_header.getLength();
         // We only need to expand if we are inserting more than we are deleting,
         // so don't bother calling it unless that's the case, as it means we don't
         // have to worry about overflow-checking "insertCount - deleteCount".
@@ -384,19 +397,19 @@ namespace avmplus
             ensureCapacityExtra(len, insertCount - deleteCount);
         if (insertCount < deleteCount)
         {
-            ListHelper::clearRange(m_data, insertPoint + insertCount, deleteCount - insertCount);
-            ListHelper::moveRange(m_data, insertPoint + deleteCount, insertPoint + insertCount, len - insertPoint - deleteCount);
+            ListHelper::clearRange(m_header.data, insertPoint + insertCount, deleteCount - insertCount);
+            ListHelper::moveRange(m_header.data, insertPoint + deleteCount, insertPoint + insertCount, len - insertPoint - deleteCount);
         }
         else if (insertCount > deleteCount)
         {
-            ListHelper::moveRange(m_data, insertPoint, insertPoint + insertCount - deleteCount, len - insertPoint);
+            ListHelper::moveRange(m_header.data, insertPoint, insertPoint + insertCount - deleteCount, len - insertPoint);
         }
 
         for (uint32_t i = 0; i < insertCount; ++i)
         {
             AvmAssert(i + thatOffset < that.length());
-            T const value = ListHelper::load(that.m_data, i + thatOffset);
-            ListHelper::store(m_data, insertPoint + i, value);
+            T const value = ListHelper::load(that.m_header.data, i + thatOffset);
+            ListHelper::store(m_header.data, insertPoint + i, value);
         }
 
         // No overflow check needed for reasons stated above.
@@ -406,26 +419,26 @@ namespace avmplus
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::reverse()
     {
-        uint32_t const len = m_data->len;
+        uint32_t const len = m_header.getLength();
         if (len > 1)
         {
-            MMgc::GC* const gc = m_data->gc();
-            if (sizeof(m_data->entries[0]) == sizeof(void*) && gc->IsPointerToGCObject(m_data))
+            MMgc::GC* const gc = m_header.gc();
+            if (sizeof(m_header.data->entries[0]) == sizeof(void*) && gc->IsPointerToGCObject(m_header.data))
             {
                 // It's really only necessary to do this for things that
                 // might be GC pointers, but it doesn't really hurt to do
                 // for other things that just happen to be the same size.
-                gc->reversePointersWithinBlock(m_data, offsetof(typename ListHelper::LISTDATA, entries), len);
+                gc->reversePointersWithinBlock(m_header.data, offsetof(typename ListHelper::LISTDATA, entries), len);
             }
             else
             {
                 for (uint32_t i = 0, n = len/2; i < n; i++)
                 {
                     uint32_t const i2 = len - i - 1;
-                    T const v  = ListHelper::load(m_data, i);
-                    T const v2 = ListHelper::load(m_data, i2);
-                    ListHelper::store(m_data, i, v2);
-                    ListHelper::store(m_data, i2, v);
+                    T const v  = ListHelper::load(m_header.data, i);
+                    T const v2 = ListHelper::load(m_header.data, i2);
+                    ListHelper::store(m_header.data, i, v2);
+                    ListHelper::store(m_header.data, i2, v);
                 }
             }
         }
@@ -445,21 +458,22 @@ namespace avmplus
     uint32_t ListImpl<T,ListHelper>::removeNullItems()
     {
         uint32_t kept = 0;
-        for (uint32_t i = 0, n = m_data->len; i < n; ++i)
+		uint32_t const len = m_header.getLength();
+        for (uint32_t i = 0, n = len; i < n; ++i)
         {
-            T const v  = ListHelper::load(m_data, i);
+            T const v  = ListHelper::load(m_header.data, i);
             if (v != (T)0)
             {
                 if (kept < i)
-                    ListHelper::store(m_data, kept, v);
+                    ListHelper::store(m_header.data, kept, v);
                 ++kept;
             }
         }
-        uint32_t const removed = m_data->len - kept;
-        if (kept < m_data->len)
+        uint32_t const removed = len - kept;
+        if (kept < len)
         {
-            ListHelper::clearRange(m_data, kept, removed);
-            m_data->len = kept;     // No check needed since kept < m_data->len
+            ListHelper::clearRange(m_header.data, kept, removed);
+            m_header.setLength(kept); // No check needed since kept < m_data->len
         }
         return removed;
     }
@@ -467,7 +481,7 @@ namespace avmplus
     template<class T, class ListHelper>
     void ListImpl<T,ListHelper>::gcTrace(MMgc::GC* gc)
     {
-        ListHelper::gcTrace(gc, &m_data);
+		m_header.gcTrace(gc);
     }
 }
 

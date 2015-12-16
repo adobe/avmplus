@@ -14,7 +14,13 @@
 #include <dlfcn.h> // dl apis for JITLoggingObserver
 #endif
 
+#endif
+
 namespace avmplus {
+
+using namespace MMgc;
+    
+#ifdef VMCFG_NANOJIT
 
 #ifdef VMCFG_COMPILEPOLICY
 BaseExecMgr::JitInterpRuleSet::JitInterpRuleSet(MMgc::GC* gc)
@@ -219,8 +225,10 @@ void BaseExecMgr::verifyJit(MethodInfo* m, MethodSignaturep ms,
 #ifdef VMCFG_HALFMOON
     if (verifyOptimizeJit(m, ms, toplevel, abc_env, osr))
         return; // halfmoon jit worked.
-    // hack: force exception table to be re-parsed.
-    m->set_abc_exceptions(core->gc, NULL);
+    //Old Comment - hack: force exception table to be re-parsed.
+    //New Comment - Fixed it properly by populating Verifier's data members ( tryFrom, tryTo )
+    //using existing execption handler table
+    //m->set_abc_exceptions(core->gc, NULL);
     // fall through to CodegenLIR JIT logic.
 #endif
     CodegenLIR jit(m, ms, toplevel, osr, &noise);
@@ -331,6 +339,10 @@ void BaseExecMgr::setNative(MethodInfo* m, GprMethodProc p)
 #endif
 
 }
+
+#endif
+    
+#if defined (VMCFG_HALFMOON_AOT_RUNTIME ) || defined (VMCFG_NANOJIT )
 
 //
 // Interface Method Dispatching
@@ -455,7 +467,12 @@ bool ImtThunkEnv::gcTrace(MMgc::GC* gc, size_t cursor) {
 // Build the initial IMT for this vtable, if JIT is enabled.
 void BaseExecMgr::notifyVTableResolved(VTable* vtable)
 {
-    if (isJitEnabled()) {
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+    const bool needIMT = true;
+#else
+    const bool needIMT = isJitEnabled();
+#endif
+    if (needIMT) {
         GC* gc = core->gc;
         // fixme: do we need one of these per unique vtable?
         ImtThunkEnv* ite = ImtThunkEnv::create(gc, vtable);
@@ -587,11 +604,21 @@ REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, ScriptObjec
 // b) more than one method hashed to this slot.  imt[] is updated to
 //    point to ::dispatchImt(), which uses the incoming iid parameter
 //    to choose which concrete MethodEnv to call.
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
 /*static*/ uintptr_t BaseExecMgr::resolveImt(ImtThunkEnv* ite, int argc, uint32_t* ap, uintptr_t iid)
 {
     ite = BaseExecMgr::resolveImtSlot(ite, iid);
     return (*ite->_implImtGPR)(ite, argc, ap, iid);
 }
+#else
+/*static*/ uintptr_t BaseExecMgr::resolveImt(ImtThunkEnv* ite, int argc, Atom* args, MethodInfo* methodInfo)
+{
+    uintptr_t iid = ImtHolder::getIID(methodInfo);
+    
+    ite = BaseExecMgr::resolveImtSlot(ite, iid);
+    return (*ite->_implImtGPR)(ite, argc,(uint32_t*)(args), iid);
+}
+#endif
 
 // called when a method is called through an interface type.  iid
 // indicates which interface method is being called.  This method
@@ -600,6 +627,7 @@ REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, ScriptObjec
 /*static*/ uintptr_t BaseExecMgr::dispatchImt(ImtThunkEnv* ite, int argc, uint32_t* ap, uintptr_t iid)
 {
     MethodEnv* const env = findMethod(ite, iid, *(ScriptObject**)ap);
+
     STACKADJUST(); // align stack for 32-bit Windows and MSVC compiler
     uintptr_t r = (*env->_implGPR)(env, argc, ap);
     STACKRESTORE();
@@ -653,8 +681,10 @@ bool BaseExecMgr::resolveImtSlotSelf(VTable* vtable, uint32_t slot)
     AvmAssert(vtable->linked);
     AvmAssert(vtable->base != NULL); // Only Object and activation objects have null base, and neither has interfaces
     AvmAssert(!vtable->traits->isInterface());
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
     AvmAssert(exec(vtable)->isJitEnabled());
-
+#endif
+    
     ImtThunkEnv* ite;
     uint32_t imtMapCount = 0;
 
@@ -698,7 +728,7 @@ void BaseExecMgr::resolveImtSlotFull(VTable* vtable, uint32_t slot)
     // Walk up the base VTables until we find one where the slot
     // can be resolved without copying it from its base.
     VTable* cur = vtable->base;
-    while (cur->imt.entries[slot]->_implImtGPR == resolveImt &&
+    while (cur->imt.entries[slot]->_implImtGPR == (GprImtThunkProc)resolveImt &&
             !resolveImtSlotSelf(cur, slot)) {
         work_stack.add(cur);
         cur = cur->base;
@@ -712,10 +742,12 @@ void BaseExecMgr::resolveImtSlotFull(VTable* vtable, uint32_t slot)
         resolveImtSlotFromBase(cur, slot);
     }
 }
+#endif
 
-JITNoise::JITNoise()
+#ifdef VMCFG_NANOJIT
+JITNoise::JITNoise(uint32_t seed)
 {
-    MathUtils::initRandom(&randomSeed);
+    MathUtils::RandomFastInit(&randomSeed, seed);
 }
 
 int32_t JITNoise::getValue(int32_t maxValue)
@@ -963,6 +995,7 @@ void JITLoggingObserver::logMethod(const char* nameBuf, int len,
 }
 #endif // VMCFG_SHARK
 
+#endif // VMCFG_NANOJIT
+
 } // namespace avmplus
 
-#endif // VMCFG_NANOJIT

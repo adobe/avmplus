@@ -5,7 +5,7 @@
 namespace halfmoon {
 using namespace avmplus;
 struct Stubs {
-  static const int stub_count = 245;
+  static const int stub_count = 248;
 
   // throw: (Effect, Atom) -> ()
   static void do_throw(MethodFrame*, Atom);
@@ -45,6 +45,9 @@ struct Stubs {
 
   // cknullobject: (Effect, ScriptObject) -> (Effect, ScriptObject~)
   static ScriptObject* do_cknullobject(MethodFrame*, ScriptObject*);
+
+  // makenullrefexception: (Effect, Atom) -> (Effect, Atom~)
+  static Atom do_makenullrefexception(MethodFrame*, Atom);
 
   // cktimeout: (Effect, Env) -> (Effect, Boolean)
   static BoolKind do_cktimeout(MethodFrame*, MethodEnv*);
@@ -342,6 +345,9 @@ struct Stubs {
 
   // debugfile: (Effect, String) -> Effect
   static void do_debugfile(MethodFrame*, String*);
+
+  // debug: (Effect, String, Int) -> Effect
+  static void do_debug(MethodFrame*, String*, int32_t);
 
   // string2atom: String -> Atom
   static Atom do_string2atom(MethodFrame*, String*);
@@ -674,6 +680,7 @@ struct Stubs {
   Namespace* Stubs::do_castns(MethodFrame*, Atom) { assert(false && "castns not implemented"); return 0; }
   Atom Stubs::do_cknull(MethodFrame*, Atom) { assert(false && "cknull not implemented"); return 0; }
   ScriptObject* Stubs::do_cknullobject(MethodFrame*, ScriptObject*) { assert(false && "cknullobject not implemented"); return 0; }
+  Atom Stubs::do_makenullrefexception(MethodFrame*, Atom) { assert(false && "makenullrefexception not implemented"); return 0; }
   BoolKind Stubs::do_cktimeout(MethodFrame*, MethodEnv*) { assert(false && "cktimeout not implemented"); return 0; }
   int32_t Stubs::do_abc_hasnext(MethodFrame*, Atom, int32_t) { assert(false && "abc_hasnext not implemented"); return 0; }
   void Stubs::do_never(MethodFrame*) { assert(false && "never not implemented"); }
@@ -773,6 +780,7 @@ struct Stubs {
   void Stubs::do_deopt_finish(MethodFrame*) { assert(false && "deopt_finish not implemented"); }
   void Stubs::do_debugline(MethodFrame*, int32_t) { assert(false && "debugline not implemented"); }
   void Stubs::do_debugfile(MethodFrame*, String*) { assert(false && "debugfile not implemented"); }
+  void Stubs::do_debug(MethodFrame*, String*, int32_t) { assert(false && "debug not implemented"); }
   Atom Stubs::do_string2atom(MethodFrame*, String*) { assert(false && "string2atom not implemented"); return 0; }
   Atom Stubs::do_double2atom(MethodFrame*, double) { assert(false && "double2atom not implemented"); return 0; }
   Atom Stubs::do_int2atom(MethodFrame*, int32_t) { assert(false && "int2atom not implemented"); return 0; }

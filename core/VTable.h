@@ -58,7 +58,7 @@ namespace avmplus
         bool linked;    // @todo -- surely there's a spare bit we can use for this.
         bool pad[2];
 
-#ifdef VMCFG_NANOJIT
+#if  defined(VMCFG_NANOJIT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
     private:
         ImtHolder       GC_STRUCTURE(imt);
 #endif

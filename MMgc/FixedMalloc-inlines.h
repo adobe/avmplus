@@ -21,7 +21,7 @@ namespace MMgc
     {
         // Observe that no size overflow check is needed for small allocations;
         // the large-object allocator performs the necessary checking in that case.
-#ifdef DEBUG
+#ifdef GCDEBUG
         m_heap->CheckForOOMAbortAllocation();
 #endif
 
@@ -41,7 +41,7 @@ namespace MMgc
         if(item == 0)
             return;
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         EnsureFixedMallocMemory(item);
 #endif
 
@@ -88,7 +88,7 @@ namespace MMgc
     {
         GCAssertMsg(size > 0, "cannot allocate a 0 sized block");
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         uint32_t const size8 = (uint32_t)((size+7)&~7); // Round up to multiple of 8
         GCAssert((size8 >> 3) < kMaxSizeClassIndex);
         GCAssert(size8 <= (uint32_t)kLargestAlloc);

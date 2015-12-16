@@ -113,7 +113,7 @@ class HalfMoonIR
 
   // any goto's prev pointer points to its owning branch (IfStmt, etc.)
   Instr* ownerBranch(GotoInstr* gotoInstr) {
-    assert(gotoInstr->prev == gotoInstr->me.uses->owner);
+    AvmAssert(gotoInstr->prev == gotoInstr->me.uses->owner);
     return gotoInstr->prev;
   }
 

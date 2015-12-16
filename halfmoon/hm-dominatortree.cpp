@@ -128,7 +128,7 @@ public:
   public:
     explicit RootRange(InstrGraph* ir) : begin(ir->begin) {}
     bool empty() const { return begin == 0; }
-    BlockStartInstr* front() const { assert(!empty()); return begin; }
+    BlockStartInstr* front() const { AvmAssert(!empty()); return begin; }
     BlockStartInstr* popFront() {
       BlockStartInstr* b = begin;
       begin = 0;
@@ -138,16 +138,28 @@ public:
     BlockStartInstr* begin;
   };
   static bool oneEdge(BlockStartInstr* b) {
+#ifdef DEBUG
+    // so the dom tree algorithm doesn't AvmAssert in printCfg in debug builds
+    if (!InstrGraph::hasBlockEnd(b)) return false;
+#endif
     return kind(end(b)) == HR_goto;
   }
   static BlockStartInstr* next(BlockStartInstr* b) {
     return cast<GotoInstr>(end(b))->target;
   }
   static bool manyEdges(BlockStartInstr* b) {
+#ifdef DEBUG
+    // so the dom tree algorithm doesn't AvmAssert in printCfg in debug builds
+    if (!InstrGraph::hasBlockEnd(b)) return false;
+#endif
     InstrKind k = kind(end(b));
     return k == HR_if || k == HR_switch;
   }
   static bool hasCatchEdges(BlockStartInstr* b) {
+#ifdef DEBUG
+    // so the dom tree algorithm doesn't AvmAssert in printCfg in debug builds
+    if (!InstrGraph::hasBlockEnd(b)) return false;
+#endif
     return InstrGraph::blockEnd(b)->catch_blocks != NULL;
   }
 private:
@@ -180,11 +192,12 @@ public:
   class RootRange {
   public:
     explicit RootRange(InstrGraph* ir) : ir(ir) {
-      assert((ir->exit || ir->end) && ir->exit != ir->end);
+      // This is true for complete IR, but will AvmAssert in printCfg of incomplete ir. 
+      // AvmAssert((ir->exit || ir->end) && ir->exit != ir->end);
       e = ir->exit ? ir->exit : ir->end;
     }
     bool empty() const { return e == 0; }
-    BlockStartInstr* front() const { assert(!empty()); return start(e); }
+    BlockStartInstr* front() const { AvmAssert(!empty()); return start(e); }
     BlockStartInstr* popFront() {
       BlockStartInstr* b = front();
       e = (e == ir->exit) ? ir->end : 0;

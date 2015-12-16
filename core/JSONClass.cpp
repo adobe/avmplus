@@ -315,45 +315,6 @@ namespace avmplus
         // unmarks value (ie not parent of any object in current traversal)
         void valueNotActive(ScriptObject* value);
 
-        // The purpose of AutoDestructingAtomArray is to build up a
-        // worklist of property names to traverse during stringify.
-        // (A hypothetical direct traversal that recursively processes
-        //  the properties easily hits stack overflow problems.)
-        //
-        // Note that it allocates the worklist via the given FixedMalloc
-        // allocator and automatically frees the worklist during destruction;
-        // thus the stringify kernel must be careful to catch any AS3
-        // exception from a callback and unroll our stack properly
-        // before rethrowing the exception.
-        //
-        // Note also that it is an anti-pattern to be storing Atoms in
-        // the worklist (a FixedMalloc-allocated array) in this
-        // fashion, because the worklist will not be traced by the
-        // garbage collector.  The argument justifying it in this case
-        // is that all of these atoms are property names that are kept
-        // alive by the object we are stringifying, but that is not
-        // a great argument.  Also this code would completely break
-        // in the presence of a copying garbage collector.
-        struct AutoDestructingAtomArray {
-            AutoDestructingAtomArray(MMgc::FixedMalloc* fm, int32_t atomCount)
-                : m_atoms(NULL)
-                , m_atomCount(atomCount)
-                , m_fixedmalloc(fm)
-            {
-                if (atomCount > 0)
-                    m_atoms = (Atom*)fm->Alloc(atomCount*sizeof(Atom));
-            }
-
-            ~AutoDestructingAtomArray() {
-                if (m_atomCount > 0)
-                    m_fixedmalloc->Free(m_atoms);
-            }
-
-            Atom*              m_atoms;
-            int32_t            m_atomCount;
-            MMgc::FixedMalloc* m_fixedmalloc;
-        };
-
         // The purpose of Rope is to allow the stringify code to emit
         // its output incrementally.  Since we do not know a priori
         // how much output may be associated with a particular input,
@@ -419,13 +380,35 @@ namespace avmplus
                  utf8_t b = ch;
                  this->emit(&b, 1);
              }
+            
+            // int32AddChecked copied from StringObject.cpp
+            static int32_t int32AddChecked(int32_t a, int32_t b)
+            {
+                if ((a | b) >= 0)       // both nonnegative?
+                {
+                    uint64_t x = uint64_t(a) + uint64_t(b);
+                    if (x <= 0x7FFFFFFFU)
+                        return int32_t(x);
+                }
+                MMgc::GCHeap::SignalObjectTooLarge();
+                /*NOTREACHED*/
+                return 0;
+            }
+
              REALLY_INLINE void emit(utf8_t const* buf, int32_t len) {
                  while (len > 0) {
                      int32_t wrote = m_ropeEnd->emit(buf, len);
                      len -= wrote;
                      AvmAssert(len >= 0);
                      buf += wrote;
-                     m_len += wrote;
+
+                     // https://watsonexp.corp.adobe.com/#bug=3912335
+                     //
+                     // As the Rope becomes a String,
+                     // limit it's length as String does,
+                     // to prevent overflows.
+                     m_len = int32AddChecked(m_len, wrote);
+                     
                      if (m_ropeEnd->exhausted()) {
                          Chunk* newchunk = newChunk(m_ropeEnd);
                          m_ropeEnd = newchunk;
@@ -1601,30 +1584,6 @@ namespace avmplus
         // ECMA-262 to build up an internal copy of the own
         // propery names for value.
 
-        // Bug 652117: nextNameIndex and nextName need better
-        // documentation, both in headers and in avm2overview.
-
-        int32_t ownDynPropCount = 0;
-        int32_t index;
-
-        index = value->nextNameIndex(0);
-        while (index != 0) {
-            ownDynPropCount++;
-            index = value->nextNameIndex(index);
-        }
-
-        AutoDestructingAtomArray propNames(m_fixedmalloc, ownDynPropCount);
-
-        index = value->nextNameIndex(0);
-        int32_t propNamesIdx = 0;
-        while (index != 0) {
-            Atom name = value->nextName(index);
-            propNames.m_atoms[propNamesIdx] = name;
-            propNamesIdx++;
-            index = value->nextNameIndex(index);
-        }
-        AvmAssert(propNamesIdx == ownDynPropCount);
-
         // In any case, if our object has Traits, then it is an
         // instance of an AS3 class, and we want to enumerate its
         // public non-method properties first.
@@ -1675,10 +1634,10 @@ namespace avmplus
                 emittedSomething = true;
             }
         }
-
-        for (propNamesIdx = 0; propNamesIdx < ownDynPropCount; propNamesIdx++) {
-
-            Atom name = propNames.m_atoms[propNamesIdx];
+        
+        int32_t index = value->nextNameIndex(0);
+        while (index != 0) {
+            Atom name = value->nextName(index);
 
             // Is the getAtomPropertyIsEnumerable test necessary
             // (and if it is, is there potential for changing how
@@ -1686,8 +1645,7 @@ namespace avmplus
             // the contract of getAtomPropertyIsEnumerable;
             // e.g. if it requires a string, does that imply that
             // non-string indices are always enumerable?
-            if (!AvmCore::isString(name) ||
-                value->getAtomPropertyIsEnumerable(name)) {
+            if (!AvmCore::isString(name) || value->getAtomPropertyIsEnumerable(name)) {
                 ReturnCondition ret;
                 ret = JOProp(name, value, pendingPre);
                 RET_EXN_CHECK(ret);
@@ -1696,6 +1654,8 @@ namespace avmplus
                     emittedSomething = true;
                 }
             }
+
+            index = value->nextNameIndex(index);
         }
     }
 

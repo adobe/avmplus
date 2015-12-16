@@ -81,7 +81,7 @@ GprMethodProc JitManager::getImpl(MethodInfo* method) {
 
 // Allocate a new MethodData object.
 JitManager::MethodData* JitManager::ensureMethodData(MethodInfo* method) {
-  assert(checkMethodId(method->method_id()));
+  AvmAssert(checkMethodId(method->method_id()));
   int method_id = method->method_id();
   MethodData* method_data = methods_[method_id];
   if (!method_data) {

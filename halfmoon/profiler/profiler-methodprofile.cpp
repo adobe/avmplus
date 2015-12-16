@@ -25,7 +25,7 @@ MethodProfileMgr::MethodProfileMgr(Allocator& alloc)
 }
 
 MethodProfile* MethodProfileMgr::getMethodProfile(MethodInfo* methodInfo) {
-  assert(methodInfo != NULL);
+  AvmAssert(methodInfo != NULL);
   MethodProfile* methodProfile = method_info_map_.get(methodInfo);
   if (methodProfile == NULL) {
     methodProfile = new (method_profile_allocator_) MethodProfile(
@@ -33,7 +33,7 @@ MethodProfile* MethodProfileMgr::getMethodProfile(MethodInfo* methodInfo) {
     method_info_map_.put(methodInfo, methodProfile);
   }
 
-  assert(methodProfile != NULL);
+  AvmAssert(methodProfile != NULL);
   return methodProfile;
 }
 
@@ -59,14 +59,14 @@ MethodProfile::~MethodProfile() {
 
 int32_t MethodProfile::getLoopIterationCount(int branch_pc, int target_pc) {
   int loop_count = getBranchCount(branch_pc, target_pc);
-  assert(loop_count != 0);
+  AvmAssert(loop_count != 0);
   return loop_count;
 }
 
 double MethodProfile::getBranchProbability(int branch_abc_pc,
                                            int target_abc_pc) {
   HashMap<int, int>* branch_targets = branch_counter_map_.get(branch_abc_pc);
-  assert(branch_targets != NULL && "Not a valid branch abc pc");
+  AvmAssert(branch_targets != NULL && "Not a valid branch abc pc");
 
   HashMap<int, int>::Iter iter(*branch_targets);
   int total_branch_count = 0;
@@ -76,7 +76,7 @@ double MethodProfile::getBranchProbability(int branch_abc_pc,
   }
 
   int target_branch_count = branch_targets->get(target_abc_pc);
-  assert(target_branch_count <= total_branch_count);
+  AvmAssert(target_branch_count <= total_branch_count);
   return (double) target_branch_count / (double) total_branch_count;
 }
 
@@ -89,8 +89,8 @@ void MethodProfile::finish() {
 
 int MethodProfile::getBranchCount(int branch_abc_pc, int target_abc_pc) {
   HashMap<int, int>* branch_targets = branch_counter_map_.get(branch_abc_pc);
-  assert(branch_targets != NULL && "Not a valid branch abc pc");
-  assert(branch_targets->containsKey(target_abc_pc) &&
+  AvmAssert(branch_targets != NULL && "Not a valid branch abc pc");
+  AvmAssert(branch_targets->containsKey(target_abc_pc) &&
          "Not a valid branch target pc");
 
   return branch_targets->get(target_abc_pc);
@@ -134,7 +134,7 @@ bool MethodProfile::hasBailedOut() {
 
 ProfiledState* MethodProfile::getProfileState(int abc_pc, int input_count,
                                               int output_count) {
-  assert(!hasBailedOut());
+  AvmAssert(!hasBailedOut());
   ProfiledState* profiled_state = runtime_type_map_.get(abc_pc);
   if (profiled_state == NULL) {
     profiled_state = new (input_types_allocator_) ProfiledState(
@@ -142,7 +142,7 @@ ProfiledState* MethodProfile::getProfileState(int abc_pc, int input_count,
     runtime_type_map_.put(abc_pc, profiled_state);
   }
 
-  assert(profiled_state != NULL);
+  AvmAssert(profiled_state != NULL);
   return profiled_state;
 }
 

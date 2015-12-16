@@ -246,6 +246,7 @@ namespace avmplus
 
     public:
         static void RandomFastInit(pTRandomFast pRandomFast);
+        static void RandomFastInit(pTRandomFast pRandomFast, uint32_t seed);
         static int32_t RandomPureHasher(int32_t iSeed);
         static int32_t GenerateRandomNumber(pTRandomFast pRandomFast);
         static int32_t Random(int32_t range, pTRandomFast pRandomFast);

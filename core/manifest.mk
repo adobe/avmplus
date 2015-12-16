@@ -117,6 +117,12 @@ avmplus_CXXSRCS := $(avmplus_CXXSRCS) \
 
 #  $(curdir)/avmplus.cpp \
 
+ifeq ($(ENABLE_HALFMOON_AOT_RUNTIME),1)
+avmplus_CXXSRCS += \
+  $(curdir)/hm-aot-helpers.cpp \
+  $(NULL)
+endif
+
 # See manifest.mk in root directory for the dependencies
 # on $(topsrcdir)/generated/builtin.h.
 
@@ -153,4 +159,12 @@ endif
 ifeq ($(TARGET_OS),android)
 $(curdir)/Interpreter.$(OBJ_SUFFIX): avmplus_CXXFLAGS += -Wno-error
 $(curdir)/ByteArrayGlue.$(OBJ_SUFFIX): avmplus_CXXFLAGS += -Wno-error
+endif
+
+# With Clang, Cdeclthunk needs to be compiled with O1 in release mode
+ifeq ($(TARGET_OS),darwin)
+ifndef ENABLE_DEBUG 
+$(curdir)/CdeclThunk.$(OBJ_SUFFIX): avmplus_CXXFLAGS += -O1
+endif
+$(curdir)/CdeclThunk.$(OBJ_SUFFIX): avmplus_CXXFLAGS += -no-integrated-as
 endif

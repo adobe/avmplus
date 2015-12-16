@@ -263,6 +263,49 @@ namespace avmshell
             xmlObject->dispose();
     }
 
+	void SystemClass::smashObjectVectorSize(avmplus::ObjectVectorObject* vec, uint32_t size)
+    {
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+	        if (vec)
+            	vec->setLengthUnchecked(size);
+		#else
+			(void)vec; (void)size;
+		#endif
+    }
+
+	void SystemClass::smashIntVectorSize(avmplus::IntVectorObject* vec, uint32_t size)
+    {
+
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+	        if (vec)
+            	vec->setLengthUnchecked(size);
+		#else
+			(void)vec; (void)size;
+		#endif
+    }
+
+	void SystemClass::smashUIntVectorSize(avmplus::UIntVectorObject* vec, uint32_t size)
+    {
+
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+	        if (vec)
+            	vec->setLengthUnchecked(size);
+		#else
+			(void)vec; (void)size;
+		#endif
+    }
+
+	void SystemClass::smashDoubleVectorSize(avmplus::DoubleVectorObject* vec, uint32_t size)
+    {
+
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+	        if (vec)
+            	vec->setLengthUnchecked(size);
+		#else
+			(void)vec; (void)size;
+		#endif
+    }
+
     void SystemClass::pauseForGCIfCollectionImminent(double imminence)
     {
         if( avmplus::MathUtils::isNaN(imminence) )

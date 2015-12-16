@@ -758,5 +758,6 @@ class B extends A {
   <error id="2107" label="kProxyNextValueError">La classe Proxy ne met pas en oeuvre nextValue. Elle doit être remplacée par une sous-classe.</error>
   <error id="2108" label="kInvalidArrayLengthError">La valeur %1 n’est pas une valeur de tableau valide.</error>
   <error id="2173" label="kReadExternalNotImplementedError">Impossible de lire l'objet dans le flux. La classe %1 n'implémente pas flash.utils.IExternalizable, mais est aliasée vers une classe externalisable.</error>
+  <error id="3735" label="kAPICannotAcceptSharedByteArray">Cette API ne prend pas en charge les objets ByteArray partagés.</error>
 
 </errors>

@@ -179,4 +179,5 @@ class Errors
         public static const kProxyNextValueError              = 2107;
         public static const kInvalidArrayLengthError          = 2108;
         public static const kReadExternalNotImplementedError  = 2173;
+        public static const kAPICannotAcceptSharedByteArray   = 3735;
 };

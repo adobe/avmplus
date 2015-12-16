@@ -8,6 +8,7 @@
 #include <windows.h>
 
 #include "MMgc.h"
+#include "../other-licenses/wtf/AddressSpaceRandomization.h"
 
 #ifdef MMGC_MEMORY_PROFILER
     #include <malloc.h>
@@ -17,6 +18,109 @@
     #include <io.h>
 #endif
 #endif
+
+#ifdef NANOJIT_WIN_CFG
+#include <stdlib.h>
+#include <stdio.h>
+
+#ifndef INTERNAL_BUILD
+typedef struct _CFG_CALL_TARGET_INFO { 
+	ULONG_PTR Offset; 
+	ULONG_PTR Flags; 
+} CFG_CALL_TARGET_INFO, *PCFG_CALL_TARGET_INFO;
+#endif
+
+#define FILE_MAP_TARGETS_INVALID       0x40000000 
+#define PAGE_TARGETS_NO_UPDATE      0x40000000
+#define PAGE_TARGETS_INVALID        0x40000000
+#define CFG_CALL_TARGET_VALID (0x1)
+
+#pragma section(".00cfg", read)
+#define DECLSPEC_CFG_SECTION __declspec(allocate(".00cfg"))
+
+BOOL WINAPI SetProcessValidCallTargetsStub(_In_ HANDLE,
+									_In_ PVOID,
+									_In_ SIZE_T,
+									_In_ ULONG,
+									_In_reads_(0) PCFG_CALL_TARGET_INFO)
+{
+	return FALSE;
+}
+
+// SetProcessValidCallTargets function pointer type.
+typedef BOOL (WINAPI *FNCSetProcessValidCallTargets)(HANDLE, PVOID, SIZE_T, ULONG, PCFG_CALL_TARGET_INFO);
+
+//
+// Allocate SetProcessValidCallTargetsPtr in the .00cfg so that it is implicitly merged into the 
+// import section of the binary (which is read-only).
+// Indirect calls using this pointer do not have the guard check function,
+// and so will not fail the CFG check.
+//
+
+EXTERN_C DECLSPEC_CFG_SECTION FNCSetProcessValidCallTargets SetProcessValidCallTargetsPtr = SetProcessValidCallTargetsStub;
+EXTERN_C DECLSPEC_CFG_SECTION LONG gIsSupportedSetICallTarget = false;
+EXTERN_C DECLSPEC_CFG_SECTION LONG gIsSetICallTargetResolved = false;
+
+
+DECLSPEC_GUARDNOCF BOOL CallSetProcessValidCallTargets( _In_ HANDLE hProcess,
+														_In_ PVOID pBuffer,
+														_In_ SIZE_T nLength,
+														_In_ ULONG nInfoArgs,
+														_In_reads_(0) PCFG_CALL_TARGET_INFO InfoArgs)
+{
+	// Read into local to avoid compiler optimizing away a read-only global variable.
+	FNCSetProcessValidCallTargets pfn;
+	pfn = (FNCSetProcessValidCallTargets)ReadPointerNoFence((volatile PVOID *)&SetProcessValidCallTargetsPtr);
+	return pfn(hProcess, pBuffer, nLength, nInfoArgs, InfoArgs);
+}
+
+DECLSPEC_GUARDNOCF BOOL IsSupportedSetICallTarget()
+{
+	// Read into local to avoid compiler optimizing away a read-only global variable.
+	BOOL ret;
+	ret = (BOOL)ReadNoFence((volatile LONG *)&gIsSupportedSetICallTarget);
+	return ret;
+}
+
+DECLSPEC_GUARDNOCF BOOL IsSetICallTargetResolved()
+{
+	// Read into local to avoid compiler optimizing away a read-only global variable.
+	BOOL ret;
+	ret = (BOOL)ReadNoFence((volatile LONG *)&gIsSetICallTargetResolved);
+	return ret;
+}
+
+VOID ResolveSetProcessValidCallTargets()
+{
+	ULONG dwOldProtect;
+	FNCSetProcessValidCallTargets funcPtr;
+
+	if (IsSetICallTargetResolved())
+		return;
+
+	if (!VirtualProtect(&gIsSetICallTargetResolved, sizeof(BOOL), PAGE_READWRITE, &dwOldProtect))
+		return;
+	gIsSetICallTargetResolved = (LONG)true;
+	if (!VirtualProtect(&gIsSetICallTargetResolved, sizeof(BOOL), dwOldProtect, &dwOldProtect))
+		return;
+
+	funcPtr = (FNCSetProcessValidCallTargets)GetProcAddress(GetModuleHandleW(L"api-ms-win-core-memory-l1-1-3.dll"), "SetProcessValidCallTargets");
+	if (funcPtr == nullptr)
+		return;
+
+	if (!VirtualProtect(&SetProcessValidCallTargetsPtr, sizeof(PVOID), PAGE_READWRITE, &dwOldProtect))
+		return;
+	SetProcessValidCallTargetsPtr = funcPtr;
+	if (!VirtualProtect(&SetProcessValidCallTargetsPtr, sizeof(PVOID), dwOldProtect, &dwOldProtect))
+		return;
+
+	if (!VirtualProtect(&gIsSupportedSetICallTarget, sizeof(BOOL), PAGE_READWRITE, &dwOldProtect))
+		return;
+	gIsSupportedSetICallTarget = (LONG)true;
+	if (!VirtualProtect(&gIsSupportedSetICallTarget, sizeof(BOOL), dwOldProtect, &dwOldProtect))
+		return;
+}
+#endif //NANOJIT_WIN_CFG
 
 bool AVMPI_canMergeContiguousRegions()
 {
@@ -40,13 +144,20 @@ bool AVMPI_areNewPagesDirty()
 
 void* AVMPI_reserveMemoryRegion(void* address, size_t size)
 {
+#ifdef NANOJIT_WIN_CFG
+	// Resolve SetProcessValidCallTargets() function pointer if OS supports it.
+	ResolveSetProcessValidCallTargets();
+#endif
+
+#ifdef AVMPLUS_64BIT
+	if (!address) {
+		address = WTF::getRandomPageBase();
+    }
+#endif // AVMPLUS_64BIT
+
     return VirtualAlloc(address,
                         size,
-                        MEM_RESERVE
-#ifdef _WIN64
-                        | MEM_TOP_DOWN
-#endif
-                        ,
+						MEM_RESERVE,
                         PAGE_NOACCESS);
 }
 
@@ -59,11 +170,7 @@ static bool CommitMemory(void* address, size_t size)
 {
     address = VirtualAlloc(address,
                            size,
-                           MEM_COMMIT
-#ifdef _WIN64
-                           | MEM_TOP_DOWN
-#endif //#ifdef _WIN64
-                           ,
+                           MEM_COMMIT,
                            PAGE_READWRITE);
     return address != NULL;
 }
@@ -100,11 +207,7 @@ bool AVMPI_decommitMemory(char *address, size_t size)
 
 void* AVMPI_allocateAlignedMemory(size_t size)
 {
-    return VirtualAlloc(NULL, size, MEM_COMMIT
-#ifdef _WIN64
-                        | MEM_TOP_DOWN
-#endif
-                        , PAGE_READWRITE);
+    return VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
 }
 
 void AVMPI_releaseAlignedMemory(void* address)
@@ -607,6 +710,15 @@ extern "C" unsigned long* get_frame_pointer();
 
 #endif // MMGC_MEMORY_PROFILER
 
+// We believe that we may be failing to set code memory executable in some cases,
+// resulting in crashes.  Let's instead crash immediately upon such failures in a
+// way that the crash dump will tell us what happened.
+// An inline assembler "int3" would be ideal, but inline assembler is not supported
+// on X64.  Instead, we dereference NULL and try to hide our misdeed from the optimizer,
+// as the effect is undefind according to the C++ definition.
+int AVMPI_crashFastHelper(int* x) { return x[0]; }
+#define CRASHFAST() do { AVMPI_crashFastHelper(NULL); } while(0)
+
 // Constraint: nbytes must be a multiple of the VM page size.
 //
 // The returned memory will be aligned on a VM page boundary and cover
@@ -637,7 +749,44 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
     
     size_t nblocks = nbytes / MMgc::GCHeap::kBlockSize;
     heap->SignalCodeMemoryAllocation(nblocks, true);
-    return heap->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize/MMgc::GCHeap::kBlockSize);
+	void *codePage = heap->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize / MMgc::GCHeap::kBlockSize);
+#if defined(NANOJIT_WIN_CFG)
+	if (IsSupportedSetICallTarget())
+	{
+		if (!codePage)
+		{
+			// It should not happen!!
+			return NULL;
+		}
+
+		void *curPage = codePage;
+		do {
+			MEMORY_BASIC_INFORMATION mbi;
+			VirtualQuery(curPage, &mbi, sizeof(MEMORY_BASIC_INFORMATION));
+			size_t markSize = nbytes > mbi.RegionSize ? mbi.RegionSize : nbytes;  // handle multiple adjoining regions
+			if (!VirtualAlloc(curPage,
+							  markSize,
+							  MEM_COMMIT,
+							  (PAGE_EXECUTE_READ | PAGE_TARGETS_INVALID)))
+			{
+				// It should not happen!!
+				CRASHFAST();
+			}
+
+			DWORD oldProtectFlags = 0;
+			// PAGE_TARGETS_NO_UPDATE should not be required, as we are not changing *to* an executable mode.
+			// See https://msdn.microsoft.com/en-us/library/windows/desktop/aa366786%28v=vs.85%29.aspx .
+			if (!VirtualProtect(curPage, markSize, PAGE_READWRITE, &oldProtectFlags))
+			{
+				// It should not happen!!
+				CRASHFAST();
+			}
+			curPage = (char*)curPage + markSize;
+			nbytes -= markSize;
+		} while (nbytes != 0);
+	}
+#endif
+	return codePage;
 }
 
 // Constraint: address must have been returned from AVMPI_allocateCodeMemory
@@ -705,11 +854,24 @@ void AVMPI_makeCodeMemoryExecutable(void *address, size_t nbytes, bool makeItSo)
     
     DWORD oldProtectFlags = 0;
     DWORD newProtectFlags = 0;
-    if ( makeItSo )
-        newProtectFlags = PAGE_EXECUTE_READ;
-    else
-        newProtectFlags = PAGE_READWRITE;
-    
+#if defined(NANOJIT_WIN_CFG)
+	if (IsSupportedSetICallTarget())
+	{
+		if (makeItSo)
+			newProtectFlags = PAGE_EXECUTE_READ | PAGE_TARGETS_NO_UPDATE;
+		else
+		    // According to MS docs, PAGE_TARGETS_NO_UPDATE is valid only when changing *to* an executable type.
+			newProtectFlags = PAGE_READWRITE;
+	}
+	else
+#endif
+	{
+		if (makeItSo)
+			newProtectFlags = PAGE_EXECUTE_READ;
+		else
+			newProtectFlags = PAGE_READWRITE;
+	}
+
     BOOL retval;
     do {
         MEMORY_BASIC_INFORMATION mbi;
@@ -718,8 +880,39 @@ void AVMPI_makeCodeMemoryExecutable(void *address, size_t nbytes, bool makeItSo)
         
         retval = VirtualProtect(address, markSize, newProtectFlags, &oldProtectFlags);
         AvmAssert(retval != 0);
+		if (retval == FALSE) CRASHFAST();
         
         address = (char*) address + markSize;
         nbytes -= markSize;
     } while(nbytes != 0 && retval != 0);
 }
+
+#if defined(NANOJIT_WIN_CFG)
+void AVMPI_makeTargetValid(void *address, size_t pageSize, void *pFnc)
+{
+	if (IsSupportedSetICallTarget())
+	{
+		do {
+			MEMORY_BASIC_INFORMATION mbi;
+			VirtualQuery(address, &mbi, sizeof(MEMORY_BASIC_INFORMATION));
+			size_t markSize = pageSize > mbi.RegionSize ? mbi.RegionSize : pageSize;  // handle multiple adjoining regions
+			if (((char *)mbi.BaseAddress + mbi.RegionSize) > pFnc)
+			{
+				size_t offset = (size_t)((char *)pFnc - (char *)mbi.BaseAddress);
+				CFG_CALL_TARGET_INFO info;
+				info.Offset = offset;
+				info.Flags = CFG_CALL_TARGET_VALID;
+				if (!CallSetProcessValidCallTargets(GetCurrentProcess(), mbi.BaseAddress, markSize, 1, &info))
+				{
+					// TODO: error handler
+					CRASHFAST();
+				}
+				return;
+			}
+
+			address = (char*)address + markSize;
+			pageSize -= markSize;
+		} while (pageSize != 0);
+	}
+}
+#endif

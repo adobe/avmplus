@@ -7,7 +7,7 @@
 namespace avmplus
 {
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 MMgc::GCTracerCheckResult DomainClass::gcTraceOffsetIsTraced(uint32_t off) const
 {
     MMgc::GCTracerCheckResult result;
@@ -17,7 +17,7 @@ MMgc::GCTracerCheckResult DomainClass::gcTraceOffsetIsTraced(uint32_t off) const
         return result;
     return MMgc::kOffsetNotFound;
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool DomainClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {
@@ -33,7 +33,7 @@ bool DomainClass::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 const uint32_t DomainObject::gcTracePointerOffsets[] = {
     offsetof(DomainObject, domainEnv),
     offsetof(DomainObject, domainToplevel),
@@ -48,7 +48,7 @@ MMgc::GCTracerCheckResult DomainObject::gcTraceOffsetIsTraced(uint32_t off) cons
         return result;
     return MMgc::GC::CheckOffsetIsInList(off,gcTracePointerOffsets,2);
 }
-#endif // DEBUG
+#endif // GCDEBUG
 
 bool DomainObject::gcTrace(MMgc::GC* gc, size_t _xact_cursor)
 {

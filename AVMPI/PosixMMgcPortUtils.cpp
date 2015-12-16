@@ -46,10 +46,22 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
         VMPI_abort();
     }
 
+#ifdef VMCFG_STRESS_SPARSE_CODE_MEM
+	// Allocate directly from system, typically allocating a page at at time.
+	// Assumes placement in memory will be randomized, as it is on 64-bit Windows and MacOS.
+	// This is for stress-testing only, as no serious attempt has been made to determine
+	// the impact of excessive address space fragmentation or to tune MMgc OOM policy.
+	void* address = AVMPI_reserveMemoryRegion(NULL, nbytes);
+	//fprintf(stderr, "$$$ allocating %lu at %p\n", nbytes, address);
+	AvmAssert(address != NULL);
+	AVMPI_commitMemory(address, nbytes);
+    heap->SignalCodeMemoryAllocation(1, false);
+	return address;
+#else
     size_t nblocks = nbytes / MMgc::GCHeap::kBlockSize;
-
     heap->SignalCodeMemoryAllocation(nblocks, true);
     return heap->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize/MMgc::GCHeap::kBlockSize);
+#endif
 }
 
 // Constraint: address must have been returned from VMPI_allocateCodeMemory
@@ -70,8 +82,14 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
 {
     MMgc::GCHeap* heap = MMgc::GCHeap::GetGCHeap();
     size_t pagesize = VMPI_getVMPageSize();
+	
+#ifdef VMCFG_STRESS_SPARSE_CODE_MEM
+	size_t nblocks = 1;
+    size_t actualBytes = nbytes;
+#else
     size_t nblocks = heap->Size(address);
     size_t actualBytes = nblocks * MMgc::GCHeap::kBlockSize;
+#endif
 
     if ((uintptr_t)address % pagesize != 0 || nbytes % pagesize != 0 || nbytes != actualBytes) {
 #ifdef DEBUG
@@ -86,9 +104,15 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
 #endif
         VMPI_abort();
     }
-
+	
+#ifdef VMCFG_STRESS_SPARSE_CODE_MEM
+	AVMPI_decommitMemory((char*)address, nbytes);
+	AVMPI_releaseMemoryRegion(address, nbytes);
+    heap->SignalCodeMemoryDeallocated(nblocks, false);
+#else
     heap->Free(address);
     heap->SignalCodeMemoryDeallocated(nblocks, true);
+#endif
 }
 
 // Constraint: address must point into a block returned from VMPI_allocateCodeMemory

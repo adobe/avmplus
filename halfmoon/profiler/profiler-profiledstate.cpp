@@ -18,20 +18,20 @@ ProfiledState::ProfiledState(Allocator& allocator, int input_count, int output_c
 }
 
 RecordedType ProfiledState::getInputType(int input_index) {
-  assert (hasData());
-  assert (input_index < input_count_);
+  AvmAssert (hasData());
+  AvmAssert (input_index < input_count_);
   return profiled_types_[input_index];
 }
 
 RecordedType ProfiledState::getOutputType(int output_index) {
-  assert (hasData());
-  assert (output_index < output_count_);
+  AvmAssert (hasData());
+  AvmAssert (output_index < output_count_);
   return profiled_types_[output_index + input_count_];
 }
 
 void ProfiledState::setOutputType(int output_index, Atom value) {
-  assert (hasData());
-  assert (output_index < output_count_);
+  AvmAssert (hasData());
+  AvmAssert (output_index < output_count_);
   profiled_types_[output_index + input_count_] = getRecordedType(value);
 }
 
@@ -53,10 +53,10 @@ RecordedType ProfiledState::getRecordedType(Atom value) {
   case kSpecialBibopType: return kUNSUPPORTED;
   default:
     printf("Unknown atom type %d\n", (int) atom_kind);
-    assert (false);
+    AvmAssert (false);
   }
 
-  assert (false);
+  AvmAssert (false);
   return kUNINITIALIZED;
 }
 
@@ -73,8 +73,8 @@ void ProfiledState::setInputType(int input_index, Atom value) {
 }
 
 void ProfiledState::setInputRecordedType(int input_index, RecordedType new_type) {
-  assert (hasData());
-  assert (input_index < input_count_);
+  AvmAssert (hasData());
+  AvmAssert (input_index < input_count_);
   RecordedType previous_type = profiled_types_[input_index];
 
   if ((new_type != previous_type) &&

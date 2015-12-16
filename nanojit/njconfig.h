@@ -43,6 +43,9 @@ namespace nanojit
         // If true, use CSE.
         uint32_t cseopt:1;
 
+        // If true, use full-range addressing for branches even when a short branch will suffice (x86-64 only)
+        uint32_t force_long_branch:1;
+
         // Can we use SSE2 instructions? (x86-only)
         uint32_t i386_sse2:1;
 

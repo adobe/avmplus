@@ -52,7 +52,7 @@ namespace avmplus
     const uint32_t XML_TYPE_MASK = (1<<BUILTIN_xml) | (1<<BUILTIN_xmlList);
 #ifdef VMCFG_AOT
     // FIXME: add AOT support on VMCFG_FLOAT
-    const uint32_t SSTOBJECT_TYPE_MASK = ~ ((1<<BUILTIN_int) | (1<<BUILTIN_uint) | (1<<BUILTIN_number) | (1<<BUILTIN_boolean) | (1<<BUILTIN_any) | (1<<BUILTIN_object) | (1<<BUILTIN_string) | (1<<BUILTIN_namespace));
+    const uint32_t SSTOBJECT_TYPE_MASK = ~(const uint32_t)((1<<BUILTIN_int) | (1<<BUILTIN_uint) | (1<<BUILTIN_number) | (1<<BUILTIN_boolean) | (1<<BUILTIN_any) | (1<<BUILTIN_object) | (1<<BUILTIN_string) | (1<<BUILTIN_namespace));
     const uint32_t SSTATOM_TYPE_MASK = (1<<BUILTIN_object) | (1<<BUILTIN_any);
 #endif
 
@@ -390,6 +390,13 @@ namespace avmplus
 
 #ifdef VMCFG_AOT
         void initActivationTraits();
+#endif
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+        TraitsPosPtr getRawTraitsPos() { return m_traitsPos; }
+#endif
+        //Vector with param traits in private ns may clash. Need extra index for AOT
+#if defined(VMCFG_HALFMOON_AOT_RUNTIME) || defined(VMCFG_HALFMOON_AOT_COMPILER)
+        int getTraitsNameSpaceIndexInPool();
 #endif
 
         // convenient wrapper to check for null (returns "BUILTIN_any")

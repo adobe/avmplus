@@ -74,7 +74,7 @@ namespace MMgc
         size_t heapSoftLimit;
 
         /**
-         * In DEBUG builds, if dispersiveAdversarial is non-zero then
+         * In GCDEBUG builds, if dispersiveAdversarial is non-zero then
          * region reservation attempts to exercise low and high ends
          * of address space. Its magnitude roughly corresponds to how
          * much filler we attempt to insert between regions.
@@ -114,7 +114,12 @@ namespace MMgc
         bool sloppyCommit;
 
         /**
-         * In DEBUG builds, if checkFixedMemory is true then a test is made to check whether
+         * A randomly-chosen session secret used for security hardening.
+         */
+        uint32_t secret;
+
+        /**
+         * In GCDEBUG builds, if checkFixedMemory is true then a test is made to check whether
          * the fixed object about to be freed is owned by FixedMalloc.  That test is somewhat
          * expensive, so it can be toggled by means of this flag.
          *
@@ -306,10 +311,17 @@ namespace MMgc
         const static uint32_t MMNormalArrayTag    = 0xbfbf0001U;// Tag for an array object with constructed/destructed elements
         const static uint32_t MMPrimitiveArrayTag = 0xbfbf0002U;// Tag for an array object with primitive elements, must be one greater than the normal tag
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         const static char LeafApiEnforcementPoison = 0xa;
 #endif
-        
+		
+        /**
+         * Per-heap (i.e., per-session) secret for security mitigations.
+         *
+         * Referenced directly from JIT-compiled code.  It must be a static variable, and cannot go in the GCHeap singleton.
+         */
+		static uint32_t secret;
+
         /**
          * Init must be called to set up the GCHeap singleton
          */
@@ -730,7 +742,7 @@ namespace MMgc
 
         bool IsAddressInHeap(void *);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         /** illegal to perform an allocation during OOM status notifications
             use this check in places where we are doing an alloc that might
             call GCHeap::Alloc

@@ -125,7 +125,7 @@ private:
 /// Helper: if definer of v is a UnaryExpr k(x:t), return x
 ///
 Def* matchUnaryExpr(const Use& v, InstrKind k, const Type* t) {
-  assert(InstrFactory::isUnaryExpr(k));
+  AvmAssert(InstrFactory::isUnaryExpr(k));
   Def* v2;
   Instr* i = definer(v);
   return (kind(i) == k &&
@@ -136,16 +136,16 @@ Def* matchUnaryExpr(const Use& v, InstrKind k, const Type* t) {
 /// Helper: if definer of v is a UnaryExpr k(x), return x
 ///
 Def* matchUnaryExpr(const Use& v, InstrKind k) {
-  assert(InstrFactory::isUnaryExpr(k));
+  AvmAssert(InstrFactory::isUnaryExpr(k));
   Instr* i = definer(v);
   return kind(i) == k ? def(cast<UnaryExpr>(i)->value_in()) : 0;
 }
 
 ScopeKind findScope(Lattice* lattice_, NaryStmt3* instr, int* index_) {
-  assert(kind(instr) == HR_abc_findproperty ||
+  AvmAssert(kind(instr) == HR_abc_findproperty ||
          kind(instr) == HR_abc_findpropstrict);
   const Type* name_type = type(instr->name_in());
-  assert(isConst(name_type) && isName(name_type));
+  AvmAssert(isConst(name_type) && isName(name_type));
   int scope_count = instr->vararg_count();
   Def* env = def(instr->env_in());
   const Use* scopes = instr->varargs();
@@ -155,7 +155,7 @@ ScopeKind findScope(Lattice* lattice_, NaryStmt3* instr, int* index_) {
     return kScopeNotFound; // not an ordinary known lexical name.
 
   // Don't short circuit dynamic lookups
-  assert(isOrdinal(type(instr->index_in())));
+  AvmAssert(isOrdinal(type(instr->index_in())));
   int withbase = ordinalVal(type(instr->index_in()));
   if (withbase != -1)
     return kScopeNotFound;
@@ -236,7 +236,7 @@ void Specializer::specialize(Instr* instr) {
 
 InstrKind Specializer::getLoadEnvKind(const Type* object, bool is_interface) {
   switch (kind(object)) {
-  default: assert(false && "Unknown load env type");
+  default: AvmAssert(false && "Unknown load env type");
   case kTypeScriptObject: return is_interface ? HR_loadenv_interface : HR_loadenv;
   case kTypeString: return HR_loadenv_string;
   case kTypeNumber: return HR_loadenv_number;
@@ -250,7 +250,7 @@ InstrKind Specializer::getLoadEnvKind(const Type* object, bool is_interface) {
 }
 
 void Specializer::do_abc_getprop(CallStmt2* instr) {
-  assert(instr->vararg_count() == 0);
+  AvmAssert(instr->vararg_count() == 0);
   const Use& object_in = instr->object_in();
   Binding b = toBinding(lattice_, object_in, instr->param_in());
   if (isSlot(b)) {
@@ -266,10 +266,10 @@ void Specializer::do_abc_getprop(CallStmt2* instr) {
     const TraitsBindingsp objtd = object_traits->getTraitsBindings();
     MethodInfo* method = objtd->getMethod(getter_index);
     bool is_interface = object_traits->isInterface();
-    assert (method != NULL);
+    AvmAssert (method != NULL);
 
     InstrKind env_kind = getLoadEnvKind(type(object_in), is_interface);
-    assert (kind(type(object_in)) != kTypeAny);
+    AvmAssert (kind(type(object_in)) != kTypeAny);
     Def* env_param = is_interface ?
       builder.addConst(lattice_->makeMethodConst(method)) :
       builder.addOrdinal(toGetterIndex(b)); 
@@ -348,11 +348,46 @@ void Specializer::do_abc_setpropx(CallStmt3* instr) {
 }
 
 void Specializer::do_abc_setprop(CallStmt2* instr) {
-  const Use& obj_in = instr->object_in();
-  const Use& name_in = instr->param_in();
-  Binding b = toBinding(lattice_, obj_in, name_in);
+  Use& object_in = instr->object_in();
+  Use& name_in = instr->param_in();
+  Binding b = toBinding(lattice_, object_in, name_in);
   if (isVarSlot(b))
+  {
     factory_.toCallStmt2(HR_abc_setprop_slot, instr);
+  }
+  else if (hasSetter(b) && lattice_->isResolved(type(object_in)))
+  {
+    // Early bind to a setter.
+    Traits* object_traits = getTraits(type(object_in));
+    bool is_interface = object_traits->isInterface();
+
+    int extra_argc = instr->vararg_count();
+    const TraitsBindingsp objtd = object_traits->getTraitsBindings();
+    uint32_t setter_index = toSetterIndex(b);
+    MethodInfo* method = objtd->getMethod(setter_index);
+    AvmAssert (method != NULL);
+    MethodSignaturep ms = method->getMethodSignature();
+
+    SpecialBuilder builder(ir_, &factory_, instr, instr->effect_in());
+    Def* object_def = builder.coerceExpr(getParamTraits(ms, 0), def(object_in));
+    object_in = object_def;
+    InstrKind env_kind = getLoadEnvKind(type(object_def), is_interface);
+
+    Def* env_param = is_interface ? 
+      builder.addConst(lattice_->makeMethodConst(method)) :
+      builder.addOrdinal(setter_index);
+
+    name_in = builder.addExpr(env_kind, env_param, object_def);
+
+    for (int i = 0; i < extra_argc; ++i) {
+      Use& arg = instr->vararg(i);
+      arg = builder.coerceExpr(getParamTraits(ms, i + 1), def(arg));
+    }
+
+    InstrKind methodKind = is_interface ? HR_callinterface : HR_callmethod;
+    instr->effect_in() = builder.effect();
+    builder.toCallStmt2(methodKind, instr);
+  }
 }
 
 void Specializer::do_abc_initprop(CallStmt2* instr) {
@@ -406,6 +441,9 @@ bool Specializer::specializeSlotCallProp(CallStmt2* instr, CallAnalyzer* call_an
   // although we may need one for every builtin type.
   if (slotType == lattice_->core()->traits.string_ctraits) {
     factory_.toCallStmt2(HR_callprop_string, instr);
+    return true;
+  }else if(slotType == lattice_->core()->traits.int_ctraits) {
+    factory_.toCallStmt2(HR_callprop_int, instr);
     return true;
   }
 
@@ -527,6 +565,8 @@ void Specializer::do_construct(CallStmt2* instr) {
   builder.addStmt(call);
   connectUsesToDef(*instr->value_out(), object);
   connectUsesToDef(*instr->effect_out(), call->effect_out());
+  // This assumes any range iteration has moved past the item being removed.
+  InstrGraph::unlinkInstr(instr);
 }
 
 void Specializer::doFindStmt(NaryStmt3* instr) {
@@ -540,7 +580,7 @@ void Specializer::doFindStmt(NaryStmt3* instr) {
       SpecialBuilder builder(ir_, &factory_, instr, instr->effect_in());
       instr->name_in() = builder.addConst(lattice_->makeOrdinalConst(index));
       factory_.toBinaryStmt(HR_findprop2getouter, instr);
-      assert(def(instr->effect_in()) == builder.effect());
+      AvmAssert(def(instr->effect_in()) == builder.effect());
       break;
     }
     case kScopeDomain:
@@ -661,7 +701,7 @@ Def* truncateInt(Def* d, SpecialBuilder* builder) {
   const Type* t = type(d);
   if (isInt(t))
     return d;
-  assert(isUInt(t));
+  AvmAssert(isUInt(t));
   return builder->addExpr(HR_u2i, d);
 }
 
@@ -717,9 +757,12 @@ void Specializer::removeSpeculate(BinaryExpr* instr) {
   if (!isAny(type(lhs))) {
     Def* state = def(instr->rhs_in());
 	  (void) state;
-    assert (isState(type(state)));
-    assert (kind(definer(state)) == HR_safepoint);
+    AvmAssert (isState(type(state)));
+    AvmAssert (kind(definer(state)) == HR_safepoint);
     connectUsesToDef(*instr->value_out(), lhs);
+    // TODO: probably should unlink this instruction, but AOT doesn't use
+    // speculate instructions. Probably would need to remove the speculate
+    // instrs uses of instr.
   }
 }
 

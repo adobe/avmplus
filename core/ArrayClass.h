@@ -34,7 +34,7 @@ namespace avmplus
 
 #ifdef VMCFG_AOT
         template <typename ADT>
-        ArrayObject* newArray(MethodEnv *env, ADT argDesc, va_list ap);
+        ArrayObject* newArray(MethodEnv *env, ADT argDesc, va_list_wrapper ap);
 #endif
 
         // AS3 glue code methods (not inlined, just declared here for convenience)

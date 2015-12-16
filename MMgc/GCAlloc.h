@@ -121,7 +121,7 @@ namespace MMgc
 
         GCAlloc(GC* gc, int itemSize, bool containsPointers, bool isRC, bool isFinalized, int sizeClassIndex, uint8_t bibopTag);
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         void* Alloc(size_t size, int flags);
 #else
         void* Alloc(int flags);
@@ -132,11 +132,11 @@ namespace MMgc
         void FinalizationPass();
         void LazySweepPass();
         void ClearMarks();
-#ifdef _DEBUG
+#ifdef GCDEBUG
         void CheckMarks();
         void CheckFreelist();
         static bool IsWhite(const void *item);
-#endif // _DEBUG
+#endif // GCDEBUG
 
         static void *FindBeginning(const void *item);
         static bool IsUnmarkedPointer(const void *val);
@@ -269,7 +269,7 @@ namespace MMgc
         const bool containsFinalizedObjects;
         bool m_finalized;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         bool IsOnEitherList(GCBlock *b);
         void VerifyNotFree(GCBlock* b, const void *item);
 #endif
@@ -290,7 +290,7 @@ namespace MMgc
         // not a hot method
         void RemoveFromSweepList(GCBlock *b);
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         void* AllocSlow(size_t askSize, int flags);
         void* AllocFromQuickList(size_t askSize, int flags);
 #else
@@ -309,7 +309,7 @@ namespace MMgc
         void ClearMarks(GCAlloc::GCBlock* block);
         void SweepNeedsSweeping();
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         static bool IsPointerIntoGCObject(const void *item);
         static int ConservativeGetMark(const void *item, bool bogusPointerReturnValue);
 #endif

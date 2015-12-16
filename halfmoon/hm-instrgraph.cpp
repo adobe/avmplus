@@ -8,6 +8,10 @@
 #ifdef VMCFG_HALFMOON
 
 namespace halfmoon {
+    
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+    extern bool AOTIsDebugMode();
+#endif
 
 InstrGraph::InstrGraph(InstrFactory* factory, InfoManager* infos)
 : lattice(factory->lattice())
@@ -16,7 +20,14 @@ InstrGraph::InstrGraph(InstrFactory* factory, InfoManager* infos)
 , alloc_(factory->alloc())
 , instr_count_(0)
 , block_count_(0)
-, def_count_(0) {
+, def_count_(0)
+, debugging_(false)
+{
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+    debugging_ = AOTIsDebugMode();
+#else
+    // TODO?
+#endif
 }
 
 Instr* finishAdding(InstrGraph* ir, Instr* instr) {
@@ -29,21 +40,21 @@ Instr* finishAdding(InstrGraph* ir, Instr* instr) {
 }
 
 Instr* InstrGraph::addInstrAfter(Instr* pos, Instr* instr) {
-  assert(!isBlockStart(instr));
+  AvmAssert(!isBlockStart(instr));
   assignId(instr);
   linkAfter(pos, instr);
   return finishAdding(this, instr);
 }
 
 Instr* InstrGraph::addInstrBefore(Instr* pos, Instr* instr) {
-  assert(!isBlockStart(instr));
+  AvmAssert(!isBlockStart(instr));
   assignId(instr);
   linkBefore(pos, instr);
   return finishAdding(this, instr);
 }
 
 void InstrGraph::assignBlockId(BlockStartInstr* block) {
-  assert(block->blockid == -1);
+  AvmAssert(block->blockid == -1);
   block->blockid = block_count_++;
   assignId(block);
 }
@@ -68,18 +79,73 @@ Instr* InstrGraph::addBlockAfter(BlockStartInstr* instr, LabelInstr* label) {
 /// Returns the return statement for the IR.
 ///
 StopInstr* InstrGraph::returnStmt() const {
-  assert(end && kind(end) == HR_return);
+  AvmAssert(end && kind(end) == HR_return);
   return end;
 }
 
 StopInstr* InstrGraph::throwStmt() const {
-  assert(!exit || kind(exit) == HR_throw);
+  AvmAssert(!exit || kind(exit) == HR_throw);
   return exit;
+}
+    
+/// Get throw block label
+///
+LabelInstr* InstrGraph::ensureThrowBlock(InstrFactory& factory) {
+  if (!exit) {
+    LabelInstr* label = factory.newLabelInstr(2); // effect, value
+    addBlock(label);
+    StopInstr* stop = factory.newStopInstr(HR_throw, &label->params[0], &label->params[1]);
+    addInstrAfter(label, stop);
+    exit = stop;
+  } else {
+    bool fixup = false;
+    if (kind(exit->prev_) != HR_label) {
+      fixup = true;
+    } else {
+      LabelInstr* label = cast<LabelInstr>(exit->prev_);
+      if (label->paramc != 2
+          || label->params[0] != *halfmoon::def(exit->args[0])
+          || label->params[1] != *halfmoon::def(exit->args[1])) {
+        fixup = true;
+      }
+    }
+    if (fixup) {
+      // The throw block is no longer a label and a throw.
+      // Fix it up so that the label signature is as expected.
+      // Rewrite:
+      //     stuff
+      //     throw effect, val  // exit
+      // to:
+      //     stuff
+      //     goto L (effect, val)
+      //   L label (e, v)
+      //     throw e, v
+      
+      // split block
+      BlockStartInstr* blk = blockStart(exit);
+      splitBlock(blk, exit);
+      
+      // Create label and goto
+      LabelInstr* label = factory.newLabelInstr(2); // effect, value
+      addBlock(label);
+      GotoInstr* goto_instr = factory.newGotoStmt(label);
+      addInstrBefore(blk, goto_instr);  // adds at end!
+      
+      // Move throw to new block and fix up the uses
+      appendList(label, InstrRange(exit));
+      goto_instr->args[0] = exit->args[0];
+      goto_instr->args[1] = exit->args[1];
+      exit->args[0] = label->params[0];
+      exit->args[1] = label->params[1];
+    }
+  }
+  BlockStartInstr* block_start = blockStart(exit);
+  return cast<LabelInstr>(block_start);
 }
 
 /** Iteratively find the start of instr's block. */
 BlockStartInstr* InstrGraph::findBlockStart(Instr* instr) {
-  assert(instr->isLinked());
+  AvmAssert(instr->isLinked());
   if (isBlockEnd(instr))
     return blockStart((BlockEndInstr*)instr);
   while (!isBlockStart(instr))
@@ -89,7 +155,7 @@ BlockStartInstr* InstrGraph::findBlockStart(Instr* instr) {
 
 /** Iteratively find the end of instr's block. */
 BlockEndInstr* InstrGraph::findBlockEnd(Instr* instr) {
-  assert(instr->isLinked());
+  AvmAssert(instr->isLinked());
   if (isBlockStart(instr))
     return blockEnd((BlockStartInstr*)instr);
   while (!isBlockEnd(instr))
@@ -103,8 +169,8 @@ BlockEndInstr* InstrGraph::findBlockEnd(Instr* instr) {
 void InstrGraph::splitList(const InstrRange& list, Instr *victim) {
   Instr* pos = victim->next_;
   unlinkInstr(victim);
-  assert(!pos->isAlone());
-  assert(list.back()->next_ == list.front() && pos->checkLinks());
+  AvmAssert(!pos->isAlone());
+  AvmAssert(list.back()->next_ == list.front() && pos->checkLinks());
 
   printTerseInstrList(list, this, "before split: list");
   Instr* front = list.front();
@@ -119,11 +185,35 @@ void InstrGraph::splitList(const InstrRange& list, Instr *victim) {
   front->prev_ = P;
   P->next_ = front;
 
-  assert(checkDisjoint(pos, front));
-  assert(pos->isLinked());
+  AvmAssert(checkDisjoint(pos, front));
+  AvmAssert(pos->isLinked());
 
   printTerseInstrList(front, this, "after split: first");
   printTerseInstrList(pos, this, "after split: pos");
+}
+
+/// Split a list of instructions into two lists.  Afterwards, the second
+/// list begins with the instruction at "pos."
+///
+void InstrGraph::splitBlock(BlockStartInstr* block, Instr *pos) {
+  InstrRange list(block);
+  AvmAssert(!pos->isAlone());
+  AvmAssert(list.back()->next_ == list.front() && pos->checkLinks());
+
+  Instr* front = list.front();
+  Instr* back = list.back();
+  Instr* P = pos->prev_;
+
+  // after_list
+  pos->prev_ = back;
+  back->next_ = pos;
+
+  // before_list
+  front->prev_ = P;
+  P->next_ = front;
+
+  AvmAssert(checkDisjoint(pos, front));
+  AvmAssert(pos->isLinked());
 }
 
 /// Link a list in before pos.
@@ -186,21 +276,21 @@ bool InstrGraph::isEmptyBlock(BlockStartInstr* block) {
 ///
 BlockEndInstr* InstrGraph::blockEnd(BlockStartInstr* block) {
   if (!hasBlockEnd(block)) {
-    assert(false);
+    AvmAssert(false);
   }
-  //assert(hasBlockEnd(block));
+  //AvmAssert(hasBlockEnd(block));
   return (BlockEndInstr*)block->prev_;
 }
 
 bool InstrGraph::hasBlockEnd(BlockStartInstr* block) {
-  assert(isBlockStart(block));
+  AvmAssert(isBlockStart(block));
   return isBlockEnd(block->prev_);
 }
 
 /// Find the block owner, given a branch instruction.
 ///
 BlockStartInstr* InstrGraph::blockStart(BlockEndInstr* branch) {
-  assert(isBlockStart(branch->next_));
+  AvmAssert(isBlockStart(branch->next_));
   return (BlockStartInstr*)branch->next_;
 }
 
@@ -208,7 +298,7 @@ BlockStartInstr* InstrGraph::blockStart(BlockEndInstr* branch) {
 /// =>P<=>pos<=>N<=  +  list  =  =>P<=>list<=>N<=
 ///
 void InstrGraph::replaceInstr(Instr* pos, const InstrRange& list) {
-  assert(pos->isLinked() && checkDisjoint(pos, list));
+  AvmAssert(pos->isLinked() && checkDisjoint(pos, list));
   insertList(list, pos);
   unlinkInstr(pos);
 }
@@ -218,13 +308,13 @@ void InstrGraph::replaceInstr(Instr* pos, const InstrRange& list) {
 void InstrGraph::replaceInstr2(Instr* pos, const InstrRange& before_list,
                                const InstrRange& after_list) {
   // pos must have unique predecessor and successors.
-  assert(
+  AvmAssert(
       pos && pos->isLinked() && pos->next_ != pos && pos->prev_ != pos->next_);
-  assert(checkDisjoint(pos, before_list));
-  assert(checkDisjoint(pos, after_list));
-  assert(before_list.empty() || checkDisjoint(before_list.front(), after_list));
-  assert(after_list.empty() || checkDisjoint(after_list.front(), before_list));
-  assert(isBlockEnd(before_list.back()) && isBlockStart(after_list.front()));
+  AvmAssert(checkDisjoint(pos, before_list));
+  AvmAssert(checkDisjoint(pos, after_list));
+  AvmAssert(before_list.empty() || checkDisjoint(before_list.front(), after_list));
+  AvmAssert(after_list.empty() || checkDisjoint(after_list.front(), before_list));
+  AvmAssert(isBlockEnd(before_list.back()) && isBlockStart(after_list.front()));
 
   InstrRange block = blockRange(pos);
 
@@ -265,7 +355,7 @@ void InstrGraph::replaceInstr2(Instr* pos, const InstrRange& before_list,
 /// become unreachable. 
 ///
 void InstrGraph::joinBlocks(BlockEndInstr* pred_end, BlockStartInstr* succ_start) {
-  assert(isDelimPair(pred_end, succ_start) && "pred_end and succ_start are unrelated");
+  AvmAssert(isDelimPair(pred_end, succ_start) && "pred_end and succ_start are unrelated");
   int param_count = numDefs(succ_start);
   // For each succ_start param, redirect all uses to the def specified 
   // by pred_end's corresponding arg, then clear the arg.
@@ -365,7 +455,7 @@ InstrGraphBuilder::InstrGraphBuilder(InstrGraph* ir, InstrFactory* factory,
 /// computes output types. returns its argument.
 ///
 Instr* InstrGraphBuilder::addInstr(Instr* instr) {
-  assert(!instr->isLinked());
+  AvmAssert(!instr->isLinked());
   if (isBlockStart(instr))
     return pos_ = ir_->addBlock((BlockStartInstr*)instr);
   return ir_->addInstrBefore(pos_, instr);
@@ -376,7 +466,7 @@ PrintWriter& InstrGraphBuilder::console() const {
 }
 
 void InstrGraphBuilder::setPos(Instr* instr) {
-  assert(isBlockStart(instr));
+  AvmAssert(isBlockStart(instr));
   pos_ = instr;
 }
 
@@ -387,7 +477,7 @@ void InstrGraphBuilder::setPos(Instr* instr) {
 /// problems in the register allocator, so treat them as normal
 /// instructions and let value numbering share them where it's possible locally.
 Def* InstrGraphBuilder::addConst(const Type* t) {
-  assert(isConst(t));
+  AvmAssert(isConst(t));
 #if 0
   TypeKey k(t);
   Def* c = constants_.get(k);
@@ -457,7 +547,7 @@ void copyUses(Def* old_def, Def* new_def)
 /// Redirect uses of old_instr's defs to new_instr's defs.
 ///
 void copyAllUses(Instr* old_instr, Instr* new_instr) {
-  assert(numDefs(new_instr) == numDefs(old_instr));
+  AvmAssert(numDefs(new_instr) == numDefs(old_instr));
   // For each value defined by old_instr, point every use to the
   // corresponding def in new_instr.
   ArrayRange<Def> last_defs = defRange(new_instr);
@@ -479,7 +569,7 @@ int numDefs(const Instr* instr) {
     case HR_arm:
       return numArgs(((ArmInstr*)instr)->owner);
     default:
-      assert(instr->info->num_defs >= 0);
+      AvmAssert(instr->info->num_defs >= 0);
       return instr->info->num_defs;
   }
 }
@@ -496,7 +586,7 @@ Def* getDefs(const Instr* instr) {
     case HR_arm:
       return ((BlockStartInstr*)instr)->params;
     default:
-      assert(instr->info->defs_off >= 0);
+      AvmAssert(instr->info->defs_off >= 0);
       return (Def*) ((char*) instr + instr->info->defs_off);
   }
 }
@@ -518,7 +608,7 @@ int numUses(const Instr* instr) {
     case HR_goto:
       return numDefs(cast<GotoInstr>(instr)->target);
     default:
-      assert(instr->info->num_uses >= 0);
+      AvmAssert(instr->info->num_uses >= 0);
       return instr->info->num_uses;
   }
 }
@@ -536,7 +626,7 @@ int numArgs(const BlockEndInstr* instr) {
     case HR_goto:
       return numDefs(cast<GotoInstr>(instr)->target);
     default:
-      assert(false && "invalid opcode for BlockEndInstr");
+      AvmAssert(false && "invalid opcode for BlockEndInstr");
       return 0;
   }
 }
@@ -554,7 +644,7 @@ Use* getUses(const Instr* instr) {
     case HR_goto:
       return ((BlockEndInstr*)instr)->args;
     default:
-      assert(instr->info->uses_off >= 0);
+      AvmAssert(instr->info->uses_off >= 0);
       return (Use*) ((char*) instr + instr->info->uses_off);
   }
 }
@@ -582,7 +672,7 @@ Use* getArgs(const BlockEndInstr* instr) {
     case HR_goto:
       return instr->args;
     default:
-      assert(false && "invalid opcode for BlockEndInstr");
+      AvmAssert(false && "invalid opcode for BlockEndInstr");
       return 0;
   }
 }
@@ -656,7 +746,7 @@ ArmInstr* getConstArm(CondInstr* cond, const Type* t) {
   if (k == HR_if) {
     return cast<IfInstr>(cond)->arm(boolVal(t));
   } else {
-    assert(k == HR_switch);
+    AvmAssert(k == HR_switch);
     return cast<SwitchInstr>(cond)->arm(intVal(t));
   }
 }
@@ -712,7 +802,7 @@ void EachBlock::dfs(BlockStartInstr* block, bool reverse) {
     } else if (k == HR_return || k == HR_throw) {
       // no successors
     } else {
-        assert(false && "unsupported block-end opcode");
+        AvmAssert(false && "unsupported block-end opcode");
     }
     if (end->catch_blocks != NULL) {
       for (CatchBlockRange r(end); !r.empty();)
@@ -781,7 +871,7 @@ void pruneGraph(InstrGraph* ir) {
     ir->end = 0;
   if (ir->exit && !mark.get(ir->exit->id))
     ir->exit = 0;
-  assert(checkPruned(ir));
+  AvmAssert(checkPruned(ir));
 }
 
 /** true if x is a constant int and equal to c */

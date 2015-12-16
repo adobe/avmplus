@@ -59,6 +59,8 @@ namespace MMgc
     MemoryProfiler* GCHeap::profiler = (MemoryProfiler*)-1;
 #endif
 
+    uint32_t GCHeap::secret = 0;
+
     GCHeapConfig::GCHeapConfig() :
         initialSize(512),
         heapLimit(kDefaultHeapLimit),
@@ -69,6 +71,7 @@ namespace MMgc
         trimVirtualMemory(true),
         mergeContiguousRegions(AVMPI_canMergeContiguousRegions()),
         sloppyCommit(AVMPI_canCommitAlreadyCommittedMemory()),
+        secret(0),
         verbose(false),
         returnMemory(true),
         gcstats(false), // tracking
@@ -328,6 +331,7 @@ namespace MMgc
     void GCHeap::ResetStatics()
     {
         instance = NULL;
+        secret = 0;
 #ifdef MMGC_MEMORY_PROFILER
         if(profiler && IsProfilerInitialized())
             delete profiler;
@@ -340,6 +344,21 @@ namespace MMgc
         GCAssert(instance == NULL);
         void *p = (void*)heapSpace;
         instance = new (p) GCHeap(config);
+        secret = config.secret;
+
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+        if (secret != 0)
+        {
+    		// Extraneous console output confuses some tests in the avmshell test suite.
+			#ifndef AVMSHELL_BUILD
+	        GCLog("Vector smash protection is enabled.\n");
+            #endif
+        }
+        else
+        {
+            GCAssertMsg(false, "Vector smash protection is configured but the secret was not initialized.");
+        }
+#endif
     }
 
     size_t GCHeap::Destroy()
@@ -425,7 +444,7 @@ namespace MMgc
 #endif
 
 #ifdef MMGC_MEMORY_INFO
-        hooksEnabled = true; // always track allocs in DEBUG builds
+        hooksEnabled = true; // always track allocs in GCDEBUG builds
 #endif
 
 #if defined MMGC_POLICY_PROFILING && !defined AVMSHELL_BUILD
@@ -460,7 +479,7 @@ namespace MMgc
                 HeapBlock *block = &blocks[i];
                 if(block->inUse() && block->baseAddr && block->baseAddr != (char*)blocks)
                 {
-#ifndef DEBUG
+#ifndef GCDEBUG
                     if (config.verbose)
 #endif
                     {
@@ -509,7 +528,7 @@ namespace MMgc
     {
         GCAssert(size > 0);
         GCAssert(alignment > 0);
-#ifdef DEBUG
+#ifdef GCDEBUG
         {
             // Alignment must be a power of 2
             size_t a = alignment;
@@ -1041,7 +1060,7 @@ namespace MMgc
 
 
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         // doing this here is an extra validation step
         if(config.verbose)
         {
@@ -1160,7 +1179,7 @@ namespace MMgc
 
     void GCHeap::ValidateHeapBlocks()
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // iterate through HeapBlocks making sure:
         // non-contiguous regions have a sentinel
         HeapBlock *block = blocks;
@@ -1285,7 +1304,7 @@ namespace MMgc
         return (alignment - (size_t)(((uintptr_t)baseAddr >> GCHeap::kBlockShift) & (alignment - 1))) & (alignment - 1);
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     // Reserves region of size == sizeInBytes, while attempting to
     // insert filler >= fill_sz bytes between pairs of consecutively
     // reserved regions.  (Goal: exercise address space extremities
@@ -1316,7 +1335,7 @@ namespace MMgc
 
     REALLY_INLINE char *GCHeap::ReserveSomeRegion(size_t sizeInBytes)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         if (!config.dispersiveAdversarial)
             return (char*)AVMPI_reserveMemoryRegion(NULL, sizeInBytes);
         else
@@ -1481,7 +1500,7 @@ namespace MMgc
 
         zero = block->dirty && zero;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         if (!block->dirty)
         {
             union {
@@ -1626,7 +1645,7 @@ namespace MMgc
         block->dirty = AVMPI_areNewPagesDirty();
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     // Non-debug version in GCHeap.h
     void GCHeap::CheckFreelist()
     {
@@ -1727,7 +1746,7 @@ namespace MMgc
         }
 #endif
     }
-#endif // DEBUG
+#endif // GCDEBUG
 
     bool GCHeap::BlocksAreContiguous(void *item1, void *item2)
     {
@@ -1828,7 +1847,7 @@ namespace MMgc
     {
         GCAssert(block->inUse());
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // trash it. fb == free block
         if (!RUNNING_ON_VALGRIND)
             VMPI_memset(block->baseAddr, uint8_t(MMFreedPoison), block->size * kBlockSize);
@@ -1882,7 +1901,7 @@ namespace MMgc
     {
         size_t size = askSize;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Turn this switch on to test bridging of contiguous
         // regions.
         bool test_bridging = false;
@@ -2420,7 +2439,7 @@ namespace MMgc
         obj->previous = NULL;
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 
     AbortUnwindObject::~AbortUnwindObject()
     {
@@ -3027,7 +3046,9 @@ namespace MMgc
     void GCHeap::RemoveOOMCallback(OOMCallback *p)
     {
         MMGC_LOCK(m_spinlock);
-        callbacks.Remove(p);
+        // OOMCallback may already removed from the list
+        if(callbacks.Contains(p))
+            callbacks.Remove(p);
     }
 
     bool GCHeap::EnsureFreeRegion(bool allowExpansion)
@@ -3098,7 +3119,7 @@ namespace MMgc
         heap->lastRegion = this;
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     void GCHeap::CheckForOOMAbortAllocation()
     {
         if(m_notificationBeingSent && status == kMemAbort)

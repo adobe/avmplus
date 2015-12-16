@@ -14,7 +14,7 @@ namespace MMgc
         template < class T >
         GCRef<T>& GCRef<T>::operator=(T *tNew)
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             GC *gc = GC::GetActiveGC();
             GCAssert(!gc->IsPointerToGCPage(this));
 #endif
@@ -26,7 +26,7 @@ namespace MMgc
         template < class T2 >
         GCRef<T>& GCRef<T>::operator=(const GCRef<T2>& other)
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             GC *gc = GC::GetActiveGC();
             GCAssert(!gc->IsPointerToGCPage(this));
 #endif
@@ -37,7 +37,7 @@ namespace MMgc
         template < class T >
         void GCRef_Union<T>::operator=(T *tNew)
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             GC *gc = GC::GetActiveGC();
             GCAssert(!gc->IsPointerToGCPage(this));
 #endif
@@ -48,7 +48,7 @@ namespace MMgc
         template < class T2 >
         GCRef_Union<T>& GCRef_Union<T>::operator=(const GCRef<T2>& other)
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             GC *gc = GC::GetActiveGC();
             GCAssert(!gc->IsPointerToGCPage(this));
 #endif

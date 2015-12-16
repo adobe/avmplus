@@ -110,12 +110,12 @@ public:
   }
 
   AbcOpcode front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return (AbcOpcode) *pc;
   }
 
   void popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     read();
   }
 
@@ -165,9 +165,6 @@ bool canCompile(MethodInfo* m) {
     return false; // Ignore methods with exceptions.
   if (m->method_id() < 0) {
     return false; // Ignore vm-created initializer methods.
-  }
-  if (m->needArguments()) {
-    return false; // Only rest args supported yet.
   }
   if (!enable_optional && m->hasOptional()) {
     return false;
@@ -249,17 +246,23 @@ Def* unsplit(ArmInstr* arm, Def* d, BitSet* marks) {
 
 /// Replace references to instructions with references to the instruction's
 /// identity instr (if different).
-void computeIdentities(InstrGraph* ir) {
-  assert(checkPruned(ir) && checkSSA(ir));
+void computeIdentities(InstrGraph* ir, bool preserveModels) {
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   Allocator scratch;
   BitSet marks(scratch, ir->size());
   markEffects(ir, &marks);
 
   InstrFactory factory(ir);
   bool changed;
+  bool reconstructInstrRange = false;
   do {
     changed = false;
     for (AllInstrRange i(ir); !i.empty();) {
+      if(reconstructInstrRange)
+      {
+          reconstructInstrRange = false;
+          break;
+      }
       Instr* instr = i.popFront();
       InstrKind k = kind(instr);
       for (ArrayRange<Def> d = defRange(instr); !d.empty();) {
@@ -267,23 +270,34 @@ void computeIdentities(InstrGraph* ir) {
         if (!d1->isUsed())
           continue;
         Def* d2 = peephole(d1, ir, &factory);
+          
+        if (k == HR_cknull || k == HR_cknullobject) {
+              UnaryStmt* cknull_inst = cast<UnaryStmt>(instr);
+              if (type(cknull_inst->value_in())->isNull()) {
+                  reconstructInstrRange = true;
+                  changed = true;
+                  break;
+              }
+        }
         if (k == HR_arm && d1 == d2)
           d2 = unsplit(cast<ArmInstr>(instr), d1, &marks);
         if (d1 != d2) {
-          assert(subtypeof(type(d2), type(d1)));
-          copyUses(d1, d2);
-          changed = true;
+          //AvmAssert(subtypeof(type(d2), type(d1)));
+          if(!preserveModels || model(type(d1)) == model(type(d2))) {
+            copyUses(d1, d2);
+            changed = true;
+          }
         }
       }
     }
   } while (changed);
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
 }
 
 /// TODO splain
 ///
 Def* peephole(Def* def, InstrGraph* ir, InstrFactory* factory) {
-  assert(definerId(def) != -1 && "Instruction is not initialized");
+  AvmAssert(definerId(def) != -1 && "Instruction is not initialized");
   Instr* instr = definer(def);
 
   const Type* t = type(def);
@@ -297,6 +311,72 @@ Def* peephole(Def* def, InstrGraph* ir, InstrFactory* factory) {
     }
     return const_instr->value();
   }
+    
+  if (kind(instr) == HR_cknull || kind(instr) == HR_cknullobject) {
+    UnaryStmt* cknull_inst = cast<UnaryStmt>(instr);
+    if (type(cknull_inst->value_in())->isNull()) {
+      // Handle an awkward situation: nullcheck of a known-to-be-null value.
+      // Rewrite:
+      //   nn = cknull(def-known-to-be-null)
+      //   more stuff
+      // as:
+      //   if (true)
+      //     throw(makenullrefexception(def-known-to-be-null)
+      //   else {
+      //      nn = cknull(def-known-to-be-null)
+      //      more stuff
+      //   }
+      //
+      // The condition ensures that the code in the "more stuff" block is still dominated
+      // by the blocks containing any defs it uses. Then, the dead code eliminator will
+      // get rid of the unnecessary code. That's easier than trying to chase down
+      // all of the uses of defs in the "more stuff" block.
+      //
+      // Type computations will assign type "bottom" to the cknull, but this doesn't
+      // bother anyone.
+            
+      // Split block before the cknull
+      BlockStartInstr* blk1 = InstrGraph::findBlockStart(cknull_inst);
+      InstrGraph::splitBlock(blk1, cknull_inst);
+            
+      // append "if (true)" to the first half
+      ConstantExpr* true_instr = factory->newConstantExpr(HR_const, ir->lattice.makeBoolConst(true));
+      ir->addInstrBefore(blk1, true_instr); // adds to end!
+      IfInstr* if_instr = factory->newIfInstr(true_instr->value(), 1, halfmoon::def(cknull_inst->effect_in()));
+      ir->addInstrAfter(true_instr, if_instr);
+            
+      // create the "throw" arm
+      ArmInstr* throw_arm = if_instr->arm(true);
+      ir->addBlock(throw_arm);
+      UnaryStmt* null_ref_exception = factory->newUnaryStmt(HR_makenullrefexception,
+                                                            halfmoon::def(cknull_inst->effect_in()),
+                                                            halfmoon::def(cknull_inst->value_in()));
+      ir->addInstrAfter(throw_arm, null_ref_exception);
+      GotoInstr* goto_instr = factory->newGotoStmt(ir->ensureThrowBlock(*factory));
+      goto_instr->args[0] = null_ref_exception->effect_out();
+      goto_instr->args[1] = null_ref_exception->value_out();
+      ir->addInstrAfter(null_ref_exception, goto_instr);
+
+       //Bug#3951436 The cknull_instr was introducing an infinite loop as it was not getting removed from the IR.
+      //Removing all uses of cknull_instr defs and connecting them to the inputs into cknull instr directly. This makes cknull_instr unused and thus gets removed as dead code later.
+      for(UseRange effectRange(*cknull_inst->effect_out()); !effectRange.empty(); effectRange.popFront())
+      {
+          Use& use = effectRange.front();
+          use = cknull_inst->effect_in();
+      }
+        
+      for(UseRange valueRange(*cknull_inst->value_out()); !valueRange.empty(); valueRange.popFront())
+      {
+          Use& use = valueRange.front();
+          use = cknull_inst->value_in();
+      }
+
+      // Create the "more-stuff" arm that will be dead-code eliminated.
+      ArmInstr* more_arm = if_instr->arm(false);
+      ir->addBlock(more_arm);
+      ir->appendList(more_arm, InstrRange(cknull_inst));
+    }
+  }
 
   return IdentityAnalyzer(def, &ir->lattice).identity(instr);
 }
@@ -305,7 +385,7 @@ Def* peephole(Def* def, InstrGraph* ir, InstrFactory* factory) {
 /// new_start's defs are the inlined code's formal parameters.
 ///
 void connectInnerUsesToOuterUses(Instr* new_start, Instr* outer_stmt) {
-  assert(numDefs(new_start) == numUses(outer_stmt));
+  AvmAssert(numDefs(new_start) == numUses(outer_stmt));
   ArrayRange<Def> start_defs = defRange(new_start);
   ArrayRange<Use> outer_inputs = useRange(outer_stmt);
   for (; !outer_inputs.empty(); start_defs.popFront(), outer_inputs.popFront())
@@ -315,7 +395,7 @@ void connectInnerUsesToOuterUses(Instr* new_start, Instr* outer_stmt) {
 /// Redirect uses of callsite defs to the defs that are inputs to ret_stmt.
 ///
 void connectOuterUsesToInnerUses(Instr* ret_stmt, Instr* callsite) {
-  assert(numUses(ret_stmt) == numDefs(callsite));
+  AvmAssert(numUses(ret_stmt) == numDefs(callsite));
   // For each value defined by the callsite, change every use to refer to the
   // correspnding value **used** by the return statement.  The return statement
   // ends up being a straggler.
@@ -344,7 +424,7 @@ StopInstr* joinStops(InstrGraph* ir, InstrFactory* factory, StopInstr* stop1,
   if (!stop2)
     return stop1;
 
-  assert(kind(stop1) == kind(stop2));
+  AvmAssert(kind(stop1) == kind(stop2));
   LabelInstr* label = factory->newLabelInstr(numUses(stop1));
   ir->addBlock(label);
 
@@ -387,7 +467,7 @@ void expandStmt(Context*, InstrGraph* outer_ir, InstrGraph* inner_ir,
 
   // 1. Set up a graph copier.  Each copy is done deeply.
   Copier copier(inner_ir, outer_ir);
-  assert(kind(inner_ir->begin) == HR_template);
+  AvmAssert(kind(inner_ir->begin) == HR_template);
   InstrRange start_block(copier.copy(inner_ir->begin));
   InstrRange return_block = outer_ir->blockRange(copier.copy(
       inner_ir->returnStmt()));
@@ -427,27 +507,52 @@ void expandStmt(Context*, InstrGraph* outer_ir, InstrGraph* inner_ir,
 
 /// Expand fat templates and perform early binding.
 ///
-void expandTemplates(Context* context, InstrGraph* ir) {
-  assert(checkPruned(ir) && checkSSA(ir));
-  Specializer specializer(ir);
-  for (AllInstrRange i(ir); !i.empty();) {
-    Instr* instr = i.popFront();
-    specializer.specialize(instr);
-    if (ir->isLinked(instr) && hasSubgraph(instr))
-      expandStmt(context, ir, subgraph(instr), instr);
-  }
-  pruneGraph(ir);
-  assert(checkPruned(ir) && checkSSA(ir));
-}
+    void expandTemplates(Context* context, InstrGraph* ir) {
+        AvmAssert(checkPruned(ir) && checkSSA(ir));
+        Specializer specializer(ir);
+        for (AllInstrRange i(ir); !i.empty();) {
+            Instr* instr = i.popFront();
+            specializer.specialize(instr);
+            if (ir->isLinked(instr) && hasSubgraph(instr))
+                expandStmt(context, ir, subgraph(instr), instr);
+        }
+        // Either specialization or template expansion can have resulted in new
+        // templates.
+        bool hasTemplates = false;
+        for (AllInstrRange i(ir); !i.empty();) {
+            Instr* instr = i.popFront();
+            if (ir->isLinked(instr) && hasSubgraph(instr)) {
+                hasTemplates = true;
+                break;
+            }
+        }
+        // Keep expanding until they are all expanded
+        while (hasTemplates) {
+            hasTemplates = false;
+            for (AllInstrRange i(ir); !i.empty();) {
+                Instr* instr = i.popFront();
+                // Do NOT call the specializer here since it can add templates we don't
+                // know about. And it will also add templates to dead code from earlier
+                // specializations, resulting in infinitely-repeated specialization of the
+                // (now dead) instructions.
+                if (ir->isLinked(instr) && hasSubgraph(instr)) {
+                    expandStmt(context, ir, subgraph(instr), instr);
+                    hasTemplates = true;
+                }
+            }
+        }
+        pruneGraph(ir);
+        AvmAssert(checkPruned(ir) && checkSSA(ir));
+    }
 
 void optimizePass(Context* cxt, InstrGraph* ir, const char* title) {
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   propagateTypes(ir);
   if (enable_verbose) {
     printf("BEFORE pass %s\n", title);
     listCfg(cxt->out, ir);
   }
-  computeIdentities(ir);
+  computeIdentities(ir, false/*preserveModels*/);
   removeDeadCode(cxt, ir);
   if (enable_dvn) {
     dominatorValueNumbering(cxt, ir);
@@ -465,7 +570,7 @@ void optimizePass(Context* cxt, InstrGraph* ir, const char* title) {
     }
   }
   printGraph(cxt, ir, title);
-  assert(checkSSA(ir));
+  AvmAssert(checkSSA(ir));
 }
 
 void optimize(Context* cxt, InstrGraph* ir) {
@@ -560,7 +665,7 @@ InstrGraph* parseAbc(MethodInfo* method, Lattice* lattice, InfoManager* infos,
     listCfg(cxt.out, ir);
   }
 #endif
-  assert(checkSSA(ir));
+  AvmAssert(checkSSA(ir));
 
   optimize(&cxt, ir);
 
@@ -572,7 +677,7 @@ InstrGraph* parseAbc(MethodInfo* method, Lattice* lattice, InfoManager* infos,
   }
 #endif
 
-  assert(checkTypes(ir, true));
+  AvmAssert(checkTypes(ir, true));
   return ir;
 }
 

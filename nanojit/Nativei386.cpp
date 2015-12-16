@@ -1177,7 +1177,7 @@ namespace nanojit
         ALU(0xff, 2, r);
         verbose_only(asm_output("call %s", gpn(r));)
         debug_only(if (ci->returnType()==ARGTYPE_D) fpu_push();) (void)ci;
-        debug_only(if (ci->returnType()==ARGTYPE_F) fpu_push();)
+        debug_only(if (ci->returnType()==ARGTYPE_F) fpu_push();)		
     }
 
     const RegisterMask PREFER_SPECIAL = ~ ((RegisterMask)0);
@@ -1241,11 +1241,27 @@ namespace nanojit
             SUBi(SP, amt);
         }
 
+#if defined(NANOJIT_WIN_CFG)
+		// Do 16 bytes alignment
+		// Function entry address is going to be "_nIns - 3" at this point.
+		// The function entry should be 16 bytes aligned so we check with "_nIns - 3".
+		// Alternatively, we can add this NOPs in front of function prologue but if we do,
+		// a debugger (i.e Visueal Studio) would get lost callstack information so it would make us difficult to debug.
+		// ToDo:
+		//    There may be something to optimaize, such as using 15 NOPs vs. using JMP
+		//    Leave it as follow-up action item.
+		while ((((uintptr_t)_nIns - 3)  & (uintptr_t)0x0F))
+			NOP();
+#endif
+
         verbose_only( asm_output("[frag entry]"); )
         NIns *fragEntry = _nIns;
         MR(FP, SP); // Establish our own FP.
         PUSHr(FP); // Save caller's FP.
 
+#if defined(NANOJIT_WIN_CFG)
+		NanoAssert(((uintptr_t)_nIns & (uintptr_t)0x0F) == 0);
+#endif
         return fragEntry;
     }
 
@@ -1312,7 +1328,7 @@ namespace nanojit
             /* this is tricky; since float4s on stack *must* be aligned, we can't just add values - it depends on the parameter order */
             ArgType argTypes[MAXARGS];
             uint32_t argc = ci->getArgTypes(argTypes);
-            if (indirect) {
+            if (argc && indirect) {
                 // target arg isn't pushed, its consumed in the call - i.e ignore the last argument when computing stack space
                 argc--;
                 NanoAssert(argTypes[argc]== ARGTYPE_P); // should be a pointer to the called function; otherwise, something's wrong!
@@ -1434,7 +1450,7 @@ namespace nanojit
         int32_t stkd = 0;
         max_regs = max_abi_regs[abi];
         
-        if (indirect) {
+        if (argc && indirect) {
             argc--;
             asm_arg(ARGTYPE_P, ins->arg(argc), rEAX, stkd);
             if (!_config.i386_fixed_esp)
@@ -2942,8 +2958,6 @@ namespace nanojit
     static const AVMPLUS_ALIGN16(uint32_t) absMaskD[]     = { 0xFFFFFFFF, 0x7FFFFFFF, 0,          0 };
     static const AVMPLUS_ALIGN16(uint32_t) absMaskF[]     = { 0x7FFFFFFF, 0,          0,          0 };
     static const AVMPLUS_ALIGN16(uint32_t) absMaskF4[]    = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
-    static const AVMPLUS_ALIGN16(uint32_t) xyzMaskF4[]    = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000 };
-    static const AVMPLUS_ALIGN16(uint32_t) xyMaskF4[]     = { 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000 };
     static const AVMPLUS_ALIGN16(uint32_t) onesMaskF4[]   = { 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000 };
 #endif
 
@@ -3625,22 +3639,22 @@ namespace nanojit
 
     void Assembler::asm_brsavpc_impl(LIns* flag, NIns* target)
     {
-	Register r = findRegFor(flag, GpRegs);
-	underrunProtect(15);
+		Register r = findRegFor(flag, GpRegs);
+		underrunProtect(15);
 
         NIns* skipTarget = _nIns;
 
-	// discard pc
+		// discard pc
         ADDi(rESP, 16);
 
-	// save pc &  branch
+		// save pc &  branch
         const intptr_t tt = (intptr_t)target - (intptr_t)_nIns;
         IMM32(tt);
         OPCODE(0xE8);		// CALL tt
 
-	SUBi(rESP, 12);		// maintain 16 byte alignment for ABI
+		SUBi(rESP, 12);		// maintain 16 byte alignment for ABI
         JE(skipTarget);		// always short distance
-	TEST(r,r);
+		TEST(r,r);
     }
 
     void Assembler::asm_restorepc()

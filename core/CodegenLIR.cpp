@@ -140,10 +140,20 @@ namespace avmplus
         #define DEBUGGERADDR(f)   debuggerAddr((int (Debugger::*)())(&f))
         #define FUNCADDR(addr) (uintptr_t)addr
 
+// There is an optimization issue with Xcode 6.3 clang that makes AIR crash at launch deep in the VM
+// This source code file is the culprit and the following #pragma clang optimize solve the problem.
+#if defined (__clang__)
+#pragma clang optimize off
+#endif // defined __clang__
+    
         intptr_t coreAddr( int (AvmCore::*f)() )
         {
             RETURN_METHOD_PTR(AvmCore, f);
         }
+    
+#if defined (__clang__)
+#pragma clang optimize on
+#endif // defined __clang__
 
         intptr_t  gcAddr( int (MMgc::GC::*f)() )
         {
@@ -331,7 +341,12 @@ namespace avmplus
     {
         return int64_t(a) + int64_t(b) == int64_t(a + b);
     }
-
+    
+    static bool differenceFitsInInt32(int32_t a, int32_t b)
+    {
+        return int64_t(a) - int64_t(b) == int64_t(a - b);
+    }
+    
     /*static*/ void MopsRangeCheckFilter::extractConstantDisp(LIns*& mopAddr, int32_t& curDisp)
     {
         // mopAddr is an int (an offset from globalMemoryBase) on all archs.
@@ -405,21 +420,35 @@ namespace avmplus
             if (n_curRangeCheckMax < offsetMax)
                 n_curRangeCheckMax = offsetMax;
 
-            if ((n_curRangeCheckMax - n_curRangeCheckMin) <= DomainEnv::GLOBAL_MEMORY_MIN_SIZE)
+            if (differenceFitsInInt32(n_curRangeCheckMax, n_curRangeCheckMin) && ((n_curRangeCheckMax - n_curRangeCheckMin) <= DomainEnv::GLOBAL_MEMORY_MIN_SIZE))
             {
+                // Rewrite the previously-emitted check to encompass the wider range required
+                // to cover the present case as well.  This is valid because the mop addresss
+                // is denoted by the same expression as before, and thus must necessarily have
+                // the same value.  Only a widening of the displacement range (taking the access
+                // size into account) can cause an access which passed the most recently emitted
+                // check to be invalid here.  By widening the earlier check, we cause the failure
+                // to appear earlier.  Note that this leads to imprecise exception behavior for
+                // the mops RangeError exception, as it may be thrown earlier than we'd expect
+                // from the naive semantics.  We do not hoist exceptions above branch targets,
+                // however.
+
                 if (curRangeCheckMinValue != n_curRangeCheckMin)
-                    safeRewrite(curRangeCheckLHS, curRangeCheckMinValue);
+                    safeRewrite(curRangeCheckLHS, n_curRangeCheckMin);
 
                 if ((n_curRangeCheckMax - n_curRangeCheckMin) != (curRangeCheckMaxValue - curRangeCheckMinValue))
-                    safeRewrite(curRangeCheckRHS, curRangeCheckMaxValue - curRangeCheckMinValue);
+                    safeRewrite(curRangeCheckRHS, n_curRangeCheckMax - n_curRangeCheckMin);
 
                 curRangeCheckMinValue = n_curRangeCheckMin;
                 curRangeCheckMaxValue = n_curRangeCheckMax;
             }
             else
             {
-                // if collapsed ranges get too large, pre-emptively flush, so that the
-                // range-checking code can always assume the range is within minsize
+                // If collapsed ranges get too large, pre-emptively flush, so that the
+                // range-checking code can always assume the range is within GLOBAL_MEMORY_MIN_SIZE.
+                // This guarantees, for example, that the curRangeCheckRHS expression always evaluates
+                // to a non-negative number, so that negative values of curRangeCheckLHS, when treated
+                // as unsigned, compare larger than the RHS as required.
                 flushRangeChecks();
             }
         }
@@ -1059,6 +1088,10 @@ namespace avmplus
         // LIR label creation.  Assert to prevent unknown label generation.
         LIns *ins0(LOpcode op) {
             AvmAssert(op != LIR_label); // trackState must be called directly to generate a label.
+			if (op == LIR_unreachable)
+			{
+				reachable = false;
+			}
             return out->ins0(op);
         }
 
@@ -1090,12 +1123,9 @@ namespace avmplus
 
         // if debugging is attached, clear our tracking state when calling side-effect
         // fucntions, which are effectively debugger safe points.
-        // also set reachable = false if the function is known to always throw, and never return.
         LIns *insCall(const CallInfo *call, LIns* args[]) {
             if (haveDebugger && canThrow(call))
                 clearVarState(); // debugger might have modified locals, so make sure we reload after call.
-            if (neverReturns(call))
-                reachable = false;
             if (call->_address == (uintptr_t)&restargHelper) {
                 // That helper has a by-reference argument which points into the vars array
                 AvmAssert(restLocal != -1);
@@ -1171,6 +1201,23 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                       !(v.sst_mask == (1 << SST_float4) && v.traits == FLOAT4_TYPE)  && )
                       !(v.sst_mask == (1 << SST_double) && v.traits == NUMBER_TYPE));
             ins = lirout->insLoad(LIR_ldp, vars, i << VARSHIFT(info) , ACCSET_VARS);
+            // If multiple slot states represented by SST_scriptobject are merged,
+            // we may end up with state Object[O], that is, the type Object represented
+            // as SST_scriptobject.  While we know in this case that all values of the
+            // slot will be valid ScriptObject instances, the convention is that values
+            // of type Object are represented as tagged pointers because it has other
+            // subtypes that are not derived from ScriptObject.  When fetching the value
+            // of a slot of type Object, then, we must coerce it to SST_atom if the
+            // representation we inferred for the slot is SST_scriptobject.
+            if (v.sst_mask == (1 << SST_scriptobject)) {
+                if (bt(v.traits) == BUILTIN_object)
+                    ins = addp(ins, kObjectType);
+                // A similar coercion would be needed if the type of the slot is '*'.
+                // In this case, however, we expect that either the value is already
+                // represented as SST_atom, or there are multiple bits set in the SST
+                // mask, causing us take the alternate branch below.
+                AvmAssert(bt(v.traits) != BUILTIN_any);
+            }
         } else {
             // more than one representation is possible: convert to atom using tag found at runtime.
             AvmAssert(bt(v.traits) == BUILTIN_any || bt(v.traits) == BUILTIN_object);
@@ -3288,6 +3335,10 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             const Multiname *multiname = pool->precomputedMultiname(opd1);
             // The by-reference parameter &restLocal is handled specially for this
             // helper function in VarTracker::insCall and in CodegenLIR::analyze_call.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+#endif
             LIns* out = callIns(FUNCTIONID(restargHelper),
                                 6,
                                 loadEnvToplevel(),
@@ -3298,6 +3349,9 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                                 (info->needRest() ?
                                     binaryIns(LIR_addp, ap_param, InsConstPtr((void*)(ms->rest_offset()))) :
                                     binaryIns(LIR_addp, ap_param, InsConstPtr((void*)sizeof(Atom)))));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
             localSet(state->sp()-1, out, type);
             break;
         }
@@ -3745,7 +3799,6 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                     //    These are statically known to produce float4, the swizzling compiles
                     //    down to a single LIR instruction.
 
-                    int32_t arrayDataOffset = -1;
                     int32_t lenOffset = -1;
 
 #ifdef VMCFG_FLOAT
@@ -3761,20 +3814,17 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                     switch (getter_info->method_id())
                     {
                         case avmplus::NativeID::__AS3___vec_Vector_object_length_get:
-                            arrayDataOffset = int32_t(offsetof(ObjectVectorObject, m_list.m_data));
-                            lenOffset = int32_t(offsetof(AtomListHelper::LISTDATA, len));
+                            lenOffset = int32_t(offsetof(ObjectVectorObject, m_list.m_header.len));
                             goto vector_length;
+						// TODO: Why do we optimize for double but not float here?
                         case avmplus::NativeID::__AS3___vec_Vector_double_length_get:
-                            arrayDataOffset = int32_t(offsetof(DoubleVectorObject, m_list.m_data));
-                            lenOffset = int32_t(offsetof(DataListHelper<double>::LISTDATA, len));
+                            lenOffset = int32_t(offsetof(DoubleVectorObject, m_list.m_header.len));
                             goto vector_length;
                         case avmplus::NativeID::__AS3___vec_Vector_int_length_get:
-                            arrayDataOffset = int32_t(offsetof(IntVectorObject, m_list.m_data));
-                            lenOffset = int32_t(offsetof(DataListHelper<int32_t>::LISTDATA, len));
+                            lenOffset = int32_t(offsetof(IntVectorObject, m_list.m_header.len));
                             goto vector_length;
                         case avmplus::NativeID::__AS3___vec_Vector_uint_length_get:
-                            arrayDataOffset = int32_t(offsetof(UIntVectorObject, m_list.m_data));
-                            lenOffset = int32_t(offsetof(DataListHelper<uint32_t>::LISTDATA, len));
+                            lenOffset = int32_t(offsetof(UIntVectorObject, m_list.m_header.len));
                             goto vector_length;
 #ifdef VMCFG_FLOAT
                         case avmplus::NativeID::float4_x_get:
@@ -3803,8 +3853,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
 #endif
 
                 vector_length: {
-                    LIns *arrayData = loadIns(LIR_ldp, arrayDataOffset, localGetp(sp), ACCSET_OTHER, LOAD_NORMAL);
-                    LIns *arrayLen  = loadIns(LIR_ldi, lenOffset, arrayData, ACCSET_OTHER, LOAD_NORMAL);
+                    LIns *arrayLen  = loadIns(LIR_ldi, lenOffset, localGetp(sp), ACCSET_OTHER, LOAD_NORMAL);
                     localSet(sp, arrayLen, type);
                     break;
                 }
@@ -5016,6 +5065,9 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             LIns* vtable = loadEnvVTable();
             LIns* base = loadIns(LIR_ldp, offsetof(VTable,base), vtable, ACCSET_OTHER, LOAD_CONST);
             method = loadIns(LIR_ldp, offsetof(VTable,init), base, ACCSET_OTHER, LOAD_CONST);
+			AvmAssert(result == VOID_TYPE);
+			// The result returned by the init function will be ignored, but we must receive the correct type to satisfy the ABI.
+			result = ms->returnTraits();
             break;
         }
         case OP_callmethod:
@@ -5067,9 +5119,14 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             LIns* createInstanceProc = loadIns(LIR_ldp, offsetof(VTable, createInstanceProc), ivtable, ACCSET_OTHER);
             obj = callIns(FUNCTIONID(createInstanceProc), 2, createInstanceProc, obj);
             objType = result;
-            // the call below to the init function is void; the expression result we want
-            // is the new object, not the result from the init function.  save it now.
+			// The result of the expression is the newly-created object, not the result of the function call as it is
+			// for other kinds of call instructions.  Save the expression result now.
             localSet(dest, obj, result);
+			// In the code below, 'result' is expected to be the result type of the function to be called, which is the
+			// init function in this case.  The init function should return void, which is actually represented at runtime
+			// by a placeholder value, the atom 'undefined'.  This is not enforced, however, and we must properly receive
+			// a value of the type actually returned, which we then discard.
+			result = ms->returnTraits();
             break;
         }
         default:
@@ -5201,8 +5258,9 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         // ensure the stack-allocated args are live until after the call
         liveAlloc(ap);
 
-        if (opcode != OP_constructsuper && opcode != OP_construct)
+        if (opcode != OP_constructsuper && opcode != OP_construct) {
             localSet(dest, out, result);
+		}
     }
 
     LIns* CodegenLIR::loadFromSlot(int ptr_index, int slot, Traits* slotType)
@@ -5399,11 +5457,17 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
 
     LIns* CodegenLIR::emitInlineVectorRead(int objIndexOnStack, 
                                            LIns* index,
-                                           size_t arrayDataOffset, size_t lenOffset, size_t entriesOffset, int scale, LOpcode load_item,
+                                           size_t arrayDataOffset, size_t lenOffset,
+										   #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+										     size_t cookieOffset,
+										   #endif
+										   size_t entriesOffset, int scale, LOpcode load_item,
                                            const CallInfo* helper)
     {
-        CodegenLabel &begin_label = createLabel("arrayoutofbounds");
-
+        CodegenLabel begin_label = createLabel("arrayinbounds");
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+        CodegenLabel &fallback_label = createLabel("arraycorrupt");
+#endif
         // index is "int" or "uint".
         //
         // The basic code is this:
@@ -5426,17 +5490,38 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         // We also depend on vectors being shorter than 2^32 bytes in computing the scaled offset for
         // the vector.  The 4GB object limit is enforced by MMgc as of September 2011.
 
-        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), localGetp(objIndexOnStack), ACCSET_OTHER, LOAD_NORMAL);
-        LIns* arrayLen = loadIns(LIR_ldi, int32_t(lenOffset), arrayData, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* arrayPtr = localGetp(objIndexOnStack);
+        LIns* arrayLen = loadIns(LIR_ldi, int32_t(lenOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
         LIns* cmp = binaryIns(LIR_geui, index, arrayLen);
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* sessionSecret = InsConst(GCHeap::secret);
+		LIns* testCookie = binaryIns(LIR_xori, arrayLen, sessionSecret);
+		LIns* arrayCookie = loadIns(LIR_ldi, int32_t(cookieOffset), arrayData, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* cksumCmp = binaryIns(LIR_eqi, testCookie, arrayCookie);
+		suspendCSE();
+		branchToLabel(LIR_jf, cksumCmp, fallback_label);
+        branchToLabel(LIR_jf, cmp, begin_label);
+		emitLabel(fallback_label);
+#else
         suspendCSE();
         branchToLabel(LIR_jf, cmp, begin_label);
+#endif
+		// For read, the inlined code handles all non-error cases.  If we arrive here, there is definitely a problem.
+		// We call the helper, but only to allow it to handle the error.  The function is not expected to return,
+		// and we do not receive a result.
         if(load_item == LIR_ldf4)
-            callIns(helper, 3, localGetp(objIndexOnStack), InsConstPtr(NULL), index);  // we don't really need the returned arg, hence we pass null.
+            callIns(helper, 3, arrayPtr, InsConstPtr(NULL), index);  // we don't really need the returned arg, hence we pass null.
         else
-            callIns(helper, 2, localGetp(objIndexOnStack), index);
+            callIns(helper, 2, arrayPtr, index);
+        // The call above is expected to throw.
+        lirout->ins0(LIR_unreachable);
         emitLabel(begin_label);
         resumeCSE();
+#ifndef VMCFG_VECTOR_SMASH_PROTECTION
+		// If we are not using vector smash protection, we can load the data pointer a bit later and avoid some register pressure.
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
+#endif
         switch (load_item)
         {
             case LIR_ldf4:
@@ -5477,27 +5562,37 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         //            m_denseArray.get(index) : getUintProperty(index));''
 
         size_t lenIfSimpleOffset = offsetof(ArrayObject, m_lengthIfSimple);
-        size_t denseArrayOffset = offsetof(ArrayObject, m_denseArray);
-        typedef ListData<Atom, 0> LISTDATA;
+        size_t denseArrayDataOffset = offsetof(ArrayObject, m_denseArray.m_header.data);
+        typedef TracedListData<Atom> LISTDATA;
         size_t entriesOffset = offsetof(LISTDATA, entries);
+		#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+		size_t denseArrayCookieOffset = offsetof(LISTDATA, cookie);
+		#endif
         int scale = (sizeof(void*) == 8) ? 3 : 2;
 
         LIns* arrayPtr = localGetp(objIndexOnStack);
-        LIns* arraySimpleLen =
-            loadIns(LIR_ldi, int32_t(lenIfSimpleOffset), arrayPtr,
-                    ACCSET_OTHER, LOAD_NORMAL);
+        LIns* arraySimpleLen = loadIns(LIR_ldi, int32_t(lenIfSimpleOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
         LIns* cmp = binaryIns(LIR_geui, index, arraySimpleLen);
 
         suspendCSE();
         LIns* result = insAlloc(sizeof(Atom));
         branchToLabel(LIR_jt, cmp, nonsimpleBeginLabel);
 
-        LIns* arrayData = loadIns(LIR_ldp, int32_t(denseArrayOffset), arrayPtr,
-                                  ACCSET_OTHER, LOAD_NORMAL );
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(denseArrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL );
+		LIns* sessionSecret = InsConst(GCHeap::secret);
+		LIns* testCookie = binaryIns(LIR_xori, arraySimpleLen, sessionSecret);
+		LIns* arrayCookie = loadIns(LIR_ldi, int32_t(denseArrayCookieOffset), arrayData, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* cksumCmp = binaryIns(LIR_eqi, testCookie, arrayCookie);
+		branchToLabel(LIR_jf, cksumCmp, nonsimpleBeginLabel);
+#endif
         LIns* idxScaled = ui2p(binaryIns(LIR_lshi, index, InsConst(scale)));
-        LIns* valOffset = binaryIns(LIR_addp, arrayData, idxScaled);
-        LIns* loadValue = loadIns(LIR_ldp, int32_t(entriesOffset), valOffset,
-                                  ACCSET_OTHER, LOAD_NORMAL);
+#ifndef VMCFG_VECTOR_SMASH_PROTECTION
+		// If we are not using vector smash protection, we can load the data pointer a bit later and avoid some register pressure.
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(denseArrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL );
+#endif
+		LIns* valOffset = binaryIns(LIR_addp, arrayData, idxScaled);
+        LIns* loadValue = loadIns(LIR_ldp, int32_t(entriesOffset), valOffset, ACCSET_OTHER, LOAD_NORMAL);
         stp(loadValue, result, 0, ACCSET_OTHER);
         branchToLabel(LIR_j, NULL, joinLabel);
 
@@ -5520,7 +5615,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
 
         if (objType == ARRAY_TYPE) {
             getter = getArrayHelpers[idxKind];
-            if (idxKind == VI_INT || idxKind == VI_UINT) {
+            if (core->config.jitconfig.opt_array_read_fastpath && (idxKind == VI_INT || idxKind == VI_UINT)) {
                 LIns* value = emitInlineSpeculativeArrayRead(objIndexOnStack,
                                                              index,
                                                              getter);
@@ -5528,12 +5623,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             }
         }
         else if (objType != NULL && objType->subtypeof(VECTOROBJ_TYPE)) {
-            if (idxKind == VI_INT || idxKind == VI_UINT) {
-                typedef ListData<Atom, 0> STORAGE;
+            if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                typedef TracedListData<Atom> STORAGE;
                 return atomToNativeRep(result, emitInlineVectorRead(objIndexOnStack, 
                                                                     index,
-                                                                    offsetof(ObjectVectorObject, m_list.m_data),
-                                                                    offsetof(AtomListHelper::LISTDATA, len),
+                                                                    offsetof(ObjectVectorObject, m_list.m_header.data),
+                                                                    offsetof(ObjectVectorObject, m_list.m_header.len),
+																	#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+                                                                        offsetof(STORAGE, cookie),
+																	#endif
                                                                     offsetof(STORAGE, entries),
                                                                     sizeof(void*) == 8 ? 3 : 2,
                                                                     LIR_ldp,
@@ -5543,12 +5641,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORINT_TYPE) {
             if (result == INT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<int32_t, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<int32_t> STORAGE;
                     return emitInlineVectorRead(objIndexOnStack, 
                                                 index,
-                                                offsetof(IntVectorObject, m_list.m_data),
-                                                offsetof(DataListHelper<int32_t>::LISTDATA, len),
+                                                offsetof(IntVectorObject, m_list.m_header.data),
+                                                offsetof(IntVectorObject, m_list.m_header.len),
+												#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+													offsetof(STORAGE, cookie),
+												#endif
                                                 offsetof(STORAGE, entries),
                                                 2,
                                                 LIR_ldi,
@@ -5563,12 +5664,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORUINT_TYPE) {
             if (result == UINT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<uint32_t, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<uint32_t> STORAGE;
                     return emitInlineVectorRead(objIndexOnStack, 
                                                 index,
-                                                offsetof(UIntVectorObject, m_list.m_data),
-                                                offsetof(DataListHelper<uint32_t>::LISTDATA, len),
+                                                offsetof(UIntVectorObject, m_list.m_header.data),
+                                                offsetof(UIntVectorObject, m_list.m_header.len),
+												#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+													offsetof(STORAGE, cookie),
+												#endif
                                                 offsetof(STORAGE, entries),
                                                 2,
                                                 LIR_ldi,
@@ -5583,12 +5687,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORDOUBLE_TYPE) {
             if (result == NUMBER_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<double, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<double> STORAGE;
                     return emitInlineVectorRead(objIndexOnStack, 
                                                 index,
-                                                offsetof(DoubleVectorObject, m_list.m_data),
-                                                offsetof(DataListHelper<double>::LISTDATA, len),
+                                                offsetof(DoubleVectorObject, m_list.m_header.data),
+                                                offsetof(DoubleVectorObject, m_list.m_header.len),
+												#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+													offsetof(STORAGE, cookie),
+												#endif
                                                 offsetof(STORAGE, entries),
                                                 3,
                                                 LIR_ldd,
@@ -5604,12 +5711,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
 #ifdef VMCFG_FLOAT
         else if (objType == VECTORFLOAT_TYPE) {
             if (result == FLOAT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<float, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<float> STORAGE;
                     return emitInlineVectorRead(objIndexOnStack, 
                                                 index,
-                                                offsetof(FloatVectorObject, m_list.m_data),
-                                                offsetof(DataListHelper<float>::LISTDATA, len),
+                                                offsetof(FloatVectorObject, m_list.m_header.data),
+                                                offsetof(FloatVectorObject, m_list.m_header.len),
+												#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+													offsetof(STORAGE, cookie),
+												#endif
                                                 offsetof(STORAGE, entries),
                                                 2,
                                                 LIR_ldf,
@@ -5624,13 +5734,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORFLOAT4_TYPE) {
             if (result == FLOAT4_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<float4_t, 16> STORAGE;
-                    typedef DataListHelper<float4_t, 16>::LISTDATA LISTDATA;
-                    return emitInlineVectorRead(objIndexOnStack, 
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<float4_t> STORAGE;
+                    return emitInlineVectorRead(objIndexOnStack,
                                                 index,
-                                                offsetof(Float4VectorObject, m_list.m_data),
-                                                offsetof(LISTDATA, len),
+                                                offsetof(Float4VectorObject, m_list.m_header.data),
+                                                offsetof(Float4VectorObject, m_list.m_header.len),
+												#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+													offsetof(STORAGE, cookie),
+												#endif
                                                 offsetof(STORAGE, entries),
                                                 4,
                                                 LIR_ldf4,
@@ -5709,10 +5821,15 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
     void CodegenLIR::emitInlineVectorWrite(int objIndexOnStack,
                                            LIns* index,
                                            LIns* value,
-                                           size_t arrayDataOffset, size_t lenOffset, size_t entriesOffset, int scale, LOpcode store_item,
+                                           size_t arrayDataOffset, size_t lenOffset,
+										   #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+										     size_t cookieOffset,
+										   #endif
+										   size_t entriesOffset, int scale, LOpcode store_item,
                                            const CallInfo* helper)
     {
-        CodegenLabel &begin_label = createLabel("arrayoutofbounds");
+        CodegenLabel &begin_label = createLabel("arrayinbounds");
+		CodegenLabel &fallback_label = createLabel("arraycorrupt");
         CodegenLabel &end_label = createLabel("traprecovered");
         
         // index is "int" or "uint".
@@ -5738,14 +5855,34 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         // We also depend on vectors being shorter than 2^32 bytes in computing the scaled offset for
         // the vector.  The 4GB object limit is enforced by MMgc as of September 2011.
 
-        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), localGetp(objIndexOnStack), ACCSET_OTHER, LOAD_NORMAL);
-        LIns* arrayLen = loadIns(LIR_ldi, int32_t(lenOffset), arrayData, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* arrayPtr = localGetp(objIndexOnStack);
+        LIns* arrayLen = loadIns(LIR_ldi, int32_t(lenOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
         LIns* cmp = binaryIns(LIR_geui, index, arrayLen);
         suspendCSE();
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+        branchToLabel(LIR_jt, cmp, fallback_label);
+		// TODO: By placing the check here, we avoid a redundant check if we are expanding the vector via the slow path.
+		// We are placing a lot of code between the suspendCSE()/resumeCSE() pair, however, and potentially giving up some
+		// CSE optimization.  Profile to see if it would be better to hoist the loads and ALU ops above the suspendCSE.
+		// Possibly hoist just the load of the session secret, as this load is eligible for CSE and likely to benefit.
+		LIns* sessionSecret = InsConst(GCHeap::secret);
+		LIns* testCookie = binaryIns(LIR_xori, arrayLen, sessionSecret);
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* arrayCookie = loadIns(LIR_ldi, int32_t(cookieOffset), arrayData, ACCSET_OTHER, LOAD_NORMAL);
+		LIns* cksumCmp = binaryIns(LIR_eqi, testCookie, arrayCookie);
+		branchToLabel(LIR_jt, cksumCmp, begin_label);
+		emitLabel(fallback_label);
+#else
         branchToLabel(LIR_jf, cmp, begin_label);
-        callIns(helper, 3, localGetp(objIndexOnStack), index, value);
+#endif
+		// The inlined code is just a fastpath.  Handle the general case here. We may need to grow the vector, otherwise, we'll throw an exception.
+        callIns(helper, 3, arrayPtr, index, value);
         branchToLabel(LIR_j, NULL, end_label);
         emitLabel(begin_label);
+#ifndef VMCFG_VECTOR_SMASH_PROTECTION
+		// If we are not using vector smash protection, we can load the data pointer a bit later and avoid some register pressure.
+        LIns* arrayData = loadIns(LIR_ldp, int32_t(arrayDataOffset), arrayPtr, ACCSET_OTHER, LOAD_NORMAL);
+#endif
         switch (store_item)
         {
 #ifdef VMCFG_FLOAT
@@ -5817,13 +5954,16 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORINT_TYPE) {
             if (valueType == INT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<int32_t, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<int32_t> STORAGE;
                     emitInlineVectorWrite(objIndexOnStack, 
                                           index,
                                           localGet(valIndexOnStack),
-                                          offsetof(IntVectorObject, m_list.m_data),
-                                          offsetof(DataListHelper<int32_t>::LISTDATA, len),
+                                          offsetof(IntVectorObject, m_list.m_header.data),
+										  offsetof(IntVectorObject, m_list.m_header.len),
+										  #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+											  offsetof(STORAGE, cookie),
+										  #endif
                                           offsetof(STORAGE, entries),
                                           2,
                                           LIR_sti,
@@ -5840,13 +5980,16 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORUINT_TYPE) {
             if (valueType == UINT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<uint32_t, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<uint32_t> STORAGE;
                     emitInlineVectorWrite(objIndexOnStack, 
                                           index,
                                           localGet(valIndexOnStack),
-                                          offsetof(UIntVectorObject, m_list.m_data),
-                                          offsetof(DataListHelper<uint32_t>::LISTDATA, len),
+                                          offsetof(UIntVectorObject, m_list.m_header.data),
+                                          offsetof(UIntVectorObject, m_list.m_header.len),
+										  #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+											  offsetof(STORAGE, cookie),
+										  #endif
                                           offsetof(STORAGE, entries),
                                           2,
                                           LIR_sti,
@@ -5863,13 +6006,16 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         }
         else if (objType == VECTORDOUBLE_TYPE) {
             if (valueType == NUMBER_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
-                    typedef ListData<double, 0> STORAGE;
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
+                    typedef ListData<double> STORAGE;
                     emitInlineVectorWrite(objIndexOnStack, 
                                           index,
                                           localGetd(valIndexOnStack),
-                                          offsetof(DoubleVectorObject, m_list.m_data),
-                                          offsetof(DataListHelper<double>::LISTDATA, len),
+                                          offsetof(DoubleVectorObject, m_list.m_header.data),
+                                          offsetof(DoubleVectorObject, m_list.m_header.len),
+										  #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+											  offsetof(STORAGE, cookie),
+										  #endif
                                           offsetof(STORAGE, entries),
                                           3,
                                           LIR_std,
@@ -5887,13 +6033,16 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
 #ifdef VMCFG_FLOAT
         else if (objType == VECTORFLOAT_TYPE) {
             if (valueType == FLOAT_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
                     typedef ListData<float, 0> STORAGE;
                     emitInlineVectorWrite(objIndexOnStack, 
                                           index,
                                           localGetf(valIndexOnStack),
-                                          offsetof(FloatVectorObject, m_list.m_data),
-                                          offsetof(DataListHelper<float>::LISTDATA, len),
+                                          offsetof(FloatVectorObject, m_list.m_header.data),
+                                          offsetof(FloatVectorObject, m_list.m_header.len),
+										  #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+											  offsetof(STORAGE, cookie),
+										  #endif
                                           offsetof(STORAGE, entries),
                                           2,
                                           LIR_stf,
@@ -5909,16 +6058,17 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             }
         }
         else if (objType == VECTORFLOAT4_TYPE) { 
-                          
-            if (valueType == FLOAT4_TYPE) {
-                if (idxKind == VI_INT || idxKind == VI_UINT) {
+             if (valueType == FLOAT4_TYPE) {
+                if (core->config.jitconfig.opt_inline_vector_access && (idxKind == VI_INT || idxKind == VI_UINT)) {
                     typedef ListData<float4_t, 16> STORAGE;
-                    typedef DataListHelper<float4_t, 16>::LISTDATA LISTDATA;
-                    emitInlineVectorWrite(objIndexOnStack, 
+                    emitInlineVectorWrite(objIndexOnStack,
                                           index,
                                           localGetf4Addr(valIndexOnStack),
-                                          offsetof(Float4VectorObject, m_list.m_data),
-                                          offsetof(LISTDATA, len),
+                                          offsetof(Float4VectorObject, m_list.m_header.data),
+                                          offsetof(Float4VectorObject, m_list.m_header.len),
+										  #ifdef VMCFG_VECTOR_SMASH_PROTECTION
+											  offsetof(STORAGE, cookie),
+										  #endif
                                           offsetof(STORAGE, entries),
                                           4,
                                           LIR_stf4,
@@ -6513,6 +6663,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                 //throwAtom(*sp--);
                 int32_t index = (int32_t) op1;
                 callIns(FUNCTIONID(throwAtom), 2, coreAddr, loadAtomRep(index));
+				lirout->ins0(LIR_unreachable);
                 break;
             }
 
@@ -7765,24 +7916,28 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             emitLabel(mop_rangeCheckFailed_label);
             Ins(LIR_regfence);
             callIns(FUNCTIONID(mop_rangeCheckFailed), 1, env_param);
+			lirout->ins0(LIR_unreachable);
         }
 
         if (npe_label.unpatchedEdges) {
             emitLabel(npe_label);
             Ins(LIR_regfence);
             callIns(FUNCTIONID(npe), 1, env_param);
+			lirout->ins0(LIR_unreachable);
         }
 
         if (upe_label.unpatchedEdges) {
             emitLabel(upe_label);
             Ins(LIR_regfence);
             callIns(FUNCTIONID(upe), 1, env_param);
+			lirout->ins0(LIR_unreachable);
         }
 
         if (call_error_label.unpatchedEdges) {
             emitLabel(call_error_label);
             Ins(LIR_regfence);
             callIns(FUNCTIONID(op_call_error), 1, env_param);
+			lirout->ins0(LIR_unreachable);
         }
 
         if (interrupt_label.unpatchedEdges) {
@@ -7796,6 +7951,10 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             Ins(LIR_popstate);
             Ins(LIR_restorepc);
 #endif
+			// LIR_restorepc is actually an unconditional branch, though it is not marked
+			// as such for reachability.  Without safepoint polling, the interrupt handler
+			// never returns. Therefore, we do not fall through to this point in any case.
+			lirout->ins0(LIR_unreachable);
         }
 
         if (driver->hasReachableExceptions()) {

@@ -28,6 +28,7 @@
 // maintainability.
 
 #include "avmfeatures.h"
+#include "avmbuild.h"       // old-style configuration, may disappear, handles a few things not yet handled by the feature system
 
 #if AVMSYSTEM_WIN32
   #include "win32/win32-platform.h"
@@ -318,5 +319,18 @@ extern void AVMPI_cleanStack(size_t amt);
  * @return a bool indicating whether we have
 */
 extern bool AVMPI_hasSymbols();
+
+#ifdef NANOJIT_WIN_CFG
+/**
+ * Method to add target address in heap into valid call target bitmap.
+ * Currently(April 09, 2015), only Windows 10 support
+ * @param address  Pointer to start of an acceptable protection boundary (typically
+ * a VM page) within the block.
+ * @param size  Size in bytes of the area to be protected in some acceptable
+ * granule (typically one or more VM pages).
+ * @param  offset  offset of call address in the region to allow being executable
+*/
+extern void AVMPI_makeTargetValid(void *address, size_t pageSize, void *pFnc);
+#endif
 
 #endif /* __avmplus_AVMPI__ */

@@ -23,19 +23,19 @@ void recordArgumentTypes(MethodEnv* method_env, int argc, Atom* args) {
 
   profile_data->setInputType(0, args[0]); // The "this" object, which can be the unsuedAtomTag
   for (int i = 1; i < argc; i++) {
-    assert (atomKind(args[i] != kUnusedAtomTag));
+    AvmAssert (atomKind(args[i] != kUnusedAtomTag));
     profile_data->setInputType(i, args[i]);
   }
 }
 
 void updateBranchCounters(MethodEnv* method_env, int branch_pc, int true_target_pc, int false_target_pc, bool condition_result, LOpcode opcode) {
   MethodProfile* method_profile = JitManager::getProfile(method_env);
-  assert (true_target_pc != false_target_pc); // Means we have a fall through
+  AvmAssert (true_target_pc != false_target_pc); // Means we have a fall through
   switch (opcode) {
   case LIR_j:
   {
-    assert (condition_result == 1);
-    assert (false_target_pc == 0);
+    AvmAssert (condition_result == 1);
+    AvmAssert (false_target_pc == 0);
     method_profile->incrementBranchCounters(condition_result, branch_pc, true_target_pc, false_target_pc);
     break;
   }
@@ -50,7 +50,7 @@ void updateBranchCounters(MethodEnv* method_env, int branch_pc, int true_target_
     break;
   }
   default:
-    assert (false && "unknown opcode");
+    AvmAssert (false && "unknown opcode");
   }
 }
 
@@ -70,7 +70,7 @@ void recordUnaryInputTypes(MethodEnv* method_env, Atom input) {
       printf("TESTING");
   }
 
-  assert (false);
+  AvmAssert (false);
 }
 
 void recordBinaryInputTypes(MethodEnv* method_env, Atom left_operand, Atom right_operand, int abc_pc) {
@@ -79,8 +79,8 @@ void recordBinaryInputTypes(MethodEnv* method_env, Atom left_operand, Atom right
   int output_count = 1;
   ProfiledState* profiled_state = method_profile->getProfileState(abc_pc, input_count, output_count);
 
-  assert (atomKind(left_operand) != kUnusedAtomTag);
-  assert (atomKind(right_operand) != kUnusedAtomTag);
+  AvmAssert (atomKind(left_operand) != kUnusedAtomTag);
+  AvmAssert (atomKind(right_operand) != kUnusedAtomTag);
 
   profiled_state->setInputType(0, left_operand);
   profiled_state->setInputType(1, right_operand);
@@ -92,7 +92,7 @@ void recordTernaryInputTypes(MethodEnv* method_env, Atom first_operand, Atom sec
   (void) second_operand;
   (void) third_operand;
   (void) result_operand;
-  assert (false);
+  AvmAssert (false);
 }
 
 void recordCallInputTypes(MethodEnv* method_env, Atom receiver_object, int argc, Atom* atom_args, Atom result_atom, MethodInfo* loaded_method, int abc_pc) {

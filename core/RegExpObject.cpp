@@ -414,8 +414,23 @@ namespace avmplus
                is a null terminated string (the subgroup name) */
             for (int i = 0; i < nameCount; i++)
             {
-                int nameIndex, length;
+                unsigned int nameIndex, length;
                 nameIndex = (nameTable[0] << 8) + nameTable[1];
+				// https://watsonexp.corp.adobe.com/#bug=3848866
+				// nameIndex is the number of left brackets in a RegEx. Since the RegEx is 
+				// user-supplied, there is a chance that nameIndex or any derivative of 
+				// nameIndex exceeds the bounds of the array - ovector[OVECTOR_SIZE] - we 
+				// use to store the matching results, where OVECTOR_SIZE is 99. The following
+				// check prevents the user-supplied RegEx from exploiting that case. The 
+				// maximum vale for nameIndex here is 48 or ((OVECTOR_SIZE-2)/2)) to satisfy 
+				// the calculation of length in,
+				// length = ovector[nameIndex * 2 + 1] - ovector[ nameIndex * 2 ];
+				if (nameIndex > ((OVECTOR_SIZE-2)/2)) {
+					matchIndex = 0;
+					matchLen = 0;
+					return NULL;
+				}
+
                 length = ovector[nameIndex * 2 + 1] - ovector[ nameIndex * 2 ];
 
                 Atom name = stringFromUTF8((nameTable+2), (uint32_t)VMPI_strlen(nameTable+2));

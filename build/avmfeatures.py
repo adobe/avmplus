@@ -6,9 +6,11 @@
 #  If you feel you need to make changes below, instead edit the configuration
 #  file and rerun it to get a new version of this file.
 #
-#  This Source Code Form is subject to the terms of the Mozilla Public
-#  License, v. 2.0. If a copy of the MPL was not distributed with this
-#  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#/*
+#*  This Source Code Form is subject to the terms of the Mozilla Public
+#*  License, v. 2.0. If a copy of the MPL was not distributed with this
+#*  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#*/
 
 def featureSettings(o):
     args = ""
@@ -60,7 +62,15 @@ def featureSettings(o):
     if (arg == False):
         args += "-DAVMFEATURE_COMPILEPOLICY=0 "
     if o.getBoolArg("aot"):
-        args += "-DAVMFEATURE_AOT=1 -DAVMFEATURE_JIT=0 -DAVMFEATURE_ABC_INTERP=0 -DAVMFEATURE_WORDCODE_INTERP=0 "
+        args += "-DAVMFEATURE_AOT=1 -DAVMFEATURE_HALFMOON_AOT_COMPILER=0 -DAVMFEATURE_JIT=0 -DAVMFEATURE_ABC_INTERP=0 -DAVMFEATURE_WORDCODE_INTERP=0 "
+    if o.getBoolArg("halfmoon-aot-runtime"):
+        args += "-DAVMFEATURE_HALFMOON_AOT_RUNTIME=1 " 
+    else:
+        args += "-DAVMFEATURE_HALFMOON_AOT_RUNTIME=0 "
+    if o.getBoolArg("halfmoon-aot-compiler"):
+        args += "-DAVMFEATURE_HALFMOON_AOT_COMPILER=1 -DAVMFEATURE_AOT=0 "
+    else:
+        args += "-DAVMFEATURE_HALFMOON_AOT_COMPILER=0 "
     arg = o.getBoolArg("buffer-guard")
     if (arg == True):
         args += "-DAVMFEATURE_BUFFER_GUARD=1 "

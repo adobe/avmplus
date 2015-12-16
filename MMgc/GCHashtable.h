@@ -61,7 +61,7 @@ namespace MMgc
         public:
             Iterator(GCHashtableBase* _ht) : ht(_ht), index(-1)
             {
-#ifdef _DEBUG
+#ifdef GCDEBUG
                 // Bug 637993: iterators stack allocated to ensure clean up.
                 GCAssert(IsAddressOnStack(this));
                 ht->numIterators++;
@@ -70,7 +70,7 @@ namespace MMgc
 
             ~Iterator()
             {
-#ifdef _DEBUG
+#ifdef GCDEBUG
                 ht->numIterators--;
 #endif
             }
@@ -108,7 +108,7 @@ namespace MMgc
         uint32_t tableSize;     // capacity
         uint32_t numValues;     // size of table array
         uint32_t numDeleted;    // number of delete items
-#ifdef _DEBUG
+#ifdef GCDEBUG
         uint32_t numIterators;  // number of active iterators
 #endif
 #ifdef MMGC_GCHASHTABLE_PROFILER

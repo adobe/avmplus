@@ -952,7 +952,7 @@ public class ByteArray implements IDataInput2, IDataOutput2
 
     /**
      * Changes or reads the byte order for the data; either <code>Endian.BIG_ENDIAN</code> or
-     * <code>Endian.LITTLE_ENDIAN</code>.
+     * <code>Endian.LITTLE_ENDIAN</code>. The default value is <code>Endian.BIG_ENDIAN</code>.
      *
      * @see flash.utils.Endian Endian class
      * @playerversion Flash 9

@@ -96,13 +96,13 @@ namespace MMgc
         incremental(config.mode == GCConfig::kIncrementalGC),
         drcEnabled(config.mode != GCConfig::kDisableGC && config.drc),
         findUnmarkedPointers(false),
-#ifdef DEBUG
+#ifdef GCDEBUG
         validateDefRef(config.validateDRC),
         keepDRCHistory(config.validateDRC),
 #endif
         dontAddToZCTDuringCollection(false),
         incrementalValidation(config.incrementalValidation),
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // check for missing write barriers at every Alloc
         incrementalValidationPedantic(false),
 #endif
@@ -189,7 +189,7 @@ namespace MMgc
         // The size tables above are derived based on a block size of 4096; this
         // assert keeps us honest.  Talk to Lars if you get into trouble here.
         //
-        // Also it appears that some DEBUG-mode guards in SetPageMapValue,
+        // Also it appears that some GCDEBUG-mode guards in SetPageMapValue,
         // GetPageMapValue, ClearPageMapValue know that the block size is 4096.
         GCAssert(GCHeap::kBlockSize == 4096);
         
@@ -469,7 +469,7 @@ namespace MMgc
         if(marking)
             FinishIncrementalMark(scanStack, okToShrinkHeapTarget);
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Dumping the stack trace at GC time can be very helpful with stack walk bugs
         // where something was created, stored away in untraced, unmanaged memory and not
         // reachable by the conservative stack walk
@@ -559,7 +559,7 @@ namespace MMgc
     
     REALLY_INLINE void GC::Push_GCObject(const void *p)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         WorkItemInvariants_GCObject(p);
 #endif
         if (!m_incrementalWork.Push_GCObject(p))
@@ -568,13 +568,13 @@ namespace MMgc
 
     void GC::Push_GCObject_MayFail(const void *p)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         WorkItemInvariants_GCObject(p);
 #endif
         m_incrementalWork.Push_GCObject(p);
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     void GC::WorkItemInvariants_GCObject(const void *p)
     {
         GCAssert(p != NULL);
@@ -597,7 +597,7 @@ namespace MMgc
         marking = false;
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     void GC::DRCValidationTrace(bool scanStack)
     {
         if(marking) {
@@ -606,7 +606,7 @@ namespace MMgc
         performingDRCValidationTrace = true;
         MarkNonstackRoots();
         MarkQueueAndStack(scanStack);
-#ifdef DEBUG
+#ifdef GCDEBUG
         // If we're doing a mark to validate DRC then also pin
         // RCObjects here.
         VMPI_callWithRegistersSaved(ZCT::DoPinProgramStack, &zct);
@@ -738,8 +738,8 @@ namespace MMgc
     // the rounding and allocation overflow checking to the large-object case.
 
 #ifdef MMGC_MEMORY_INFO
-    #ifndef _DEBUG
-        #error "Really need MMGC_MEMORY_INFO to imply _DEBUG"
+    #ifndef GCDEBUG
+        #error "Really need MMGC_MEMORY_INFO to imply GCDEBUG"
     #endif
 #endif
 #ifdef MMGC_MEMORY_PROFILER
@@ -749,7 +749,7 @@ namespace MMgc
 #endif
 
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     void GC::AllocPrologue(size_t size)
     {
         GCAssertMsg(size > 0, "cannot allocate a 0 sized block");
@@ -797,7 +797,7 @@ namespace MMgc
 
     void *GC::Alloc(size_t size, int flags/*0*/)
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         AllocPrologue(size);
 #endif
 #ifdef AVMPLUS_SAMPLER
@@ -806,10 +806,10 @@ namespace MMgc
             core->sampleCheck();
 #endif
 
-#if defined _DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         const size_t askSize = size;    // preserve this for statistics gathering and profiling
 #endif
-#if defined _DEBUG
+#if defined GCDEBUG
         GCHeap::CheckForAllocSizeOverflow(size, 7+DebugSize());
         size = (size+7)&~7;             // round up to multiple of 8
         size += DebugSize();            // add in some (possibly zero) multiple of 8 bytes for debug information
@@ -825,7 +825,7 @@ namespace MMgc
             // This is the fast lookup table implementation to find the right allocator.
             // The table has been lifted into an instance variable because the Player is
             // compiled with PIC and GCC generates somewhat gnarly code for that.
-#ifdef _DEBUG
+#ifdef GCDEBUG
             const unsigned index = sizeClassIndex[(size>>3)-1];
 #else
             const unsigned index = sizeClassIndex[(size-1)>>3];
@@ -840,7 +840,7 @@ namespace MMgc
             // assert that I don't fit (makes sure we don't waste space)
             GCAssert( (index==0) || (size > allocs[index-1]->GetItemSize()));
 
-#if defined _DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
             item = allocs[index]->Alloc(askSize, flags);
 #else
             item = allocs[index]->Alloc(flags);
@@ -848,12 +848,12 @@ namespace MMgc
         }
         else
         {
-#ifndef _DEBUG
+#ifndef GCDEBUG
             GCHeap::CheckForAllocSizeOverflow(size, 7+DebugSize());
             size = (size+7)&~7; // round up to multiple of 8
             size += DebugSize();
 #endif
-#if defined _DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
             item = largeAlloc->Alloc(askSize, size, flags);
 #else
             item = largeAlloc->Alloc(size, flags);
@@ -865,17 +865,17 @@ namespace MMgc
 
         GCAssert(item != NULL || (flags & kCanFail) != 0);
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
        item = AllocEpilogue(item, flags);
 #endif
 
         return item;
     }
 
-#if defined _DEBUG || defined AVMPLUS_SAMPLER || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined AVMPLUS_SAMPLER || defined MMGC_MEMORY_PROFILER
     void *GC::AllocSlow(GCAlloc* bibopAlloc)
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         AllocPrologue(bibopAlloc->m_itemSize);
 #endif
 #ifdef AVMPLUS_SAMPLER
@@ -884,13 +884,13 @@ namespace MMgc
             core->sampleCheck();
 #endif
         void* item;
-#if defined _DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         item = bibopAlloc->Alloc(/*sizeof(float)*/ bibopAlloc == bibopAllocFloat4? 16:4, /*flags*/0);
 #else
         item = bibopAlloc->Alloc(/*flags*/0);
 #endif
         GCAssert(item != NULL);
-#ifdef _DEBUG
+#ifdef GCDEBUG
         item = AllocEpilogue(item, 0);
 #endif
         return item;
@@ -911,6 +911,28 @@ namespace MMgc
         // reachable from the stack or from other objects (dangling pointers
         // caused by improper use of Free(), or non-pointers interpreted
         // as pointers by the conservative scanner).
+		
+		// wmaddox 2015.08.12
+		//
+		// The comment above is not accurate: We no longer clear the gc traceable
+		// bit, and the tracer may be invoked on the subject of an aborted free.
+		// The change occurred in tamarin-redux changeset 5840 on 2011.01.23, which
+		// reverts a change made in changset 5581 on 2010.11.29.  This is
+		// discussed in bugzilla 626612, which removed the MMgc::setExact() API.
+		// A documented consequence is that GC tracers may now be invoked on
+		// objects whose bodies had been zeroed out, but had not finished
+		// construction.  The GC invariants were updated to require that tracers
+		// tolerate an all-zeros bit pattern in all pointer fields.  The documented
+		// invariants impose no such requirement on non-pointer fields, but it is
+		// apparent from the code and surrounding discussion that a tracer may be
+		// expected to tolerate an object that has been completely zeroed out.
+		//
+		// It is believed that tracers can be invoked on such objects only
+		// during initialization and as a result of an aborted free.  Class
+		// TracedListData in avmplusList.h maintains its length in a non-canonical
+		// form, in which a logical length of zero is not represented by an
+		// actual zero value within the object.  That scheme will break if the claim
+		// made here is false.
 
         Zero(item);
 
@@ -1286,7 +1308,7 @@ namespace MMgc
         while(b) {
             GCAlloc::GCBlock *next = GCAlloc::Next(b);
             GCAlloc* alloc = (GCAlloc*)b->alloc;
-#ifdef _DEBUG
+#ifdef GCDEBUG
             alloc->SweepGuts(b);
 #else
 #ifdef MMGC_HOOKS
@@ -1715,7 +1737,7 @@ namespace MMgc
         gc = NULL;
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     bool GC::IsPointerIntoGCObject(const void *item)
     {
         int bits = GetPageMapValueGuarded((uintptr_t)item);
@@ -1764,7 +1786,7 @@ namespace MMgc
     }
 #endif
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
 
     void GC::RCObjectZeroCheck(RCObject *item)
     {
@@ -1937,7 +1959,7 @@ namespace MMgc
     }
 #endif // MMGC_MEMORY_PROFILER
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
 
     void GC::CheckFreelists()
     {
@@ -2033,7 +2055,7 @@ namespace MMgc
         }
     }
 
-#endif // DEBUG
+#endif // GCDEBUG
 
     void GC::StartIncrementalMark()
     {
@@ -2056,7 +2078,7 @@ namespace MMgc
         SweepNeedsSweeping();
 
         // at this point every object should have no marks or be marked kFreelist
-#ifdef _DEBUG
+#ifdef GCDEBUG
         for(int i=0; i < kNumSizeClasses; i++) {
             containsPointersRCAllocs[i]->CheckMarks();
             containsPointersNonfinalizedAllocs[i]->CheckMarks();
@@ -2858,7 +2880,7 @@ namespace MMgc
     {
         switch (a & 7)
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             case avmplus::AtomConstants::kUnusedAtomTag:
                 // Tracing is not necessary here.  Generic GCObjects should have been laundered
                 // through the genericObjectToAtom API and will be tagged kDoubleType (see comments
@@ -2885,7 +2907,7 @@ namespace MMgc
         GCAssert(!markerActive);
 
         uint32_t time = incrementalValidation ? 1 : policy.incrementalMarkMilliseconds();
-#ifdef _DEBUG
+#ifdef GCDEBUG
         time = 1;
 #endif
 
@@ -3030,7 +3052,7 @@ namespace MMgc
  
         policy.signal(GCPolicyManager::END_FinalRootAndStackScan);
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // need to traverse all marked objects and make sure they don't contain
         // pointers to unmarked objects
         FindMissingWriteBarriers();
@@ -3055,7 +3077,7 @@ namespace MMgc
 #endif
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     bool GC::IsWhite(const void *item)
     {
         // back up to real beginning
@@ -3070,7 +3092,7 @@ namespace MMgc
         }
         return false;
     }
-#endif // _DEBUG
+#endif // GCDEBUG
 
     // Here the purpose is to shift some work from the barrier mark stack to the regular
     // mark stack /provided/ the barrier mark stack seems very full.  The regular mark stack
@@ -3097,7 +3119,7 @@ namespace MMgc
 
     void GC::FlushBarrierWork()
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         uint32_t bwork_count_old = m_barrierWork.Count();
 #endif
 
@@ -3199,7 +3221,7 @@ namespace MMgc
         // Note, pushing directly here works right now because Push_GCObject never
         // performs any processing (breaking up a large object into shorter
         // segments, for example).
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // If this fails it's because the write barrier hits on an already-deleted
         // object - which is a bug to be sure, but we don't know if we may have to
         // support it anyway.
@@ -3474,7 +3496,7 @@ namespace MMgc
         }
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     void GC::WhitePointerScan(const void *mem, size_t size)
     {
         uintptr_t *p = (uintptr_t *) mem;
@@ -3550,7 +3572,7 @@ namespace MMgc
             }
         }
     }
-#endif //_DEBUG
+#endif //GCDEBUG
 
     void *GC::heapAlloc(size_t siz, int flags)
     {
@@ -3647,7 +3669,7 @@ namespace MMgc
     {
         top_segment = NULL;
         stacktop = NULL;
- #ifdef _DEBUG
+ #ifdef GCDEBUG
         stackdepth = 0;
  #endif
         pushAllocaSegment(AVMPLUS_PARAM_ALLOCA_DEFSIZE);
@@ -3705,7 +3727,7 @@ namespace MMgc
     void GC::pushAllocaSegment(size_t nbytes)
     {
         GCAssert(nbytes % 8 == 0);
- #ifdef _DEBUG
+ #ifdef GCDEBUG
         stackdepth += nbytes;
  #endif
         void* memory = AllocRCRoot(nbytes);
@@ -3722,7 +3744,7 @@ namespace MMgc
 
     void GC::popAllocaSegment()
     {
- #ifdef _DEBUG
+ #ifdef GCDEBUG
         stackdepth -= (char*)top_segment->limit - (char*)top_segment->start;
  #endif
         FreeRCRoot(top_segment->start);
@@ -3821,7 +3843,7 @@ namespace MMgc
         }
 
         // We always pop the active GC but have to do so before releasing the lock
-#ifdef DEBUG
+#ifdef GCDEBUG
         GC* curgc =
 #endif
             heap->SetActiveGC(prevGC);
@@ -3881,7 +3903,7 @@ namespace MMgc
         }
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     void GC::ShouldBeInactive()
     {
         GCAssert(m_gcThread == 0);
@@ -4152,7 +4174,7 @@ namespace MMgc
         lock->object = NULL;
     }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
     void GC::TracePointerCheck(const void *derivedPointer)
     {
         GC *gc = GetActiveGC();
@@ -4237,6 +4259,6 @@ namespace MMgc
 #endif // !MMGC_HEAP_GRAPH
     }
 
-#endif // DEBUG
+#endif // GCDEBUG
 
 }

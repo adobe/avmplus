@@ -7,6 +7,13 @@
 #ifndef _H_nativegen_header_shell_toplevel
 #define _H_nativegen_header_shell_toplevel
 
+/* clang (and gcc) knows about the compiler builtin _Pragma, Visual Studio 2008 C++ compiler does not */
+#ifdef __clang__
+   #define _PRAGMAFUNCTION(...) _Pragma(__VA_ARGS__)
+#else
+   #define _PRAGMAFUNCTION(...) 
+#endif
+
 namespace avmplus {
     class ArrayObject; // Array
     class ByteArrayObject; // flash.utils::ByteArray
@@ -220,96 +227,101 @@ const uint32_t avmplus_System_swfVersion_get = 68; // native
 const uint32_t avmplus_System_apiVersion_get = 69; // native
 const uint32_t avmplus_System_disposeXML = 70; // native
 const uint32_t avmplus_System_deopt = 71; // native
-const uint32_t avmplus_System_pauseForGCIfCollectionImminent = 72; // native
-const uint32_t avmplus_System_is64bit = 73; // native
-const uint32_t avmplus_System_isIntptr = 74; // native
-const uint32_t avmplus_System_runInSafepoint = 75; // native
-const uint32_t avmplus_System_canonicalizeNumber = 76; // native
-const uint32_t avmplus_File_exists = 79; // native
-const uint32_t avmplus_File_read = 80; // native
-const uint32_t avmplus_File_write = 81; // native
-const uint32_t avmplus_File_readByteArray = 82; // native
-const uint32_t avmplus_File_writeByteArray = 83; // native
-const uint32_t flash_system_Capabilities_playerType_get = 102; // abc
-const uint32_t flash_system_Capabilities_isDebugger_get = 103; // abc
-const uint32_t avmshell_public_class_public_function = 106; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_0 = 107; // abc
-const uint32_t avmshell_public_class_public_function_FP_10_0 = 108; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_5 = 109; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_5_1 = 110; // abc
-const uint32_t avmshell_public_class_public_function_FP_10_0_32 = 111; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_5_2 = 112; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_0_FP_10_0 = 113; // abc
-const uint32_t avmshell_public_class_public_function_AIR_1_5_1_FP_10_0_AIR_1_5_2 = 114; // abc
-const uint32_t avmshell_public_class_public_function_FP_10_0_32_AIR_1_0_FP_10_0 = 115; // abc
-const uint32_t avmshell_public_class_public_getset_get = 116; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_0_get = 117; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_get = 118; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_get = 119; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_get = 120; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_32_get = 121; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_2_get = 122; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_0_FP_10_0_get = 123; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_FP_10_0_AIR_1_5_2_get = 124; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_32_AIR_1_0_FP_10_0_get = 125; // abc
-const uint32_t avmshell_public_class_public_getset_set = 126; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_0_set = 127; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_set = 128; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_set = 129; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_set = 130; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_32_set = 131; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_2_set = 132; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_0_FP_10_0_set = 133; // abc
-const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_FP_10_0_AIR_1_5_2_set = 134; // abc
-const uint32_t avmshell_public_class_public_getset_FP_10_0_32_AIR_1_0_FP_10_0_set = 135; // abc
-const uint32_t avmplus_Domain_currentDomain_get = 193; // native
-const uint32_t avmplus_Domain_MIN_DOMAIN_MEMORY_LENGTH_get = 194; // native
-const uint32_t avmplus_Domain_private_init = 195; // native
-const uint32_t avmplus_Domain_loadBytes = 197; // native
-const uint32_t avmplus_Domain_getClass = 198; // native
-const uint32_t avmplus_Domain_load = 199; // abc
-const uint32_t avmplus_Domain_domainMemory_get = 200; // native
-const uint32_t avmplus_Domain_domainMemory_set = 201; // native
-const uint32_t native_script_function_flash_sampler_getMasterString = 203; // native
-const uint32_t native_script_function_flash_sampler_getSavedThis = 204; // native
-const uint32_t native_script_function_flash_sampler_getLexicalScopes = 205; // native
-const uint32_t native_script_function_flash_sampler_isGetterSetter = 206; // native
-const uint32_t native_script_function_flash_sampler__getInvocationCount = 207; // native
-const uint32_t native_script_function_flash_sampler_getSampleCount = 211; // native
-const uint32_t native_script_function_flash_sampler__getSamples = 212; // native
-const uint32_t native_script_function_flash_sampler_getMemberNames = 214; // native
-const uint32_t native_script_function_flash_sampler_getSize = 215; // native
-const uint32_t native_script_function_flash_sampler__setSamplerCallback = 216; // native
-const uint32_t native_script_function_flash_sampler_sampleInternalAllocs = 219; // native
-const uint32_t native_script_function_flash_sampler_pauseSampling = 220; // native
-const uint32_t native_script_function_flash_sampler_stopSampling = 221; // native
-const uint32_t native_script_function_flash_sampler_startSampling = 222; // native
-const uint32_t native_script_function_flash_sampler_clearSamples = 223; // native
-const uint32_t flash_sampler_StackFrame_toString = 225; // abc
-const uint32_t flash_sampler_NewObjectSample_object_get = 232; // native
-const uint32_t flash_sampler_NewObjectSample_size_get = 233; // native
-const uint32_t flash_trace_Trace_setLevel = 239; // native
-const uint32_t flash_trace_Trace_getLevel = 240; // native
-const uint32_t flash_trace_Trace_setListener = 241; // native
-const uint32_t flash_trace_Trace_getListener = 242; // native
-const uint32_t flash_system_WorkerState_code = 249; // abc
-const uint32_t flash_system_Worker_current_get = 252; // abc
-const uint32_t flash_system_Worker_pr = 253; // native
-const uint32_t flash_system_Worker_state_get = 255; // native
-const uint32_t flash_system_Worker_start = 256; // native
-const uint32_t flash_system_Worker_isParentOf = 257; // native
-const uint32_t flash_system_Worker_isPrimordial_get = 258; // native
-const uint32_t flash_system_Worker_setSharedProperty = 259; // native
-const uint32_t flash_system_Worker_getSharedProperty = 260; // native
-const uint32_t flash_system_Worker_terminate = 261; // native
-const uint32_t flash_system_WorkerEvent_currentState_get = 264; // abc
-const uint32_t flash_system_WorkerEvent_previousState_get = 265; // abc
-const uint32_t flash_system_WorkerEvent_target_get = 266; // abc
-const uint32_t flash_system_WorkerDomain_current_get = 269; // abc
-const uint32_t flash_system_WorkerDomain_createWorkerFromByteArray = 271; // abc
-const uint32_t flash_system_WorkerDomain_createWorkerFromPrimordial = 272; // abc
-const uint32_t flash_system_WorkerDomain_private_createWorkerFromByteArrayInternal = 273; // native
-const uint32_t flash_system_WorkerDomain_listWorkers = 274; // native
+const uint32_t avmplus_System_smashObjectVectorSize = 72; // native
+const uint32_t avmplus_System_smashIntVectorSize = 73; // native
+const uint32_t avmplus_System_smashUIntVectorSize = 74; // native
+const uint32_t avmplus_System_smashDoubleVectorSize = 75; // native
+const uint32_t avmplus_System_pauseForGCIfCollectionImminent = 76; // native
+const uint32_t avmplus_System_is64bit = 77; // native
+const uint32_t avmplus_System_isIntptr = 78; // native
+const uint32_t avmplus_System_runInSafepoint = 79; // native
+const uint32_t avmplus_System_canonicalizeNumber = 80; // native
+const uint32_t avmplus_File_exists = 83; // native
+const uint32_t avmplus_File_read = 84; // native
+const uint32_t avmplus_File_write = 85; // native
+const uint32_t avmplus_File_readByteArray = 86; // native
+const uint32_t avmplus_File_writeByteArray = 87; // native
+const uint32_t flash_system_Capabilities_playerType_get = 106; // abc
+const uint32_t flash_system_Capabilities_isDebugger_get = 107; // abc
+const uint32_t avmshell_public_class_public_function = 110; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_0 = 111; // abc
+const uint32_t avmshell_public_class_public_function_FP_10_0 = 112; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_5 = 113; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_5_1 = 114; // abc
+const uint32_t avmshell_public_class_public_function_FP_10_0_32 = 115; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_5_2 = 116; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_0_FP_10_0 = 117; // abc
+const uint32_t avmshell_public_class_public_function_AIR_1_5_1_FP_10_0_AIR_1_5_2 = 118; // abc
+const uint32_t avmshell_public_class_public_function_FP_10_0_32_AIR_1_0_FP_10_0 = 119; // abc
+const uint32_t avmshell_public_class_public_getset_get = 120; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_0_get = 121; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_get = 122; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_get = 123; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_get = 124; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_32_get = 125; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_2_get = 126; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_0_FP_10_0_get = 127; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_FP_10_0_AIR_1_5_2_get = 128; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_32_AIR_1_0_FP_10_0_get = 129; // abc
+const uint32_t avmshell_public_class_public_getset_set = 130; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_0_set = 131; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_set = 132; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_set = 133; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_set = 134; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_32_set = 135; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_2_set = 136; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_0_FP_10_0_set = 137; // abc
+const uint32_t avmshell_public_class_public_getset_AIR_1_5_1_FP_10_0_AIR_1_5_2_set = 138; // abc
+const uint32_t avmshell_public_class_public_getset_FP_10_0_32_AIR_1_0_FP_10_0_set = 139; // abc
+const uint32_t avmplus_Domain_currentDomain_get = 197; // native
+const uint32_t avmplus_Domain_MIN_DOMAIN_MEMORY_LENGTH_get = 198; // native
+const uint32_t avmplus_Domain_private_init = 199; // native
+const uint32_t avmplus_Domain_loadBytes = 201; // native
+const uint32_t avmplus_Domain_getClass = 202; // native
+const uint32_t avmplus_Domain_load = 203; // abc
+const uint32_t avmplus_Domain_domainMemory_get = 204; // native
+const uint32_t avmplus_Domain_domainMemory_set = 205; // native
+const uint32_t native_script_function_flash_sampler_getMasterString = 207; // native
+const uint32_t native_script_function_flash_sampler_getSavedThis = 208; // native
+const uint32_t native_script_function_flash_sampler_getLexicalScopes = 209; // native
+const uint32_t native_script_function_flash_sampler_isGetterSetter = 210; // native
+const uint32_t native_script_function_flash_sampler__getInvocationCount = 211; // native
+const uint32_t native_script_function_flash_sampler_getSampleCount = 215; // native
+const uint32_t native_script_function_flash_sampler__getSamples = 216; // native
+const uint32_t native_script_function_flash_sampler_getMemberNames = 218; // native
+const uint32_t native_script_function_flash_sampler_getSize = 219; // native
+const uint32_t native_script_function_flash_sampler__setSamplerCallback = 220; // native
+const uint32_t native_script_function_flash_sampler_sampleInternalAllocs = 223; // native
+const uint32_t native_script_function_flash_sampler_pauseSampling = 224; // native
+const uint32_t native_script_function_flash_sampler_stopSampling = 225; // native
+const uint32_t native_script_function_flash_sampler_startSampling = 226; // native
+const uint32_t native_script_function_flash_sampler_clearSamples = 227; // native
+const uint32_t flash_sampler_StackFrame_toString = 229; // abc
+const uint32_t flash_sampler_NewObjectSample_object_get = 236; // native
+const uint32_t flash_sampler_NewObjectSample_size_get = 237; // native
+const uint32_t flash_trace_Trace_setLevel = 243; // native
+const uint32_t flash_trace_Trace_getLevel = 244; // native
+const uint32_t flash_trace_Trace_setListener = 245; // native
+const uint32_t flash_trace_Trace_getListener = 246; // native
+const uint32_t flash_system_WorkerState_code = 253; // abc
+const uint32_t flash_system_Worker_current_get = 256; // abc
+const uint32_t flash_system_Worker_pr = 257; // native
+const uint32_t flash_system_Worker_state_get = 259; // abc
+const uint32_t flash_system_Worker_private_internalGetState = 260; // native
+const uint32_t flash_system_Worker_start = 261; // native
+const uint32_t flash_system_Worker_isParentOf = 262; // native
+const uint32_t flash_system_Worker_isPrimordial_get = 263; // native
+const uint32_t flash_system_Worker_setSharedProperty = 264; // native
+const uint32_t flash_system_Worker_getSharedProperty = 265; // native
+const uint32_t flash_system_Worker_terminate = 266; // native
+const uint32_t flash_system_WorkerEvent_currentState_get = 269; // abc
+const uint32_t flash_system_WorkerEvent_previousState_get = 270; // abc
+const uint32_t flash_system_WorkerEvent_target_get = 271; // abc
+const uint32_t flash_system_WorkerDomain_current_get = 274; // abc
+const uint32_t flash_system_WorkerDomain_createWorkerFromByteArray = 276; // abc
+const uint32_t flash_system_WorkerDomain_createWorkerFromPrimordial = 277; // abc
+const uint32_t flash_system_WorkerDomain_private_createWorkerFromByteArrayInternal = 278; // native
+const uint32_t flash_system_WorkerDomain_listWorkers = 279; // native
 
 extern avmplus::Atom avmplus_Domain_currentDomain_get_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_Domain_currentDomain_get_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -369,8 +381,8 @@ extern avmplus::Atom flash_trace_Trace_getListener_thunk(MethodEnv* env, uint32_
 extern avmplus::Atom flash_trace_Trace_getListener_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom flash_system_Worker_pr_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom flash_system_Worker_pr_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
-extern avmplus::Atom flash_system_Worker_state_get_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
-extern avmplus::Atom flash_system_Worker_state_get_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom flash_system_Worker_private_internalGetState_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom flash_system_Worker_private_internalGetState_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom flash_system_Worker_start_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom flash_system_Worker_start_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom flash_system_Worker_isParentOf_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -439,6 +451,14 @@ extern avmplus::Atom avmplus_System_disposeXML_thunk(MethodEnv* env, uint32_t ar
 extern avmplus::Atom avmplus_System_disposeXML_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_System_deopt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_System_deopt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashObjectVectorSize_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashObjectVectorSize_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashIntVectorSize_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashIntVectorSize_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashUIntVectorSize_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashUIntVectorSize_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashDoubleVectorSize_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom avmplus_System_smashDoubleVectorSize_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_System_pauseForGCIfCollectionImminent_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_System_pauseForGCIfCollectionImminent_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom avmplus_System_is64bit_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -466,6 +486,7 @@ class SlotOffsetsAndAsserts;
 class avmplus_CTestClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CTestClass;
 #define GC_TRIVIAL_TRACER_CTestClass
 };
@@ -477,6 +498,7 @@ class avmplus_CTestClassSlots
 class avmplus_CTestObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CTestObject;
 #define GC_TRIVIAL_TRACER_CTestObject
 };
@@ -488,6 +510,7 @@ class avmplus_CTestObjectSlots
 class avmshell_MIClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::MIClass;
 };
 #define DECLARE_SLOTS_MIClass \
@@ -537,6 +560,7 @@ class avmshell_MIClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -546,6 +570,7 @@ class avmshell_MIClassSlots
 class avmshell_MIObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::MIObject;
 };
 #define DECLARE_SLOTS_MIObject \
@@ -555,6 +580,7 @@ class avmshell_MIObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -564,6 +590,7 @@ class avmshell_MIObjectSlots
 class avmshell_SystemClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::SystemClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::ArrayObject> m_argv;
@@ -611,6 +638,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::ArrayObject* get_argv() const { return m_slots_SystemClass.m_argv; } \
         REALLY_INLINE void setconst_argv(avmplus::ArrayObject* newVal) { m_slots_SystemClass.m_argv = newVal; } \
@@ -625,6 +653,7 @@ public:
 class avmplus_SystemObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SystemObject;
 #define GC_TRIVIAL_TRACER_SystemObject
 };
@@ -636,6 +665,7 @@ class avmplus_SystemObjectSlots
 class avmshell_FileClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::FileClass;
 };
 #define DECLARE_SLOTS_FileClass \
@@ -676,6 +706,7 @@ class avmshell_FileClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -685,6 +716,7 @@ class avmshell_FileClassSlots
 class avmplus_FileObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::FileObject;
 #define GC_TRIVIAL_TRACER_FileObject
 };
@@ -696,6 +728,7 @@ class avmplus_FileObjectSlots
 class avmshell_AbstractBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::AbstractBaseClass;
 #define GC_TRIVIAL_TRACER_AbstractBaseClass
 };
@@ -737,6 +770,7 @@ class avmshell_AbstractBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -746,6 +780,7 @@ class avmshell_AbstractBaseClassSlots
 class avmshell_AbstractBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::AbstractBaseObject;
 #define GC_TRIVIAL_TRACER_AbstractBaseObject
 };
@@ -756,6 +791,7 @@ class avmshell_AbstractBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -765,6 +801,7 @@ class avmshell_AbstractBaseObjectSlots
 class avmshell_RestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::RestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_RestrictedBaseClass
 };
@@ -815,6 +852,7 @@ class avmshell_RestrictedBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -824,6 +862,7 @@ class avmshell_RestrictedBaseClassSlots
 class avmshell_RestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::RestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_RestrictedBaseObject
 };
@@ -834,6 +873,7 @@ class avmshell_RestrictedBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -843,6 +883,7 @@ class avmshell_RestrictedBaseObjectSlots
 class avmshell_AbstractRestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::AbstractRestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_AbstractRestrictedBaseClass
 };
@@ -884,6 +925,7 @@ class avmshell_AbstractRestrictedBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -893,6 +935,7 @@ class avmshell_AbstractRestrictedBaseClassSlots
 class avmshell_AbstractRestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::AbstractRestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_AbstractRestrictedBaseObject
 };
@@ -903,6 +946,7 @@ class avmshell_AbstractRestrictedBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -912,6 +956,7 @@ class avmshell_AbstractRestrictedBaseObjectSlots
 class avmshell_CheckBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::CheckBaseClass;
 #define GC_TRIVIAL_TRACER_CheckBaseClass
 };
@@ -963,6 +1008,7 @@ class avmshell_CheckBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -972,6 +1018,7 @@ class avmshell_CheckBaseClassSlots
 class avmshell_CheckBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::CheckBaseObject;
 #define GC_TRIVIAL_TRACER_CheckBaseObject
 };
@@ -982,6 +1029,7 @@ class avmshell_CheckBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -991,6 +1039,7 @@ class avmshell_CheckBaseObjectSlots
 class avmshell_NativeBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeBaseClass;
 #define GC_TRIVIAL_TRACER_NativeBaseClass
 };
@@ -1041,6 +1090,7 @@ class avmshell_NativeBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1050,6 +1100,7 @@ class avmshell_NativeBaseClassSlots
 class avmshell_NativeBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeBaseObject;
 #define GC_TRIVIAL_TRACER_NativeBaseObject
 };
@@ -1060,6 +1111,7 @@ class avmshell_NativeBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1069,6 +1121,7 @@ class avmshell_NativeBaseObjectSlots
 class avmplus_NativeBaseAS3ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseAS3Class;
 #define GC_TRIVIAL_TRACER_NativeBaseAS3Class
 };
@@ -1080,6 +1133,7 @@ class avmplus_NativeBaseAS3ClassSlots
 class avmplus_NativeBaseAS3ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseAS3Object;
 #define GC_TRIVIAL_TRACER_NativeBaseAS3Object
 };
@@ -1091,6 +1145,7 @@ class avmplus_NativeBaseAS3ObjectSlots
 class avmplus_ShellCoreFriend1ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ShellCoreFriend1Class;
 private:
     int32_t m_private_foo;
@@ -1104,6 +1159,7 @@ private:
 class avmplus_ShellCoreFriend1ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ShellCoreFriend1Object;
 #define GC_TRIVIAL_TRACER_ShellCoreFriend1Object
 };
@@ -1115,6 +1171,7 @@ class avmplus_ShellCoreFriend1ObjectSlots
 class avmplus_ShellCoreFriend2ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ShellCoreFriend2Class;
 private:
     int32_t m_private_bar;
@@ -1128,6 +1185,7 @@ private:
 class avmplus_ShellCoreFriend2ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ShellCoreFriend2Object;
 #define GC_TRIVIAL_TRACER_ShellCoreFriend2Object
 };
@@ -1139,6 +1197,7 @@ class avmplus_ShellCoreFriend2ObjectSlots
 class avmplus_CapabilitiesClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CapabilitiesClass;
 #define GC_TRIVIAL_TRACER_CapabilitiesClass
 };
@@ -1150,6 +1209,7 @@ class avmplus_CapabilitiesClassSlots
 class avmplus_CapabilitiesObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CapabilitiesObject;
 #define GC_TRIVIAL_TRACER_CapabilitiesObject
 };
@@ -1161,6 +1221,7 @@ class avmplus_CapabilitiesObjectSlots
 class avmplus_public_classClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_classClass;
 #define GC_TRIVIAL_TRACER_public_classClass
 };
@@ -1172,6 +1233,7 @@ class avmplus_public_classClassSlots
 class avmplus_public_classObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_classObject;
 private:
     avmplus::bool32 m_public_var;
@@ -1204,6 +1266,7 @@ private:
 class avmplus_public_class_AIR_1_0ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_0Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_0Class
 };
@@ -1215,6 +1278,7 @@ class avmplus_public_class_AIR_1_0ClassSlots
 class avmplus_public_class_AIR_1_0ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_0Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_0Object
 };
@@ -1226,6 +1290,7 @@ class avmplus_public_class_AIR_1_0ObjectSlots
 class avmplus_public_class_FP_10_0ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0Class;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0Class
 };
@@ -1237,6 +1302,7 @@ class avmplus_public_class_FP_10_0ClassSlots
 class avmplus_public_class_FP_10_0ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0Object;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0Object
 };
@@ -1248,6 +1314,7 @@ class avmplus_public_class_FP_10_0ObjectSlots
 class avmplus_public_class_AIR_1_5ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5Class
 };
@@ -1259,6 +1326,7 @@ class avmplus_public_class_AIR_1_5ClassSlots
 class avmplus_public_class_AIR_1_5ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5Object
 };
@@ -1270,6 +1338,7 @@ class avmplus_public_class_AIR_1_5ObjectSlots
 class avmplus_public_class_AIR_1_5_1ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_1Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_1Class
 };
@@ -1281,6 +1350,7 @@ class avmplus_public_class_AIR_1_5_1ClassSlots
 class avmplus_public_class_AIR_1_5_1ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_1Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_1Object
 };
@@ -1292,6 +1362,7 @@ class avmplus_public_class_AIR_1_5_1ObjectSlots
 class avmplus_public_class_FP_10_0_32ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0_32Class;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0_32Class
 };
@@ -1303,6 +1374,7 @@ class avmplus_public_class_FP_10_0_32ClassSlots
 class avmplus_public_class_FP_10_0_32ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0_32Object;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0_32Object
 };
@@ -1314,6 +1386,7 @@ class avmplus_public_class_FP_10_0_32ObjectSlots
 class avmplus_public_class_AIR_1_5_2ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_2Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_2Class
 };
@@ -1325,6 +1398,7 @@ class avmplus_public_class_AIR_1_5_2ClassSlots
 class avmplus_public_class_AIR_1_5_2ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_2Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_2Object
 };
@@ -1336,6 +1410,7 @@ class avmplus_public_class_AIR_1_5_2ObjectSlots
 class avmplus_public_class_AIR_1_0_FP_10_0ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_0_FP_10_0Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_0_FP_10_0Class
 };
@@ -1347,6 +1422,7 @@ class avmplus_public_class_AIR_1_0_FP_10_0ClassSlots
 class avmplus_public_class_AIR_1_0_FP_10_0ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_0_FP_10_0Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_0_FP_10_0Object
 };
@@ -1358,6 +1434,7 @@ class avmplus_public_class_AIR_1_0_FP_10_0ObjectSlots
 class avmplus_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Class;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Class
 };
@@ -1369,6 +1446,7 @@ class avmplus_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2ClassSlots
 class avmplus_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Object;
 #define GC_TRIVIAL_TRACER_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Object
 };
@@ -1380,6 +1458,7 @@ class avmplus_public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2ObjectSlots
 class avmplus_public_class_FP_10_0_32_AIR_1_0_FP_10_0ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0_32_AIR_1_0_FP_10_0Class;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0_32_AIR_1_0_FP_10_0Class
 };
@@ -1391,6 +1470,7 @@ class avmplus_public_class_FP_10_0_32_AIR_1_0_FP_10_0ClassSlots
 class avmplus_public_class_FP_10_0_32_AIR_1_0_FP_10_0ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::public_class_FP_10_0_32_AIR_1_0_FP_10_0Object;
 #define GC_TRIVIAL_TRACER_public_class_FP_10_0_32_AIR_1_0_FP_10_0Object
 };
@@ -1402,6 +1482,7 @@ class avmplus_public_class_FP_10_0_32_AIR_1_0_FP_10_0ObjectSlots
 class avmshell_NativeSubclassOfAbstractBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfAbstractBaseClass;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfAbstractBaseClass
 };
@@ -1452,6 +1533,7 @@ class avmshell_NativeSubclassOfAbstractBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1461,6 +1543,7 @@ class avmshell_NativeSubclassOfAbstractBaseClassSlots
 class avmshell_NativeSubclassOfAbstractBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfAbstractBaseObject;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfAbstractBaseObject
 };
@@ -1471,6 +1554,7 @@ class avmshell_NativeSubclassOfAbstractBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1480,6 +1564,7 @@ class avmshell_NativeSubclassOfAbstractBaseObjectSlots
 class avmplus_SubclassOfAbstractBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfAbstractBaseClass;
 #define GC_TRIVIAL_TRACER_SubclassOfAbstractBaseClass
 };
@@ -1491,6 +1576,7 @@ class avmplus_SubclassOfAbstractBaseClassSlots
 class avmplus_SubclassOfAbstractBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfAbstractBaseObject;
 #define GC_TRIVIAL_TRACER_SubclassOfAbstractBaseObject
 };
@@ -1502,6 +1588,7 @@ class avmplus_SubclassOfAbstractBaseObjectSlots
 class avmshell_NativeSubclassOfRestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfRestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfRestrictedBaseClass
 };
@@ -1552,6 +1639,7 @@ class avmshell_NativeSubclassOfRestrictedBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1561,6 +1649,7 @@ class avmshell_NativeSubclassOfRestrictedBaseClassSlots
 class avmshell_NativeSubclassOfRestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfRestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfRestrictedBaseObject
 };
@@ -1571,6 +1660,7 @@ class avmshell_NativeSubclassOfRestrictedBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1580,6 +1670,7 @@ class avmshell_NativeSubclassOfRestrictedBaseObjectSlots
 class avmplus_SubclassOfRestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfRestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_SubclassOfRestrictedBaseClass
 };
@@ -1591,6 +1682,7 @@ class avmplus_SubclassOfRestrictedBaseClassSlots
 class avmplus_SubclassOfRestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfRestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_SubclassOfRestrictedBaseObject
 };
@@ -1602,6 +1694,7 @@ class avmplus_SubclassOfRestrictedBaseObjectSlots
 class avmshell_NativeSubclassOfAbstractRestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfAbstractRestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfAbstractRestrictedBaseClass
 };
@@ -1652,6 +1745,7 @@ class avmshell_NativeSubclassOfAbstractRestrictedBaseClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1661,6 +1755,7 @@ class avmshell_NativeSubclassOfAbstractRestrictedBaseClassSlots
 class avmshell_NativeSubclassOfAbstractRestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::NativeSubclassOfAbstractRestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_NativeSubclassOfAbstractRestrictedBaseObject
 };
@@ -1671,6 +1766,7 @@ class avmshell_NativeSubclassOfAbstractRestrictedBaseObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1680,6 +1776,7 @@ class avmshell_NativeSubclassOfAbstractRestrictedBaseObjectSlots
 class avmplus_SubclassOfAbstractRestrictedBaseClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfAbstractRestrictedBaseClass;
 #define GC_TRIVIAL_TRACER_SubclassOfAbstractRestrictedBaseClass
 };
@@ -1691,6 +1788,7 @@ class avmplus_SubclassOfAbstractRestrictedBaseClassSlots
 class avmplus_SubclassOfAbstractRestrictedBaseObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SubclassOfAbstractRestrictedBaseObject;
 #define GC_TRIVIAL_TRACER_SubclassOfAbstractRestrictedBaseObject
 };
@@ -1702,6 +1800,7 @@ class avmplus_SubclassOfAbstractRestrictedBaseObjectSlots
 class avmplus_NativeBaseExtender1ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseExtender1Class;
 #define GC_TRIVIAL_TRACER_NativeBaseExtender1Class
 };
@@ -1713,6 +1812,7 @@ class avmplus_NativeBaseExtender1ClassSlots
 class avmplus_NativeBaseExtender1ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseExtender1Object;
 private:
     int32_t m_private_foo;
@@ -1726,6 +1826,7 @@ private:
 class avmplus_NativeBaseExtender2ClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseExtender2Class;
 #define GC_TRIVIAL_TRACER_NativeBaseExtender2Class
 };
@@ -1737,6 +1838,7 @@ class avmplus_NativeBaseExtender2ClassSlots
 class avmplus_NativeBaseExtender2ObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NativeBaseExtender2Object;
 private:
     int32_t m_private_foo;
@@ -1752,6 +1854,7 @@ private:
 class avmplus_DomainClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DomainClass;
 #define GC_TRIVIAL_TRACER_DomainClass
 };
@@ -1802,6 +1905,7 @@ class avmplus_DomainClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1811,6 +1915,7 @@ class avmplus_DomainClassSlots
 class avmplus_DomainObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DomainObject;
 #define GC_TRIVIAL_TRACER_DomainObject
 };
@@ -1821,6 +1926,7 @@ class avmplus_DomainObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1830,6 +1936,7 @@ class avmplus_DomainObjectSlots
 class avmplus_StackFrameClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::StackFrameClass;
 #define GC_TRIVIAL_TRACER_StackFrameClass
 };
@@ -1841,6 +1948,7 @@ class avmplus_StackFrameClassSlots
 class avmplus_StackFrameObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::StackFrameObject;
 private:
     uint32_t m_line;
@@ -1862,6 +1970,7 @@ public:
 class avmplus_SampleClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SampleClass;
 #define GC_TRIVIAL_TRACER_SampleClass
 };
@@ -1873,6 +1982,7 @@ class avmplus_SampleClassSlots
 class avmplus_SampleObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SampleObject;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::ArrayObject> m_stack;
@@ -1891,6 +2001,7 @@ public:
 class avmplus_ClassFactoryClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ClassFactoryClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::ClassClosure> m_StackFrameClass;
@@ -1914,6 +2025,7 @@ public:
 class avmplus_ClassFactoryObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ClassFactoryObject;
 #define GC_TRIVIAL_TRACER_ClassFactoryObject
 };
@@ -1925,6 +2037,7 @@ class avmplus_ClassFactoryObjectSlots
 class avmplus_NewObjectSampleClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NewObjectSampleClass;
 };
 #define DECLARE_SLOTS_NewObjectSampleClass \
@@ -1974,6 +2087,7 @@ class avmplus_NewObjectSampleClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1983,6 +2097,7 @@ class avmplus_NewObjectSampleClassSlots
 class avmplus_NewObjectSampleObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NewObjectSampleObject;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::ClassClosure> m_type;
@@ -1995,6 +2110,7 @@ private:
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::ClassClosure* get_type() const { return m_slots_NewObjectSampleObject.m_type; } \
         REALLY_INLINE void setconst_type(avmplus::ClassClosure* newVal) { m_slots_NewObjectSampleObject.m_type = newVal; } \
@@ -2012,6 +2128,7 @@ private:
 class avmplus_DeleteObjectSampleClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DeleteObjectSampleClass;
 #define GC_TRIVIAL_TRACER_DeleteObjectSampleClass
 };
@@ -2023,6 +2140,7 @@ class avmplus_DeleteObjectSampleClassSlots
 class avmplus_DeleteObjectSampleObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DeleteObjectSampleObject;
 private:
     double m_id;
@@ -2037,6 +2155,7 @@ private:
 class avmplus_TraceClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::TraceClass;
 private:
     int32_t m_OFF;
@@ -2085,6 +2204,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_OFF() const { return m_slots_TraceClass.m_OFF; } \
         REALLY_INLINE void setconst_OFF(int32_t newVal) { m_slots_TraceClass.m_OFF = newVal; } \
@@ -2117,6 +2237,7 @@ private:
 class avmplus_TraceObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::TraceObject;
 #define GC_TRIVIAL_TRACER_TraceObject
 };
@@ -2128,6 +2249,7 @@ class avmplus_TraceObjectSlots
 class avmplus_EndianClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EndianClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::String> m_BIG_ENDIAN;
@@ -2147,6 +2269,7 @@ public:
 class avmplus_EndianObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EndianObject;
 #define GC_TRIVIAL_TRACER_EndianObject
 };
@@ -2158,6 +2281,7 @@ class avmplus_EndianObjectSlots
 class avmplus_WorkerStateClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WorkerStateClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::String> m_NEW;
@@ -2185,6 +2309,7 @@ public:
 class avmplus_WorkerStateObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WorkerStateObject;
 #define GC_TRIVIAL_TRACER_WorkerStateObject
 };
@@ -2196,6 +2321,7 @@ class avmplus_WorkerStateObjectSlots
 class avmshell_ShellWorkerClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellWorkerClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmshell::ShellWorkerObject> m_private_m_current;
@@ -2247,6 +2373,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE avmshell::ShellWorkerObject* get_m_current() const { return m_slots_ShellWorkerClass.m_private_m_current; } \
         REALLY_INLINE void set_m_current(avmshell::ShellWorkerObject* newVal) { m_slots_ShellWorkerClass.m_private_m_current = newVal; } \
@@ -2261,6 +2388,7 @@ private:
 class avmshell_ShellWorkerObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellWorkerObject;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::ByteArrayObject> m_private_m_byteCode;
@@ -2272,6 +2400,7 @@ private:
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE avmplus::ByteArrayObject* get_m_byteCode() const { return m_slots_ShellWorkerObject.m_private_m_byteCode; } \
         REALLY_INLINE void set_m_byteCode(avmplus::ByteArrayObject* newVal) { m_slots_ShellWorkerObject.m_private_m_byteCode = newVal; } \
@@ -2286,6 +2415,7 @@ private:
 class avmplus_WorkerEventClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WorkerEventClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::String> m_WORKER_STATE;
@@ -2303,6 +2433,7 @@ public:
 class avmplus_WorkerEventObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WorkerEventObject;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::String> m_private_m_previousState;
@@ -2324,6 +2455,7 @@ public:
 class avmshell_ShellWorkerDomainClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellWorkerDomainClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmshell::ShellWorkerDomainObject> m_private_m_current;
@@ -2375,6 +2507,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE avmshell::ShellWorkerDomainObject* get_m_current() const { return m_slots_ShellWorkerDomainClass.m_private_m_current; } \
         REALLY_INLINE void set_m_current(avmshell::ShellWorkerDomainObject* newVal) { m_slots_ShellWorkerDomainClass.m_private_m_current = newVal; } \
@@ -2389,6 +2522,7 @@ private:
 class avmshell_ShellWorkerDomainObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellWorkerDomainObject;
 };
 #define DECLARE_SLOTS_ShellWorkerDomainObject \
@@ -2398,6 +2532,7 @@ class avmshell_ShellWorkerDomainObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 

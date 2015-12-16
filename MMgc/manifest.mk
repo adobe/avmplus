@@ -39,6 +39,7 @@ MMgc_CXXSRCS := $(MMgc_CXXSRCS) \
   $(curdir)/PageMap.cpp \
   $(curdir)/ZCT.cpp \
   $(curdir)/GCGlobalNew.cpp \
+  $(curdir)/../other-licenses/wtf/AddressSpaceRandomization.cpp \
   $(NULL)
 
 $(curdir)/GCDebugMac.$(OBJ_SUFFIX): CXXFLAGS += -Wno-deprecated-declarations

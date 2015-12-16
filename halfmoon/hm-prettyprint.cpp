@@ -223,20 +223,22 @@ void printGmlCfg(FILE* f, MethodInfo* m, int& id_offset, InstrGraph* ir,
   for (EachBlock b(ir); !b.empty(); b.popFront()) {
     BlockStartInstr* block = b.front();
     int id = block->blockid + id_offset;
-    BlockEndInstr* end = ir->blockEnd(block);
-    switch (kind(end)) {
-    case HR_goto: {
-      GotoInstr* go = cast<GotoInstr>(end);
-      printCfgEdge(f, id, id_offset + go->target->blockid);
-      break;
-    } 
-    case HR_if:
-    case HR_switch: {
-      CondInstr* instr = (CondInstr*)end;
-      for (ArrayRange<ArmInstr*> r = armRange(instr); !r.empty();)
-        printCfgEdge(f, id, id_offset + r.popFront()->blockid);
-      break;
-    } 
+    if (ir->hasBlockEnd(block)) { // might be dumping incompletely built IR
+      BlockEndInstr* end = ir->blockEnd(block);
+      switch (kind(end)) {
+      case HR_goto: {
+        GotoInstr* go = cast<GotoInstr>(end);
+        printCfgEdge(f, id, id_offset + go->target->blockid);
+        break;
+      }
+      case HR_if:
+      case HR_switch: {
+        CondInstr* instr = (CondInstr*)end;
+        for (ArrayRange<ArmInstr*> r = armRange(instr); !r.empty();)
+          printCfgEdge(f, id, id_offset + r.popFront()->blockid);
+        break;
+      }
+      }
     }
   }
   id_offset += ir->block_count();
@@ -380,7 +382,7 @@ void printGmlInstrGraph(FILE* f, int& id_offset, InstrGraph *ir, MethodInfo* m,
         break;
       }
     }
-    if (isBlockStart(instr))
+    if (isBlockStart(instr) && ir->hasBlockEnd((BlockStartInstr*)instr))
       printEdge(f, id_offset, instr, ir->blockEnd((BlockStartInstr*)instr),
                 edge_color, "dashed", 1);
   }
@@ -644,6 +646,11 @@ BlockStartInstr* idom(BlockStartInstr* b, DominatorTree* doms) {
   return doms->hasIDom(b) ? doms->idom(b) : 0;
 }
 
+void listCfg(InstrGraph* ir)
+{
+   listCfg(ir->lattice.console(), ir);
+}
+    
 void listCfg(PrintWriter& console, InstrGraph* ir) {
 #ifdef AVMPLUS_VERBOSE
   Allocator scratch;
@@ -754,6 +761,10 @@ class PrintAdapter: public ShapeAdapter<PrintAdapter, void> {
   }
 
   void do_SetlocalInstr(SetlocalInstr* i) {
+    out_ << i->index;
+  }
+
+  void do_GetlocalStmt(GetlocalStmt* i) {
     out_ << i->index;
   }
 

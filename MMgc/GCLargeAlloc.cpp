@@ -17,13 +17,13 @@ namespace MMgc
 #endif
     }
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
     void* GCLargeAlloc::Alloc(size_t originalSize, size_t requestSize, int flags)
 #else
     void* GCLargeAlloc::Alloc(size_t requestSize, int flags)
 #endif
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         m_gc->heap->CheckForOOMAbortAllocation();
 #endif
         GCHeap::CheckForAllocSizeOverflow(requestSize, sizeof(LargeBlock)+GCHeap::kBlockSize);
@@ -88,7 +88,7 @@ namespace MMgc
 
             block->flags[0] = flagbits0;
             block->flags[1] = flagbits1;
-#ifdef _DEBUG
+#ifdef GCDEBUG
             (void)originalSize;
             if (flags & GC::kZero)
             {
@@ -128,7 +128,7 @@ namespace MMgc
     {
         LargeBlock *b = GetLargeBlock(item);
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // RCObject have contract that they must clean themselves, since they
         // have to scan themselves to decrement other RCObjects they might as well
         // clean themselves too, better than suffering a memset later
@@ -224,7 +224,7 @@ namespace MMgc
                     GCFinalizedObject *obj = (GCFinalizedObject *) item;
                     obj = (GCFinalizedObject *) GetUserPointer(obj);
                     obj->~GCFinalizedObject();
-#if defined(_DEBUG)
+#if defined(GCDEBUG)
                     if(b->rcobject) {
                         gc->RCObjectZeroCheck((RCObject*)obj);
                     }
@@ -265,7 +265,7 @@ namespace MMgc
         GCAssert(!m_blocks);
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     /* static */
     bool GCLargeAlloc::ConservativeGetMark(const void *item, bool bogusPointerReturnValue)
     {

@@ -28,11 +28,11 @@ public:
 
   // Defs are only comparable by identity, the contents do not matter.
   bool operator==(const Def& other) const {
-    assert(checkValid());
+    AvmAssert(checkValid());
     return this == &other;
   }
   bool operator!=(const Def& other) const {
-    assert(checkValid());
+    AvmAssert(checkValid());
     return this != &other;
   }
 
@@ -40,7 +40,7 @@ public:
   /// Use list or the owner.  todo: is this too subtle?
   ///
   void operator=(const Def& copy) {
-    assert(checkValid());
+    AvmAssert(checkValid());
     type_ = copy.type_; // don't change owner or uses.
   }
 
@@ -96,7 +96,7 @@ public:
   /// the old def and link to the new def.
   ///
   void operator=(Def* d) {
-    assert(checkValid());
+    AvmAssert(checkValid());
     unlink();
     set(d);
   }
@@ -127,10 +127,10 @@ private:
     // Remove this from def's uses list.
     if (next_ == this) {
       // this is the last element in the list.
-      assert(prev_ == this && def_->uses_ == this);
+      AvmAssert(prev_ == this && def_->uses_ == this);
       def_->uses_ = 0;
     } else {
-      assert(next_ != this && prev_ != this);
+      AvmAssert(next_ != this && prev_ != this);
       if (def_->uses_ == this)
         def_->uses_ = next_;
       prev_->next_ = next_;
@@ -201,7 +201,7 @@ public:
   }
 
   Use& front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return *use;
   }
 
@@ -264,7 +264,7 @@ private:
   /// check validity of layout data against generated shape
   ///
   void checkValid() {
-    assert(kind_ >= 0 && kind_ < HR_MAX);
+    AvmAssert(kind_ >= 0 && kind_ < HR_MAX);
 
     const ShapeRep& rep(shape_reps[shape_]);
     int var = rep.vararg;
@@ -272,10 +272,10 @@ private:
     // num_uses == -1 indicates non-inline storage of Uses
     if (num_uses >= 0) {
       if (var == kVarIn) {
-        assert(num_uses >= rep.num_uses &&
+        AvmAssert(num_uses >= rep.num_uses &&
             "number of inputs less than fixed minimum");
       } else {
-        assert(num_uses == rep.num_uses &&
+        AvmAssert(num_uses == rep.num_uses &&
             "fixed number of inputs differs from shape");
       }
     }
@@ -283,10 +283,10 @@ private:
     // num_defs == -1 indicates non-inline storage of Defs
     if (num_defs >= 0) {
       if (var == kVarOut) {
-        assert(num_defs >= rep.num_defs &&
+        AvmAssert(num_defs >= rep.num_defs &&
             "number of outputs less than fixed minimum");
       } else {
-        assert(num_defs == rep.num_defs &&
+        AvmAssert(num_defs == rep.num_defs &&
             "fixed number of outputs differs from shape");
       }
     }
@@ -333,28 +333,28 @@ public:
 
 private:
   void addAfter(Instr* i) {
-    assert(!isLinked());
-    assert(i && i->isLinked());
+    AvmAssert(!isLinked());
+    AvmAssert(i && i->isLinked());
     prev_ = i;
     Instr* next = next_ = i->next_;
     next->prev_ = i->next_ = this;
   }
 
   void addBefore(Instr* i) {
-    assert(!isLinked());
-    assert(i && i->isLinked());
+    AvmAssert(!isLinked());
+    AvmAssert(i && i->isLinked());
     next_ = i;
     Instr* prev = prev_ = i->prev_;
     i->prev_ = prev->next_ = this;
   }
 
   bool isAlone() const {
-    assert(isLinked());
+    AvmAssert(isLinked());
     return next_ == this;
   }
 
   bool isLinked() const {
-    assert(checkLinks());
+    AvmAssert(checkLinks());
     return next_ != 0;
   }
 
@@ -482,21 +482,21 @@ void resetTypes(Instr*);
 /// Set the type of d to t, then return true if the d's type changed.
 ///
 inline void setType(Def* d, const Type* t) {
-  assert(t && "never set Def.type_ to null!");
+  AvmAssert(t && "never set Def.type_ to null!");
   d->type_ = t;
 }
 
 /// Return the Def pointed to by u.
 ///
 inline Def* def(const Use& u) {
-  assert(u.def_);
+  AvmAssert(u.def_ != NULL);
   return u.def_;
 }
 
 /// Return def's type.
 ///
 inline const Type* type(const Def& def) {
-  assert(def.type_ && "type_ must never be null");
+  AvmAssert(def.type_ && "type_ must never be null");
   return def.type_;
 }
 
@@ -571,7 +571,7 @@ inline InstrKind kind(const Use& u) {
 ///
 inline int pos(const Def& d) {
   ptrdiff_t f = &d - getDefs(definer(d));
-  assert(f >= 0 && f < numDefs(definer(d)));
+  AvmAssert(f >= 0 && f < numDefs(definer(d)));
   return int(f);
 }
 
@@ -581,7 +581,7 @@ inline int pos(const Def* d) {
 
 inline int pos(const Use& u) {
   ptrdiff_t k = &u - getUses(user(u));
-  assert(k >= 0 && k < numUses(user(u)));
+  AvmAssert(k >= 0 && k < numUses(user(u)));
   return int(k);
 }
 
@@ -618,7 +618,7 @@ inline bool hasInputSignature(const Instr* i) {
 /// Return i's input signature.
 ///
 inline const Type** inputSignature(const Instr* i) {
-  assert(hasInputSignature(i));
+  AvmAssert(hasInputSignature(i));
   return i->info->insig_;
 }
 
@@ -632,7 +632,7 @@ inline bool hasOutputSignature(const Instr* i) {
 /// Return i's output signature.
 ///
 inline const Type** outputSignature(const Instr* i) {
-  assert(hasOutputSignature(i));
+  AvmAssert(hasOutputSignature(i));
   return i->info->outsig_;
 }
 
@@ -643,7 +643,7 @@ inline const Type** outputSignature(const Instr* i) {
 ///
 template<class INSTR>
 inline INSTR* cast(Instr* instr) {
-  assert(!instr || shape(instr) == INSTR::shape);
+  AvmAssert(!instr || shape(instr) == INSTR::shape);
   return (INSTR*)instr;
 }
 
@@ -653,7 +653,7 @@ inline INSTR* cast(Instr* instr) {
 ///
 template<class INSTR>
 inline const INSTR* cast(const Instr* instr) {
-  assert(!instr || shape(instr) == INSTR::shape);
+  AvmAssert(!instr || shape(instr) == INSTR::shape);
   return (const INSTR*)instr;
 }
 
@@ -731,24 +731,24 @@ public:
   }
 
   Instr* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return front_;
   }
 
   Instr* back() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return back_;
   }
 
   Instr* popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     Instr* F = front_;
     front_ = (F == back_) ? (back_ = 0) : F->next_;
     return F;
   }
 
   Instr* popBack() {
-    assert(!empty());
+    AvmAssert(!empty());
     Instr* B = back_;
     back_ = (B == front_) ? (front_ = 0) : B->prev_;
     return B;
@@ -771,7 +771,7 @@ private:
   /// it is the last one or not.
   ///
   static void unlinkInstr(Instr* instr) {
-    assert(instr->isLinked());
+    AvmAssert(instr->isLinked());
     instr->next_->prev_ = instr->prev_;
     instr->prev_->next_ = instr->next_;
     instr->next_ = instr->prev_ = 0;
@@ -804,7 +804,7 @@ public:
   /// Assign an id to instr, which must be a freshly new'd instruction.
   ///
   void assignId(Instr* instr) {
-    assert(instr->id == -1);
+    AvmAssert(instr->id == -1);
     instr->id = def_count_;
     int num_defs = numDefs(instr);
     def_count_ += num_defs > 0 ? num_defs : 1;
@@ -833,6 +833,7 @@ public:
   StopInstr* returnStmt() const;
   StopInstr* throwStmt() const;
   InstrRange returnBlock() const;
+  LabelInstr* ensureThrowBlock(InstrFactory& factory);
 
   /// Search for the block that encloses the given instruction.
   ///
@@ -912,18 +913,18 @@ public:
   /// Link instr just before pos.
   ///
   static void linkBefore(Instr* pos, Instr* instr) {
-    assert(pos && pos->isLinked());
-    assert(instr && !instr->isLinked());
-    assert(!isBlockStart(instr));
+    AvmAssert(pos && pos->isLinked());
+    AvmAssert(instr && !instr->isLinked());
+    AvmAssert(!isBlockStart(instr));
     instr->addBefore(pos);
   }
 
   /// Link instr just after pos.
   ///
   static void linkAfter(Instr* pos, Instr* instr) {
-    assert(pos && pos->isLinked());
-    assert(instr && !instr->isLinked());
-    assert(!isBlockEnd(pos));
+    AvmAssert(pos && pos->isLinked());
+    AvmAssert(instr && !instr->isLinked());
+    AvmAssert(!isBlockEnd(pos));
     instr->addAfter(pos);
   }
 
@@ -966,6 +967,7 @@ private:
   ///
   void insertList(const InstrRange& list, Instr *pos);
 
+public:
   /// Link a list in past pos.
   /// \param pos instruction that list will be appended to
   /// \param list to append
@@ -975,10 +977,15 @@ private:
   /** Iteratively find the block that instr is a member of. */
   static BlockStartInstr* findBlockStart(Instr* instr);
 
-public:
   /** Iteratively find the block end for the block that instr is in. */
   static BlockEndInstr* findBlockEnd(Instr* instr);
 
+  /// Split a block.
+  static void splitBlock(BlockStartInstr* block, Instr *pos);
+    
+  void setDebugging(bool debugging = true) { debugging_ = debugging; }
+  bool debugging() { return debugging_; }
+    
 public:
   // fixme: make private
   Lattice& lattice;
@@ -993,6 +1000,7 @@ private:
   int instr_count_;
   int block_count_;
   int def_count_;
+  bool debugging_;
 };
 
 inline ArrayRange<Use> useRange(Instr* instr) {
@@ -1034,12 +1042,12 @@ public:
   }
 
   const Type* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return sig[pos];
   }
 
   void popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     if (pos < vararg)
       pos++;
   }
@@ -1096,7 +1104,7 @@ public:
   }
 
   void popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     if (u.popFront(), u.empty()) {
       d.popFront(); // Move to next d, then re-construct u if we aren't done.
       next();
@@ -1104,7 +1112,7 @@ public:
   }
 
   Use& front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return u.front();
   }
 
@@ -1146,11 +1154,11 @@ public:
     return iter.empty();
   }
   BlockStartInstr* front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return iter.front();
   }
   BlockStartInstr* popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     return iter.popFront();
   }
 

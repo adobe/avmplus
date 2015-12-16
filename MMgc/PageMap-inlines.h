@@ -62,7 +62,7 @@ namespace MMgc
             return PageType(v);
         }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         REALLY_INLINE bool Uniform::IndexSaneForAddressRange(uintptr_t index)
         {
             // The index is amount to shift the address to compute

@@ -1461,7 +1461,7 @@ function constructAndPrintTracers()
     function emitSafetyNet(c,output)
     {
         output.
-            PR("#ifdef DEBUG");
+            PR("#ifdef GCDEBUG");
         
         if(c.fieldList.length > 0) {
             output.
@@ -1522,7 +1522,7 @@ function constructAndPrintTracers()
         output.
             OUT().
             PR("}").
-            PR("#endif // DEBUG").
+            PR("#endif // GCDEBUG").
             NL();
     }
 

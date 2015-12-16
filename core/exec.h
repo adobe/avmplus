@@ -187,7 +187,7 @@ public:
 class JITNoise : public nanojit::Noise
 {
 public :
-    JITNoise();
+    JITNoise(uint32_t seed);
     int32_t getValue(int32_t maxValue);
     uint32_t getValue32();
 private:
@@ -317,13 +317,14 @@ private:
     /** Set trampolines and flags for a native method. */
     void setNative(MethodInfo*, GprMethodProc p);
 
+protected: // Used by AOTExecMgr subclass 
     /**
      * Verify any kind of method, by sniffing what kind it is and dispatching
      * to the appropriate case.  Called on or before the first invocation of the
      * target method.  Each subcase is responsible for setting up CodeWriters and
      * then ultimately running the verifier by calling verifyCommon().
      */
-    void verifyMethod(MethodInfo*, Toplevel*, AbcEnv*);
+    virtual void verifyMethod(MethodInfo*, Toplevel*, AbcEnv*);
 
     /** "Verify" a native method by installing trampolines and flags. */
     void verifyNative(MethodInfo*, MethodSignaturep);
@@ -371,6 +372,7 @@ private:
     void setVerified(MethodInfo*) const;
     void setVerifyPending(MethodInfo*) const;
 
+private:
     //
     // Support for JIT Compilation:
     //
@@ -435,12 +437,16 @@ private:
     void resolveImtSlotFull(VTable*, uint32_t slot);
     static class ImtEntry* buildImtEntries(VTable* vtable, uint32_t slot, uint32_t& count);
 
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
     /** Trampoline to resolve this IMT slot then invoke the proper handler. */
     static uintptr_t resolveImt(class ImtThunkEnv* ite, int argc, uint32_t* ap, uintptr_t iid);
-
+    
+#else
+    static uintptr_t resolveImt(class ImtThunkEnv* ite, int argc, Atom* args, MethodInfo* methodInfo);
+#endif
     /** Trampoline which searches for the method with a matching IID. */
     static uintptr_t dispatchImt(class ImtThunkEnv* ite, int argc, uint32_t* ap, uintptr_t iid);
-
+    
 #ifdef VMCFG_COMPILEPOLICY
     /**
      * The policy rule objects utilize MethodRecognizers

@@ -112,6 +112,11 @@ bool InstrFactory::isUnaryStmt(InstrKind k) {
   return instr_attrs[k].shape == UNARYSTMT_SHAPE;
 }
 
+/// true if given InstrKind is instance of DebugInstr2
+bool InstrFactory::isDebugInstr2(InstrKind k) {
+  return instr_attrs[k].shape == DEBUGINSTR2_SHAPE;
+}
+
 /// true if given InstrKind is instance of CallStmt2
 bool InstrFactory::isCallStmt2(InstrKind k) {
   return instr_attrs[k].shape == CALLSTMT2_SHAPE;
@@ -125,6 +130,11 @@ bool InstrFactory::isNaryStmt2(InstrKind k) {
 /// true if given InstrKind is instance of BinaryStmt
 bool InstrFactory::isBinaryStmt(InstrKind k) {
   return instr_attrs[k].shape == BINARYSTMT_SHAPE;
+}
+
+/// true if given InstrKind is instance of GetlocalStmt
+bool InstrFactory::isGetlocalStmt(InstrKind k) {
+  return instr_attrs[k].shape == GETLOCALSTMT_SHAPE;
 }
 
 /// true if given InstrKind is instance of Hasnext2Stmt

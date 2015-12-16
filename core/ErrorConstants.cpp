@@ -201,7 +201,8 @@ namespace avmplus
             2106, 161,
             2107, 162,
             2108, 163,
-            2173, 164
+            2173, 164,
+            3735, 165
         };
 
         const char* errorConstants[][kNumErrorConstants] =
@@ -373,7 +374,8 @@ namespace avmplus
                 /*2106,161*/ "The Proxy class does not implement nextName. It must be overridden by a subclass.",
                 /*2107,162*/ "The Proxy class does not implement nextValue. It must be overridden by a subclass.",
                 /*2108,163*/ "The value %1 is not a valid Array length.",
-                /*2173,164*/ "Unable to read object in stream.  The class %1 does not implement flash.utils.IExternalizable but is aliased to an externalizable class."
+                /*2173,164*/ "Unable to read object in stream.  The class %1 does not implement flash.utils.IExternalizable but is aliased to an externalizable class.",
+                /*3735,165*/ "This API cannot accept shared ByteArrays."
             },
         #endif
         #ifdef AVMPLUS_ERROR_LANG_fr
@@ -543,7 +545,8 @@ namespace avmplus
                 /*2106,161*/ "La classe Proxy ne met pas en oeuvre nextName. Elle doit être remplacée par une sous-classe.",
                 /*2107,162*/ "La classe Proxy ne met pas en oeuvre nextValue. Elle doit être remplacée par une sous-classe.",
                 /*2108,163*/ "La valeur %1 n’est pas une valeur de tableau valide.",
-                /*2173,164*/ "Impossible de lire l'objet dans le flux. La classe %1 n'implémente pas flash.utils.IExternalizable, mais est aliasée vers une classe externalisable."
+                /*2173,164*/ "Impossible de lire l'objet dans le flux. La classe %1 n'implémente pas flash.utils.IExternalizable, mais est aliasée vers une classe externalisable.",
+                /*3735,165*/ "Cette API ne prend pas en charge les objets ByteArray partagés."
             },
         #endif
         #ifdef AVMPLUS_ERROR_LANG_ja
@@ -713,7 +716,8 @@ namespace avmplus
                 /*2106,161*/ "Proxy クラスは、nextName を実装しません。サブクラスでオーバーライドする必要があります。",
                 /*2107,162*/ "Proxy クラスは、nextValue を実装しません。サブクラスでオーバーライドする必要があります。",
                 /*2108,163*/ "値 %1 は有効な配列の長さではありません。",
-                /*2173,164*/ "ストリーム内のオブジェクトを読み取れません。クラス %1 は flash.utils.IExternalizable を実装しませんが、外部化可能なクラスにエイリアス処理されます。"
+                /*2173,164*/ "ストリーム内のオブジェクトを読み取れません。クラス %1 は flash.utils.IExternalizable を実装しませんが、外部化可能なクラスにエイリアス処理されます。",
+                /*3735,165*/ "この API は共有の ByteArrays を受け付けません。"
             },
         #endif
         #ifdef AVMPLUS_ERROR_LANG_zh_CN
@@ -883,7 +887,8 @@ namespace avmplus
                 /*2106,161*/ "Proxy 类不实现 nextName。它必须由一个子类覆盖。",
                 /*2107,162*/ "Proxy 类不实现 nextValue。它必须由一个子类覆盖。",
                 /*2108,163*/ "值 %1 不是有效的数组长度。",
-                /*2173,164*/ "无法读取流中的对象。类 %1 虽未实现 flash.utils.IExternalizable，但由其别名可得知它为 externalizable 类。"
+                /*2173,164*/ "无法读取流中的对象。类 %1 虽未实现 flash.utils.IExternalizable，但由其别名可得知它为 externalizable 类。",
+                /*3735,165*/ "此 API 不接受共享的 ByteArray。"
             },
         #endif
         };

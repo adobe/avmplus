@@ -46,6 +46,7 @@ BaseExecMgr::BaseExecMgr(AvmCore* core)
 #ifdef VMCFG_NANOJIT
     , current_osr(NULL)
     , jit_observer(NULL)
+	, noise(MMgc::GCHeap::secret)  // TODO: Generate this from a random number provider held by AvmCore
 #endif
 {
 #ifdef SUPERWORD_PROFILING
@@ -532,10 +533,13 @@ void BaseExecMgr::setNative(MethodInfo* m, GprMethodProc p)
     m->_invoker = invokeGeneric;
 }
 
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
 // Without a JIT, we don't need to build any IMTs.
 void BaseExecMgr::notifyVTableResolved(VTable*)
 {}
 
+#endif
+    
 bool BaseExecMgr::isJitEnabled() const
 {
     return false;
@@ -947,6 +951,13 @@ inline size_t BaseExecMgr::startCoerce(MethodEnv *env, int32_t argc, MethodSigna
 Atom BaseExecMgr::apply(MethodEnv* env, Atom thisArg, ArrayObject *a)
 {
     int32_t argc = a->getLength();
+	// https://watsonexp.corp.adobe.com/#bug=3960701
+	// An integer overflow while calling Function.apply can lead to enter an ActionScript 
+	// function without correctly validating the supplied arguments.
+	if (a->get_length() > INT_MAX)
+	{
+		MMgc::GCHeap::SignalObjectTooLarge();
+	}
     if (argc == 0)
         return env->coerceEnter(thisArg);
 

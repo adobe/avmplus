@@ -7,10 +7,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import StringIO
 
 from hrdefs import hrdefs
 from sexp import parse
 from ast import *
+from mangle import *
 
 # -----------------------------------------------------
 #
@@ -836,6 +838,74 @@ def gen_stub_lirtable(defs):
   print "};"
   print "}"
 
+# generate a table of LLVMEmitter StubInfo structures; one for each stub.
+def gen_stub_llvmtable(defs):
+  return gen_stub_llvmtable_common(defs, 32)
+
+def gen_stub_llvmtable64(defs):
+  return gen_stub_llvmtable_common(defs, 64)
+
+def gen_stub_llvmtable_common(defs,arch):
+  protos = protos_only(defs)
+  type_strings = []
+  type_strings_cxx = {}
+  def type_string_index(ret, args):
+    type_string = ";".join([make_llvm_type_string(nm, getAvmMangleTypedefs(arch)) for nm in [ret] + args])
+    if type_string in type_strings:
+      return type_strings.index(type_string)
+    type_strings.append(type_string)
+    type_strings_cxx[type_string] = '%s ()(%s)' % (ret, ', '.join(args))
+    return len(type_strings)-1
+
+  save_stdout = sys.stdout
+  sys.stdout = buffer = StringIO.StringIO()
+  for scheme in mangleSchemes:
+    kindIndex = 0;
+# We need to print 2 different stub tables.
+# One to handle mangles function names when the target OS is Mac or iOS
+# And the other to handle mangled function names when the target OS is Windows
+# The tables are named based on the target OS on which the packaged app will be running
+    print "const LLVMModule::StubInfo %sllvm_stub_table[%d] = {" % (scheme.getCppLatch(),len(protos))
+    print
+
+    for d in protos:
+      print '  // %d: %s' % (kindIndex, d.dumpSig())
+      kindIndex = kindIndex+1
+      fixc = (getRep(d).shape[DATA_IN] - (1 if has_extra_vararg(d) else 0)) if d.isvarin\
+             else -1 # -1 means stub has fixed arg count despite variadic shape
+      if do_generate_stub(d):
+        arg_sig = make_argsig(d)
+        ret_ctype = make_ret_ctype(d)
+        fn_name = 'halfmoon::Stubs::do_'+d.name
+        func_attrs = Attribute.STATIC | Attribute.PUBLIC | Attribute.CDECL 
+        mgl_name = scheme.mangle(fn_name, ret_ctype, arg_sig, func_attrs, getAvmMangleTypedefs(arch))
+        print '  //     %s %s(%s)' % (ret_ctype, fn_name, ', '.join(arg_sig))
+        print '  { "%s", "%s", llvm_stub_types[%d], %s, %d },' % ( d.name, mgl_name,
+          type_string_index(ret_ctype, arg_sig), 'true' if lir_ispure(d) else 'false', fixc)
+        print
+      else:
+        print '  { "%s", 0, 0, false, %d },' % (d.name, fixc)
+        print
+    print "};"
+    print
+
+  sys.stdout = save_stdout
+
+  print "namespace compile_abc {"
+  print "static const int llvm_stub_count = %d;" % len(protos)
+  print "static const char* llvm_stub_types[%d] = {" % len(type_strings)
+  typeIndex = 0
+  for t in type_strings:
+    print '  // %d: %s' % (typeIndex, type_strings_cxx[t])
+    typeIndex = typeIndex+1
+    print '  "%s",' % (t)
+    print
+  print "};"
+  print
+
+  print buffer.getvalue()
+  print "}"
+
 # return the interpreter getter expression for type t
 interp_getter_name = {
   'double' : 'interp->getDouble',
@@ -964,6 +1034,8 @@ def gendefs(defs):
   genfile(defs, genShapeAdapterCases,     "ShapeAdapter_cases.hh")
   genfile(defs, gen_stub_protos,            "Stub_protos.hh")
   genfile(defs, gen_stub_lirtable,          "Stub_lirtable.hh")
+  genfile(defs, gen_stub_llvmtable,         "Stub_llvmtable.hh")
+  genfile(defs, gen_stub_llvmtable64,         "Stub_llvmtable_64.hh")
   genfile(defs, gen_stub_callers,           "Stub_callers.hh")
 
 def trace(s):

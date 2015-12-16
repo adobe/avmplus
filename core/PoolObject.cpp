@@ -72,6 +72,9 @@ namespace avmplus
         , aotInfo(NULL)
         , aotRoot(NULL)
 #endif
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+        , poolInfo(0)
+#endif /*VMCFG_HALFMOON_AOT_COMPILER*/
     {
         version = AvmCore::readU16(&code()[0]) | AvmCore::readU16(&code()[2])<<16;
         core->addLivePool(this);
@@ -630,7 +633,7 @@ range_error:
         }
         if (!t)
         {
-            #ifdef AVMPLUS_VERBOSE
+            #if defined(AVMPLUS_VERBOSE) && !defined(VMCFG_VERIFYALL)
             if (!toplevel || !toplevel->verifyErrorClass())
                 core->console << "class not found: " << m << " index=" << (uint32_t)index << "\n";
             #endif

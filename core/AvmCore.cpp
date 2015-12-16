@@ -318,6 +318,8 @@ namespace avmplus
         "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5A\x5B\x5C\x5D\x5E\x5F"
         "\x60\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6A\x6B\x6C\x6D\x6E\x6F"
         "\x70\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7A\x7B\x7C\x7D\x7E\x7F";
+
+
     AvmCore::AvmCore(GC* g, ApiVersionSeries apiVersionSeries)
         : GCRoot(g)
         , enterEventLoop(false)
@@ -665,7 +667,7 @@ namespace avmplus
     )
     {
         // Create the singleton ExecMgr instance.
-        exec = new (gc) BaseExecMgr(this);
+        exec = createExecMgr();
 
         #ifdef DEBUGGER
         _debugger = createDebugger(tracelevel);
@@ -776,10 +778,10 @@ namespace avmplus
 
             if( opcode == OP_debug )
             {
-                --op_count; //OP_debug has a third operand of a byte
-                pc++;
+                imm32b = *pc++;
+                AvmCore::readU32(pc); // ignored
             }
-            if( op_count > 1 )
+            else if( op_count > 1 )
             {
                 imm32b = AvmCore::readU32(pc);
             }
@@ -794,8 +796,6 @@ namespace avmplus
         if (method->needActivation()) {
             Traits* activationTraits = method->activationTraits();
             AvmAssert(activationTraits != NULL);
-            AvmAssert(method->method_id() < (int)aotInfo->nActivationTraits);
-            aotInfo->activationTraits[method->method_id()] = activationTraits;
             if (aotInfo->activationInfo[method->method_id()].initHandler != NULL) {
                 // NativeMethodInfo.handler is a union of
                 // pointer to function and pointer to member function.
@@ -1131,14 +1131,17 @@ namespace avmplus
 
         AbcEnv* abcEnv = AbcEnv::create(GetGC(), pool, codeContext);
         ScriptEnv* main = initAllScripts(toplevel, abcEnv);
-
+#ifndef VMCFG_HALFMOON_AOT_COMPILER
 #ifdef VMCFG_VERIFYALL
         AvmAssert(config.verifyonly || toplevel->objectClass != NULL);
 #else
         AvmAssert(toplevel->objectClass != NULL);
 #endif
-
 		return callScriptEnvEntryPoint(main);
+#else	
+		(void)main;
+        return undefinedAtom;
+#endif
     }
 
     PoolObject* AvmCore::parseActionBlock(ScriptBuffer code,
@@ -1236,15 +1239,25 @@ namespace avmplus
 #endif // VMCFG_EVAL
 
 #ifdef VMCFG_AOT
+    //
+    // TODO: This is only used by the shell; really belongs in ShellCore
+    //
+    // This feeds the user abcs into the parser and hooks up the AOT-compiled methids for shell apps.
+    //
     void AvmCore::handleAOT(Toplevel* toplevel, CodeContext* codeContext)
     {
         DomainEnv* domainEnv = codeContext->domainEnv();
         Domain* domain = domainEnv->domain();
-
+        
         for(uint32_t i=0; i<nAOTInfos; i++)
         {
-            ScriptBuffer code = ScriptBuffer(new (GetGC()) ReadOnlyScriptBufferImpl(aotInfos[i].abcBytes, aotInfos[i].nABCBytes));
-            NativeInitializer ninit(this, NULL, &aotInfos[i], 0, 0);
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            const AOTInfo& aotInfo = *aotInfos[i];
+#else
+            const AOTInfo& aotInfo = aotInfos[i];
+#endif
+            ScriptBuffer code = ScriptBuffer(new (GetGC()) ReadOnlyScriptBufferImpl(aotInfo.abcBytes, aotInfo.nABCBytes));
+            NativeInitializer ninit(this, NULL, &aotInfo, 0, 0);
 
             PoolObject *userPool = parseActionBlock(code, 0, toplevel, domain, &ninit, getDefaultAPI());
 
@@ -1804,8 +1817,10 @@ return the result of the comparison ToPrimitive(x) == y.
         Stringp buffer = newConstantStringLatin1("Error #");
         buffer = concatStrings(buffer, internInt(errorID));
 
-        #if defined(DEBUGGER) && !defined(VMCFG_DEBUGGER_STUB)
+        #if (defined(DEBUGGER) && !defined(VMCFG_DEBUGGER_STUB) || defined(VMCFG_HALFMOON_AOT_COMPILER))
+        #ifndef VMCFG_HALFMOON_AOT_COMPILER
         if (_debugger)
+        #endif
         {
             // errorConstants is declared char* but is encoded as UTF8
             Stringp out = findErrorMessage(errorID,
@@ -1907,7 +1922,7 @@ return the result of the comparison ToPrimitive(x) == y.
     String* AvmCore::toErrorString(const Multiname* n)
     {
         String* s = NULL;
-    #ifdef DEBUGGER
+    #if defined(DEBUGGER) || defined(VMCFG_HALFMOON_AOT_COMPILER)
         if (n) {
             StringBuffer sb(this); // 256B gc alloc occurs here.
             sb << Multiname::FormatNameOnly(n);
@@ -1957,18 +1972,25 @@ return the result of the comparison ToPrimitive(x) == y.
             t = t->itraits;
             sb << "class ";
         }
+		
+		if (t)
+		{
+			Namespacep ns = t->ns();
+			if (ns != NULL && !ns->getURI()->isEmpty())
+				sb << ns << ".";
 
-        Namespacep ns = t->ns();
-        if (ns != NULL && !ns->getURI()->isEmpty())
-            sb << ns << ".";
+			Stringp n = t->name();
+			if (n)
+				sb << n;
+			else
+				sb << "(null)";
+		}
+		else
+		{
+			sb << "(null)";
+		}
 
-        Stringp n = t->name();
-        if (n)
-            sb << n;
-        else
-            sb << "(null)";
-
-        Stringp s = sb.toString();
+		Stringp s = sb.toString();
         return s;
         #endif /* DEBUGGER */
     }
@@ -1980,7 +2002,7 @@ return the result of the comparison ToPrimitive(x) == y.
         Stringp errorMessage = getErrorMessage(errorID);
         if (errorMessage)
         {
-            #ifdef DEBUGGER
+            #if defined(DEBUGGER) || defined(VMCFG_HALFMOON_AOT_COMPILER)
             StUTF8String errorUTF8(errorMessage);
             const char *format = errorUTF8.c_str();
 
@@ -2987,6 +3009,19 @@ return the result of the comparison ToPrimitive(x) == y.
         if (isNullOrUndefined(atom))
             return NULL;
         return string(atom);
+    }
+
+	Stringp AvmCore::safeString(Atom atom)
+    {
+		if (atomKind(atom) != kObjectType)
+		{
+			 return string(atom);
+		}
+		else
+		{
+			AvmAssertMsg(0, ("This method requiring a string no longer accepts Objects implementing toString().\n"));
+            return knull;
+        }
     }
 
     Stringp AvmCore::string(Atom atom)
@@ -4663,7 +4698,7 @@ return the result of the comparison ToPrimitive(x) == y.
         }
     #endif
 
-#elif defined(_MAC)
+#elif defined(_MAC) || (defined(PEPPER_PLUGIN) && defined(__clang__))
         // MacTel always has SSE2 available
         int32_t const intval = _mm_cvttsd_si32(_mm_set_sd(n));
         if (atomIsValidIntptrValueAndEqualTo(intval, n))
@@ -5664,7 +5699,7 @@ return the result of the comparison ToPrimitive(x) == y.
         AvmCore *core = toplevel->core();
         InterruptReason reason = core->interrupted;
         core->interrupted = NotInterrupted;
-        if (reason == SafepointPoll)
+        if (reason == SafepointPoll && vmbase::SafepointRecord::hasCurrent())
         {
             SAFEPOINT_POLL();
             if (core->pending_interrupt != NotInterrupted && canUnwindStack) {
@@ -5692,8 +5727,8 @@ return the result of the comparison ToPrimitive(x) == y.
             // Ignore and return to caller, interrupt is pending.
         }
     }
-
-    void AvmCore::addVersionedURIs(char const* const* uris)
+    
+	void AvmCore::addVersionedURIs(char const* const* uris)
     {
         while (*uris != NULL)
         {
@@ -5918,6 +5953,22 @@ return the result of the comparison ToPrimitive(x) == y.
 		{
 		}
 
+		if (v >= kSWF23)    /* Jones */
+		{
+		}
+		
+		if (v >= kSWF24)    /* King */
+		{
+		}
+
+		if (v >= kSWF25)    /* Lombard */
+		{
+		}
+
+		if (v >= kSWF26)    /* Market */
+		{
+		}
+
     }
 
     /*static*/ uint32_t const BugCompatibility::kNames[BugCompatibility::VersionCount] =
@@ -5935,6 +5986,15 @@ return the result of the comparison ToPrimitive(x) == y.
 		19,
 		20,
 		21,
-		22
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30
+//ADD_PREVIOUS_VERSIONED_LINE_WITH_COMMA
     };
 }

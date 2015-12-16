@@ -147,7 +147,7 @@ public:
 
   SeqRange(int i) :
       n_(0) {
-    assert(i == 0);
+    AvmAssert(i == 0);
     (void) i;
   }
 
@@ -158,7 +158,7 @@ public:
   }
 
   T& front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return n_->head;
   }
 
@@ -274,19 +274,19 @@ public:
     return front_ >= back_;
   }
   E& front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return front_[0];
   }
   E& back() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return back_[-1];
   }
   E& popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     return *front_++;
   }
   E& popBack() {
-    assert(!empty());
+    AvmAssert(!empty());
     return *(--back_);
   }
 
@@ -309,12 +309,12 @@ public:
   }
 
   E& front() const {
-    assert(!empty());
+    AvmAssert(!empty());
     return !r1.empty() ? r1.front() : r2.front();
   }
 
   void popFront() {
-    assert(!empty());
+    AvmAssert(!empty());
     !r1.empty() ? r1.popFront() : r2.popFront();
   }
 

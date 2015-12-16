@@ -7,6 +7,13 @@
 #ifndef _H_nativegen_header_builtin
 #define _H_nativegen_header_builtin
 
+/* clang (and gcc) knows about the compiler builtin _Pragma, Visual Studio 2008 C++ compiler does not */
+#ifdef __clang__
+   #define _PRAGMAFUNCTION(...) _Pragma(__VA_ARGS__)
+#else
+   #define _PRAGMAFUNCTION(...) 
+#endif
+
 namespace avmplus {
     class ArgumentErrorClass; // ArgumentError$
     class ArgumentErrorObject; // ArgumentError
@@ -310,564 +317,574 @@ const uint32_t Array_private__filter = 209; // native
 const uint32_t Array_private__forEach = 210; // native
 const uint32_t Array_private__map = 211; // native
 const uint32_t Array_private__some = 212; // native
-const uint32_t Array_length_get = 213; // native
-const uint32_t Array_length_set = 214; // native
-const uint32_t Array_private_set_length = 215; // abc
-const uint32_t Array_AS3_join = 217; // abc
-const uint32_t Array_AS3_pop = 218; // native
-const uint32_t Array_AS3_push = 219; // native
-const uint32_t Array_AS3_reverse = 220; // abc
-const uint32_t Array_AS3_concat = 221; // abc
-const uint32_t Array_AS3_shift = 222; // abc
-const uint32_t Array_AS3_slice = 223; // abc
-const uint32_t Array_AS3_unshift = 224; // native
-const uint32_t Array_AS3_splice = 225; // abc
-const uint32_t Array_AS3_sort = 226; // abc
-const uint32_t Array_AS3_sortOn = 227; // abc
-const uint32_t Array_AS3_indexOf = 228; // abc
-const uint32_t Array_AS3_lastIndexOf = 229; // abc
-const uint32_t Array_AS3_every = 230; // abc
-const uint32_t Array_AS3_filter = 231; // abc
-const uint32_t Array_AS3_forEach = 232; // abc
-const uint32_t Array_AS3_map = 233; // abc
-const uint32_t Array_AS3_some = 234; // abc
-const uint32_t __AS3___vec_Vector_object_private_castToThisType = 257; // abc
-const uint32_t __AS3___vec_Vector_object_private__every = 258; // native
-const uint32_t __AS3___vec_Vector_object_private__forEach = 259; // native
-const uint32_t __AS3___vec_Vector_object_private__some = 260; // native
-const uint32_t __AS3___vec_Vector_object_private__sort = 261; // native
-const uint32_t __AS3___vec_Vector_object_private_newThisType = 263; // native
-const uint32_t __AS3___vec_Vector_object_length_get = 264; // native
-const uint32_t __AS3___vec_Vector_object_length_set = 265; // native
-const uint32_t __AS3___vec_Vector_object_fixed_set = 266; // native
-const uint32_t __AS3___vec_Vector_object_fixed_get = 267; // native
-const uint32_t __AS3___vec_Vector_object_AS3_toString = 268; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_toLocaleString = 269; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_join = 270; // abc
-const uint32_t __AS3___vec_Vector_object_private__concat = 271; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_every = 272; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_forEach = 273; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_map = 274; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_push = 275; // native
-const uint32_t __AS3___vec_Vector_object_private__reverse = 276; // native
-const uint32_t __AS3___vec_Vector_object_AS3_some = 277; // abc
-const uint32_t __AS3___vec_Vector_object_private__slice = 278; // abc
-const uint32_t __AS3___vec_Vector_object_private__splice = 279; // abc
-const uint32_t __AS3___vec_Vector_object_private__spliceHelper = 280; // native
-const uint32_t __AS3___vec_Vector_object_AS3_unshift = 281; // native
-const uint32_t __AS3___vec_Vector_object_private__filter = 282; // native
-const uint32_t __AS3___vec_Vector_object_private__map = 283; // native
-const uint32_t __AS3___vec_Vector_object_private_clamp = 284; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_concat = 285; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_filter = 286; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_pop = 287; // native
-const uint32_t __AS3___vec_Vector_object_AS3_reverse = 288; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_shift = 289; // native
-const uint32_t __AS3___vec_Vector_object_AS3_slice = 290; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_sort = 291; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_splice = 292; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_indexOf = 293; // abc
-const uint32_t __AS3___vec_Vector_object_AS3_lastIndexOf = 294; // abc
-const uint32_t __AS3___vec_Vector_int_private_castToThisType = 315; // abc
-const uint32_t __AS3___vec_Vector_int_private__every = 316; // native
-const uint32_t __AS3___vec_Vector_int_private__forEach = 317; // native
-const uint32_t __AS3___vec_Vector_int_private__some = 318; // native
-const uint32_t __AS3___vec_Vector_int_private__sort = 319; // native
-const uint32_t __AS3___vec_Vector_int_private_newThisType = 321; // native
-const uint32_t __AS3___vec_Vector_int_length_get = 322; // native
-const uint32_t __AS3___vec_Vector_int_length_set = 323; // native
-const uint32_t __AS3___vec_Vector_int_fixed_set = 324; // native
-const uint32_t __AS3___vec_Vector_int_fixed_get = 325; // native
-const uint32_t __AS3___vec_Vector_int_AS3_toString = 326; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_toLocaleString = 327; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_join = 328; // abc
-const uint32_t __AS3___vec_Vector_int_private__concat = 329; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_every = 330; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_forEach = 331; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_map = 332; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_push = 333; // native
-const uint32_t __AS3___vec_Vector_int_private__reverse = 334; // native
-const uint32_t __AS3___vec_Vector_int_AS3_some = 335; // abc
-const uint32_t __AS3___vec_Vector_int_private__slice = 336; // abc
-const uint32_t __AS3___vec_Vector_int_private__splice = 337; // abc
-const uint32_t __AS3___vec_Vector_int_private__spliceHelper = 338; // native
-const uint32_t __AS3___vec_Vector_int_AS3_unshift = 339; // native
-const uint32_t __AS3___vec_Vector_int_private__filter = 340; // native
-const uint32_t __AS3___vec_Vector_int_private__map = 341; // native
-const uint32_t __AS3___vec_Vector_int_private_clamp = 342; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_concat = 343; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_filter = 344; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_pop = 345; // native
-const uint32_t __AS3___vec_Vector_int_AS3_reverse = 346; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_shift = 347; // native
-const uint32_t __AS3___vec_Vector_int_AS3_slice = 348; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_sort = 349; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_splice = 350; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_indexOf = 351; // abc
-const uint32_t __AS3___vec_Vector_int_AS3_lastIndexOf = 352; // abc
-const uint32_t __AS3___vec_Vector_uint_private_castToThisType = 373; // abc
-const uint32_t __AS3___vec_Vector_uint_private__every = 374; // native
-const uint32_t __AS3___vec_Vector_uint_private__forEach = 375; // native
-const uint32_t __AS3___vec_Vector_uint_private__some = 376; // native
-const uint32_t __AS3___vec_Vector_uint_private__sort = 377; // native
-const uint32_t __AS3___vec_Vector_uint_private_newThisType = 379; // native
-const uint32_t __AS3___vec_Vector_uint_length_get = 380; // native
-const uint32_t __AS3___vec_Vector_uint_length_set = 381; // native
-const uint32_t __AS3___vec_Vector_uint_fixed_set = 382; // native
-const uint32_t __AS3___vec_Vector_uint_fixed_get = 383; // native
-const uint32_t __AS3___vec_Vector_uint_AS3_toString = 384; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_toLocaleString = 385; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_join = 386; // abc
-const uint32_t __AS3___vec_Vector_uint_private__concat = 387; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_every = 388; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_forEach = 389; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_map = 390; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_push = 391; // native
-const uint32_t __AS3___vec_Vector_uint_private__reverse = 392; // native
-const uint32_t __AS3___vec_Vector_uint_AS3_some = 393; // abc
-const uint32_t __AS3___vec_Vector_uint_private__slice = 394; // abc
-const uint32_t __AS3___vec_Vector_uint_private__splice = 395; // abc
-const uint32_t __AS3___vec_Vector_uint_private__spliceHelper = 396; // native
-const uint32_t __AS3___vec_Vector_uint_AS3_unshift = 397; // native
-const uint32_t __AS3___vec_Vector_uint_private__filter = 398; // native
-const uint32_t __AS3___vec_Vector_uint_private__map = 399; // native
-const uint32_t __AS3___vec_Vector_uint_private_clamp = 400; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_concat = 401; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_filter = 402; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_pop = 403; // native
-const uint32_t __AS3___vec_Vector_uint_AS3_reverse = 404; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_shift = 405; // native
-const uint32_t __AS3___vec_Vector_uint_AS3_slice = 406; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_sort = 407; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_splice = 408; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_indexOf = 409; // abc
-const uint32_t __AS3___vec_Vector_uint_AS3_lastIndexOf = 410; // abc
-const uint32_t __AS3___vec_Vector_double_private_castToThisType = 431; // abc
-const uint32_t __AS3___vec_Vector_double_private__every = 432; // native
-const uint32_t __AS3___vec_Vector_double_private__forEach = 433; // native
-const uint32_t __AS3___vec_Vector_double_private__some = 434; // native
-const uint32_t __AS3___vec_Vector_double_private__sort = 435; // native
-const uint32_t __AS3___vec_Vector_double_private_newThisType = 437; // native
-const uint32_t __AS3___vec_Vector_double_length_get = 438; // native
-const uint32_t __AS3___vec_Vector_double_length_set = 439; // native
-const uint32_t __AS3___vec_Vector_double_fixed_set = 440; // native
-const uint32_t __AS3___vec_Vector_double_fixed_get = 441; // native
-const uint32_t __AS3___vec_Vector_double_AS3_toString = 442; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_toLocaleString = 443; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_join = 444; // abc
-const uint32_t __AS3___vec_Vector_double_private__concat = 445; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_every = 446; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_forEach = 447; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_map = 448; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_push = 449; // native
-const uint32_t __AS3___vec_Vector_double_private__reverse = 450; // native
-const uint32_t __AS3___vec_Vector_double_AS3_some = 451; // abc
-const uint32_t __AS3___vec_Vector_double_private__slice = 452; // abc
-const uint32_t __AS3___vec_Vector_double_private__splice = 453; // abc
-const uint32_t __AS3___vec_Vector_double_private__spliceHelper = 454; // native
-const uint32_t __AS3___vec_Vector_double_AS3_unshift = 455; // native
-const uint32_t __AS3___vec_Vector_double_private__filter = 456; // native
-const uint32_t __AS3___vec_Vector_double_private__map = 457; // native
-const uint32_t __AS3___vec_Vector_double_private_clamp = 458; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_concat = 459; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_filter = 460; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_pop = 461; // native
-const uint32_t __AS3___vec_Vector_double_AS3_reverse = 462; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_shift = 463; // native
-const uint32_t __AS3___vec_Vector_double_AS3_slice = 464; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_sort = 465; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_splice = 466; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_indexOf = 467; // abc
-const uint32_t __AS3___vec_Vector_double_AS3_lastIndexOf = 468; // abc
-const uint32_t private_MethodClosure_prototype_get = 470; // abc
-const uint32_t private_MethodClosure_prototype_set = 471; // abc
-const uint32_t native_script_function_flash_net_getClassByAlias = 474; // native
-const uint32_t native_script_function_flash_net_registerClassAlias = 475; // native
-const uint32_t Math_private__min = 479; // native
-const uint32_t Math_private__max = 480; // native
-const uint32_t Math_abs = 481; // native
-const uint32_t Math_acos = 482; // native
-const uint32_t Math_asin = 483; // native
-const uint32_t Math_atan = 484; // native
-const uint32_t Math_ceil = 485; // native
-const uint32_t Math_cos = 486; // native
-const uint32_t Math_exp = 487; // native
-const uint32_t Math_floor = 488; // native
-const uint32_t Math_log = 489; // native
-const uint32_t Math_round = 490; // native
-const uint32_t Math_sin = 491; // native
-const uint32_t Math_sqrt = 492; // native
-const uint32_t Math_tan = 493; // native
-const uint32_t Math_atan2 = 494; // native
-const uint32_t Math_pow = 495; // native
-const uint32_t Math_max = 496; // native
-const uint32_t Math_min = 497; // native
-const uint32_t Math_random = 498; // native
-const uint32_t Error_getErrorMessage = 503; // native
-const uint32_t Error_throwError = 505; // abc
-const uint32_t Error_getStackTrace = 507; // native
-const uint32_t Error_errorID_get = 508; // abc
-const uint32_t Date_parse = 583; // native
-const uint32_t Date_UTC = 584; // native
-const uint32_t Date_AS3_valueOf = 585; // native
-const uint32_t Date_private__toString = 586; // native
-const uint32_t Date_private__setTime = 587; // native
-const uint32_t Date_private__get = 588; // native
-const uint32_t Date_AS3_setTime = 589; // abc
-const uint32_t Date_AS3_toString = 590; // abc
-const uint32_t Date_AS3_toDateString = 591; // abc
-const uint32_t Date_AS3_toTimeString = 592; // abc
-const uint32_t Date_AS3_toLocaleString = 593; // abc
-const uint32_t Date_AS3_toLocaleDateString = 594; // abc
-const uint32_t Date_AS3_toLocaleTimeString = 595; // abc
-const uint32_t Date_AS3_toUTCString = 596; // abc
-const uint32_t Date_AS3_getUTCFullYear = 597; // native
-const uint32_t Date_AS3_getUTCMonth = 598; // native
-const uint32_t Date_AS3_getUTCDate = 599; // native
-const uint32_t Date_AS3_getUTCDay = 600; // native
-const uint32_t Date_AS3_getUTCHours = 601; // native
-const uint32_t Date_AS3_getUTCMinutes = 602; // native
-const uint32_t Date_AS3_getUTCSeconds = 603; // native
-const uint32_t Date_AS3_getUTCMilliseconds = 604; // native
-const uint32_t Date_AS3_getFullYear = 605; // native
-const uint32_t Date_AS3_getMonth = 606; // native
-const uint32_t Date_AS3_getDate = 607; // native
-const uint32_t Date_AS3_getDay = 608; // native
-const uint32_t Date_AS3_getHours = 609; // native
-const uint32_t Date_AS3_getMinutes = 610; // native
-const uint32_t Date_AS3_getSeconds = 611; // native
-const uint32_t Date_AS3_getMilliseconds = 612; // native
-const uint32_t Date_AS3_getTimezoneOffset = 613; // native
-const uint32_t Date_AS3_getTime = 614; // native
-const uint32_t Date_private__setFullYear = 615; // native
-const uint32_t Date_private__setMonth = 616; // native
-const uint32_t Date_private__setDate = 617; // native
-const uint32_t Date_private__setHours = 618; // native
-const uint32_t Date_private__setMinutes = 619; // native
-const uint32_t Date_private__setSeconds = 620; // native
-const uint32_t Date_private__setMilliseconds = 621; // native
-const uint32_t Date_private__setUTCFullYear = 622; // native
-const uint32_t Date_private__setUTCMonth = 623; // native
-const uint32_t Date_private__setUTCDate = 624; // native
-const uint32_t Date_private__setUTCHours = 625; // native
-const uint32_t Date_private__setUTCMinutes = 626; // native
-const uint32_t Date_private__setUTCSeconds = 627; // native
-const uint32_t Date_private__setUTCMilliseconds = 628; // native
-const uint32_t Date_AS3_setFullYear = 629; // abc
-const uint32_t Date_AS3_setMonth = 630; // abc
-const uint32_t Date_AS3_setDate = 631; // abc
-const uint32_t Date_AS3_setHours = 632; // abc
-const uint32_t Date_AS3_setMinutes = 633; // abc
-const uint32_t Date_AS3_setSeconds = 634; // abc
-const uint32_t Date_AS3_setMilliseconds = 635; // abc
-const uint32_t Date_AS3_setUTCFullYear = 636; // abc
-const uint32_t Date_AS3_setUTCMonth = 637; // abc
-const uint32_t Date_AS3_setUTCDate = 638; // abc
-const uint32_t Date_AS3_setUTCHours = 639; // abc
-const uint32_t Date_AS3_setUTCMinutes = 640; // abc
-const uint32_t Date_AS3_setUTCSeconds = 641; // abc
-const uint32_t Date_AS3_setUTCMilliseconds = 642; // abc
-const uint32_t Date_fullYear_get = 643; // abc
-const uint32_t Date_fullYear_set = 644; // abc
-const uint32_t Date_month_get = 645; // abc
-const uint32_t Date_month_set = 646; // abc
-const uint32_t Date_date_get = 647; // abc
-const uint32_t Date_date_set = 648; // abc
-const uint32_t Date_hours_get = 649; // abc
-const uint32_t Date_hours_set = 650; // abc
-const uint32_t Date_minutes_get = 651; // abc
-const uint32_t Date_minutes_set = 652; // abc
-const uint32_t Date_seconds_get = 653; // abc
-const uint32_t Date_seconds_set = 654; // abc
-const uint32_t Date_milliseconds_get = 655; // abc
-const uint32_t Date_milliseconds_set = 656; // abc
-const uint32_t Date_fullYearUTC_get = 657; // abc
-const uint32_t Date_fullYearUTC_set = 658; // abc
-const uint32_t Date_monthUTC_get = 659; // abc
-const uint32_t Date_monthUTC_set = 660; // abc
-const uint32_t Date_dateUTC_get = 661; // abc
-const uint32_t Date_dateUTC_set = 662; // abc
-const uint32_t Date_hoursUTC_get = 663; // abc
-const uint32_t Date_hoursUTC_set = 664; // abc
-const uint32_t Date_minutesUTC_get = 665; // abc
-const uint32_t Date_minutesUTC_set = 666; // abc
-const uint32_t Date_secondsUTC_get = 667; // abc
-const uint32_t Date_secondsUTC_set = 668; // abc
-const uint32_t Date_millisecondsUTC_get = 669; // abc
-const uint32_t Date_millisecondsUTC_set = 670; // abc
-const uint32_t Date_time_get = 671; // abc
-const uint32_t Date_time_set = 672; // abc
-const uint32_t Date_timezoneOffset_get = 673; // abc
-const uint32_t Date_day_get = 674; // abc
-const uint32_t Date_dayUTC_get = 675; // abc
-const uint32_t RegExp_source_get = 682; // native
-const uint32_t RegExp_global_get = 683; // native
-const uint32_t RegExp_ignoreCase_get = 684; // native
-const uint32_t RegExp_multiline_get = 685; // native
-const uint32_t RegExp_lastIndex_get = 686; // native
-const uint32_t RegExp_lastIndex_set = 687; // native
-const uint32_t RegExp_dotall_get = 688; // native
-const uint32_t RegExp_extended_get = 689; // native
-const uint32_t RegExp_AS3_exec = 690; // native
-const uint32_t RegExp_AS3_test = 691; // abc
-const uint32_t JSON_private_parseCore = 695; // native
-const uint32_t JSON_private_stringifySpecializedToString = 696; // native
-const uint32_t JSON_parse = 697; // abc
-const uint32_t JSON_stringify = 698; // abc
-const uint32_t JSON_private_computePropertyList = 699; // abc
-const uint32_t Walker_walk = 703; // abc
-const uint32_t XML_ignoreComments_get = 748; // native
-const uint32_t XML_ignoreComments_set = 749; // native
-const uint32_t XML_ignoreProcessingInstructions_get = 750; // native
-const uint32_t XML_ignoreProcessingInstructions_set = 751; // native
-const uint32_t XML_ignoreWhitespace_get = 752; // native
-const uint32_t XML_ignoreWhitespace_set = 753; // native
-const uint32_t XML_prettyPrinting_get = 754; // native
-const uint32_t XML_prettyPrinting_set = 755; // native
-const uint32_t XML_prettyIndent_get = 756; // native
-const uint32_t XML_prettyIndent_set = 757; // native
-const uint32_t XML_AS3_settings = 758; // abc
-const uint32_t XML_AS3_setSettings = 759; // abc
-const uint32_t XML_AS3_defaultSettings = 760; // abc
-const uint32_t XML_AS3_toString = 761; // native
-const uint32_t XML_AS3_hasOwnProperty = 762; // native
-const uint32_t XML_AS3_propertyIsEnumerable = 763; // native
-const uint32_t XML_AS3_addNamespace = 764; // native
-const uint32_t XML_AS3_appendChild = 765; // native
-const uint32_t XML_AS3_attribute = 766; // native
-const uint32_t XML_AS3_attributes = 767; // native
-const uint32_t XML_AS3_child = 768; // native
-const uint32_t XML_AS3_childIndex = 769; // native
-const uint32_t XML_AS3_children = 770; // native
-const uint32_t XML_AS3_comments = 771; // native
-const uint32_t XML_AS3_contains = 772; // native
-const uint32_t XML_AS3_copy = 773; // native
-const uint32_t XML_AS3_descendants = 774; // native
-const uint32_t XML_AS3_elements = 775; // native
-const uint32_t XML_AS3_hasComplexContent = 776; // native
-const uint32_t XML_AS3_hasSimpleContent = 777; // native
-const uint32_t XML_AS3_inScopeNamespaces = 778; // native
-const uint32_t XML_AS3_insertChildAfter = 779; // native
-const uint32_t XML_AS3_insertChildBefore = 780; // native
-const uint32_t XML_AS3_length = 781; // abc
-const uint32_t XML_AS3_localName = 782; // native
-const uint32_t XML_AS3_name = 783; // native
-const uint32_t XML_private__namespace = 784; // native
-const uint32_t XML_AS3_namespace = 785; // abc
-const uint32_t XML_AS3_namespaceDeclarations = 786; // native
-const uint32_t XML_AS3_nodeKind = 787; // native
-const uint32_t XML_AS3_normalize = 788; // native
-const uint32_t XML_AS3_parent = 789; // native
-const uint32_t XML_AS3_processingInstructions = 790; // native
-const uint32_t XML_AS3_prependChild = 791; // native
-const uint32_t XML_AS3_removeNamespace = 792; // native
-const uint32_t XML_AS3_replace = 793; // native
-const uint32_t XML_AS3_setChildren = 794; // native
-const uint32_t XML_AS3_setLocalName = 795; // native
-const uint32_t XML_AS3_setName = 796; // native
-const uint32_t XML_AS3_setNamespace = 797; // native
-const uint32_t XML_AS3_text = 798; // native
-const uint32_t XML_AS3_toXMLString = 799; // native
-const uint32_t XML_AS3_notification = 800; // native
-const uint32_t XML_AS3_setNotification = 801; // native
-const uint32_t XML_AS3_toJSON = 802; // abc
-const uint32_t XML_AS3_valueOf = 804; // abc
-const uint32_t XMLList_AS3_toString = 845; // native
-const uint32_t XMLList_AS3_valueOf = 846; // abc
-const uint32_t XMLList_AS3_hasOwnProperty = 847; // native
-const uint32_t XMLList_AS3_propertyIsEnumerable = 848; // native
-const uint32_t XMLList_AS3_attribute = 849; // native
-const uint32_t XMLList_AS3_attributes = 850; // native
-const uint32_t XMLList_AS3_child = 851; // native
-const uint32_t XMLList_AS3_children = 852; // native
-const uint32_t XMLList_AS3_comments = 853; // native
-const uint32_t XMLList_AS3_contains = 854; // native
-const uint32_t XMLList_AS3_copy = 855; // native
-const uint32_t XMLList_AS3_descendants = 856; // native
-const uint32_t XMLList_AS3_elements = 857; // native
-const uint32_t XMLList_AS3_hasComplexContent = 858; // native
-const uint32_t XMLList_AS3_hasSimpleContent = 859; // native
-const uint32_t XMLList_AS3_length = 860; // native
-const uint32_t XMLList_AS3_name = 861; // native
-const uint32_t XMLList_AS3_normalize = 862; // native
-const uint32_t XMLList_AS3_parent = 863; // native
-const uint32_t XMLList_AS3_processingInstructions = 864; // native
-const uint32_t XMLList_AS3_text = 865; // native
-const uint32_t XMLList_AS3_toXMLString = 866; // native
-const uint32_t XMLList_AS3_addNamespace = 867; // native
-const uint32_t XMLList_AS3_appendChild = 868; // native
-const uint32_t XMLList_AS3_childIndex = 869; // native
-const uint32_t XMLList_AS3_inScopeNamespaces = 870; // native
-const uint32_t XMLList_AS3_insertChildAfter = 871; // native
-const uint32_t XMLList_AS3_insertChildBefore = 872; // native
-const uint32_t XMLList_AS3_nodeKind = 873; // native
-const uint32_t XMLList_private__namespace = 874; // native
-const uint32_t XMLList_AS3_namespace = 875; // abc
-const uint32_t XMLList_AS3_localName = 876; // native
-const uint32_t XMLList_AS3_namespaceDeclarations = 877; // native
-const uint32_t XMLList_AS3_prependChild = 878; // native
-const uint32_t XMLList_AS3_removeNamespace = 879; // native
-const uint32_t XMLList_AS3_replace = 880; // native
-const uint32_t XMLList_AS3_setChildren = 881; // native
-const uint32_t XMLList_AS3_setLocalName = 882; // native
-const uint32_t XMLList_AS3_setName = 883; // native
-const uint32_t XMLList_AS3_setNamespace = 884; // native
-const uint32_t XMLList_AS3_toJSON = 885; // abc
-const uint32_t QName_localName_get = 889; // native
-const uint32_t QName_uri_get = 890; // native
-const uint32_t QName_AS3_valueOf = 891; // abc
-const uint32_t QName_AS3_toString = 892; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readBytes = 896; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readBoolean = 897; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readByte = 898; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedByte = 899; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readShort = 900; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedShort = 901; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readInt = 902; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedInt = 903; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readFloat = 904; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readDouble = 905; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readMultiByte = 906; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUTF = 907; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUTFBytes = 908; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_bytesAvailable_get = 909; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readObject = 910; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_objectEncoding_get = 911; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_objectEncoding_set = 912; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_endian_get = 913; // abc
-const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_endian_set = 914; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeBytes = 918; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeBoolean = 919; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeByte = 920; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeShort = 921; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeInt = 922; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUnsignedInt = 923; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeFloat = 924; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeDouble = 925; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeMultiByte = 926; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUTF = 927; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUTFBytes = 928; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeObject = 929; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_objectEncoding_get = 930; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_objectEncoding_set = 931; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_endian_get = 932; // abc
-const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_endian_set = 933; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_getProperty = 937; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_setProperty = 938; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_callProperty = 939; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_hasProperty = 940; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_deleteProperty = 941; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_getDescendants = 942; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_nextNameIndex = 943; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_nextName = 944; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_nextValue = 945; // abc
-const uint32_t flash_utils_Proxy_flash_proxy_isAttribute = 946; // native
-const uint32_t flash_utils_Dictionary_private_init = 951; // native
-const uint32_t flash_net_IDynamicPropertyOutput_flash_net_IDynamicPropertyOutput_writeDynamicProperty = 955; // abc
-const uint32_t flash_net_IDynamicPropertyWriter_flash_net_IDynamicPropertyWriter_writeDynamicProperties = 959; // abc
-const uint32_t flash_utils_IExternalizable_flash_utils_IExternalizable_writeExternal = 963; // abc
-const uint32_t flash_utils_IExternalizable_flash_utils_IExternalizable_readExternal = 964; // abc
-const uint32_t flash_net_ObjectEncoding_dynamicPropertyWriter_get = 968; // native
-const uint32_t flash_net_ObjectEncoding_dynamicPropertyWriter_set = 969; // native
-const uint32_t native_script_function_avm2_intrinsics_memory_casi32 = 972; // native
-const uint32_t native_script_function_avm2_intrinsics_memory_mfence = 973; // native
-const uint32_t flash_concurrent_Mutex_isSupported_get = 975; // native
-const uint32_t flash_concurrent_Mutex_lock = 977; // native
-const uint32_t flash_concurrent_Mutex_tryLock = 978; // native
-const uint32_t flash_concurrent_Mutex_unlock = 979; // native
-const uint32_t flash_concurrent_Mutex_private_ctor = 980; // native
-const uint32_t flash_concurrent_Condition_isSupported_get = 982; // native
-const uint32_t flash_concurrent_Condition_mutex_get = 984; // native
-const uint32_t flash_concurrent_Condition_wait = 985; // native
-const uint32_t flash_concurrent_Condition_notify = 986; // native
-const uint32_t flash_concurrent_Condition_notifyAll = 987; // native
-const uint32_t flash_concurrent_Condition_private_ctor = 988; // native
-const uint32_t flash_utils_ObjectInput_readBytes = 991; // native
-const uint32_t flash_utils_ObjectInput_readBoolean = 992; // native
-const uint32_t flash_utils_ObjectInput_readByte = 993; // native
-const uint32_t flash_utils_ObjectInput_readUnsignedByte = 994; // native
-const uint32_t flash_utils_ObjectInput_readShort = 995; // native
-const uint32_t flash_utils_ObjectInput_readUnsignedShort = 996; // native
-const uint32_t flash_utils_ObjectInput_readInt = 997; // native
-const uint32_t flash_utils_ObjectInput_readUnsignedInt = 998; // native
-const uint32_t flash_utils_ObjectInput_readFloat = 999; // native
-const uint32_t flash_utils_ObjectInput_readDouble = 1000; // native
-const uint32_t flash_utils_ObjectInput_readMultiByte = 1001; // native
-const uint32_t flash_utils_ObjectInput_readUTF = 1002; // native
-const uint32_t flash_utils_ObjectInput_readUTFBytes = 1003; // native
-const uint32_t flash_utils_ObjectInput_bytesAvailable_get = 1004; // native
-const uint32_t flash_utils_ObjectInput_readObject = 1005; // native
-const uint32_t flash_utils_ObjectInput_objectEncoding_get = 1006; // native
-const uint32_t flash_utils_ObjectInput_objectEncoding_set = 1007; // native
-const uint32_t flash_utils_ObjectInput_endian_get = 1008; // native
-const uint32_t flash_utils_ObjectInput_endian_set = 1009; // native
-const uint32_t flash_utils_ByteArray_defaultObjectEncoding_get = 1020; // native
-const uint32_t flash_utils_ByteArray_defaultObjectEncoding_set = 1021; // native
-const uint32_t flash_utils_ByteArray_readBytes = 1023; // native
-const uint32_t flash_utils_ByteArray_writeBytes = 1024; // native
-const uint32_t flash_utils_ByteArray_writeBoolean = 1025; // native
-const uint32_t flash_utils_ByteArray_writeByte = 1026; // native
-const uint32_t flash_utils_ByteArray_writeShort = 1027; // native
-const uint32_t flash_utils_ByteArray_writeInt = 1028; // native
-const uint32_t flash_utils_ByteArray_writeUnsignedInt = 1029; // native
-const uint32_t flash_utils_ByteArray_writeFloat = 1030; // native
-const uint32_t flash_utils_ByteArray_writeDouble = 1031; // native
-const uint32_t flash_utils_ByteArray_writeMultiByte = 1032; // native
-const uint32_t flash_utils_ByteArray_writeUTF = 1033; // native
-const uint32_t flash_utils_ByteArray_writeUTFBytes = 1034; // native
-const uint32_t flash_utils_ByteArray_readBoolean = 1035; // native
-const uint32_t flash_utils_ByteArray_readByte = 1036; // native
-const uint32_t flash_utils_ByteArray_readUnsignedByte = 1037; // native
-const uint32_t flash_utils_ByteArray_readShort = 1038; // native
-const uint32_t flash_utils_ByteArray_readUnsignedShort = 1039; // native
-const uint32_t flash_utils_ByteArray_readInt = 1040; // native
-const uint32_t flash_utils_ByteArray_readUnsignedInt = 1041; // native
-const uint32_t flash_utils_ByteArray_readFloat = 1042; // native
-const uint32_t flash_utils_ByteArray_readDouble = 1043; // native
-const uint32_t flash_utils_ByteArray_readMultiByte = 1044; // native
-const uint32_t flash_utils_ByteArray_readUTF = 1045; // native
-const uint32_t flash_utils_ByteArray_readUTFBytes = 1046; // native
-const uint32_t flash_utils_ByteArray_length_get = 1047; // native
-const uint32_t flash_utils_ByteArray_length_set = 1048; // native
-const uint32_t flash_utils_ByteArray_writeObject = 1049; // native
-const uint32_t flash_utils_ByteArray_readObject = 1050; // native
-const uint32_t flash_utils_ByteArray_deflate = 1051; // abc
-const uint32_t flash_utils_ByteArray_private__compress = 1052; // native
-const uint32_t flash_utils_ByteArray_compress = 1053; // abc
-const uint32_t flash_utils_ByteArray_inflate = 1054; // abc
-const uint32_t flash_utils_ByteArray_private__uncompress = 1055; // native
-const uint32_t flash_utils_ByteArray_uncompress = 1056; // abc
-const uint32_t flash_utils_ByteArray_toString = 1057; // abc
-const uint32_t flash_utils_ByteArray_private__toString = 1058; // native
-const uint32_t flash_utils_ByteArray_bytesAvailable_get = 1059; // native
-const uint32_t flash_utils_ByteArray_position_get = 1060; // native
-const uint32_t flash_utils_ByteArray_position_set = 1061; // native
-const uint32_t flash_utils_ByteArray_objectEncoding_get = 1062; // native
-const uint32_t flash_utils_ByteArray_objectEncoding_set = 1063; // native
-const uint32_t flash_utils_ByteArray_endian_get = 1064; // native
-const uint32_t flash_utils_ByteArray_endian_set = 1065; // native
-const uint32_t flash_utils_ByteArray_clear = 1066; // native
-const uint32_t flash_utils_ByteArray_atomicCompareAndSwapIntAt = 1067; // native
-const uint32_t flash_utils_ByteArray_atomicCompareAndSwapLength = 1068; // native
-const uint32_t flash_utils_ByteArray_shareable_get = 1069; // native
-const uint32_t flash_utils_ByteArray_shareable_set = 1070; // native
-const uint32_t flash_utils_ObjectOutput_writeBytes = 1073; // native
-const uint32_t flash_utils_ObjectOutput_writeBoolean = 1074; // native
-const uint32_t flash_utils_ObjectOutput_writeByte = 1075; // native
-const uint32_t flash_utils_ObjectOutput_writeShort = 1076; // native
-const uint32_t flash_utils_ObjectOutput_writeInt = 1077; // native
-const uint32_t flash_utils_ObjectOutput_writeUnsignedInt = 1078; // native
-const uint32_t flash_utils_ObjectOutput_writeFloat = 1079; // native
-const uint32_t flash_utils_ObjectOutput_writeDouble = 1080; // native
-const uint32_t flash_utils_ObjectOutput_writeMultiByte = 1081; // native
-const uint32_t flash_utils_ObjectOutput_writeUTF = 1082; // native
-const uint32_t flash_utils_ObjectOutput_writeUTFBytes = 1083; // native
-const uint32_t flash_utils_ObjectOutput_writeObject = 1084; // native
-const uint32_t flash_utils_ObjectOutput_objectEncoding_get = 1085; // native
-const uint32_t flash_utils_ObjectOutput_objectEncoding_set = 1086; // native
-const uint32_t flash_utils_ObjectOutput_endian_get = 1087; // native
-const uint32_t flash_utils_ObjectOutput_endian_set = 1088; // native
-const uint32_t flash_net_DynamicPropertyOutput_writeDynamicProperty = 1092; // native
+const uint32_t Array_AS3_insertAt = 213; // native
+const uint32_t Array_AS3_removeAt = 214; // native
+const uint32_t Array_length_get = 215; // native
+const uint32_t Array_length_set = 216; // native
+const uint32_t Array_private_set_length = 217; // abc
+const uint32_t Array_AS3_join = 219; // abc
+const uint32_t Array_AS3_pop = 220; // native
+const uint32_t Array_AS3_push = 221; // native
+const uint32_t Array_AS3_reverse = 222; // abc
+const uint32_t Array_AS3_concat = 223; // abc
+const uint32_t Array_AS3_shift = 224; // abc
+const uint32_t Array_AS3_slice = 225; // abc
+const uint32_t Array_AS3_unshift = 226; // native
+const uint32_t Array_AS3_splice = 227; // abc
+const uint32_t Array_AS3_sort = 228; // abc
+const uint32_t Array_AS3_sortOn = 229; // abc
+const uint32_t Array_AS3_indexOf = 230; // abc
+const uint32_t Array_AS3_lastIndexOf = 231; // abc
+const uint32_t Array_AS3_every = 232; // abc
+const uint32_t Array_AS3_filter = 233; // abc
+const uint32_t Array_AS3_forEach = 234; // abc
+const uint32_t Array_AS3_map = 235; // abc
+const uint32_t Array_AS3_some = 236; // abc
+const uint32_t __AS3___vec_Vector_object_private_castToThisType = 259; // abc
+const uint32_t __AS3___vec_Vector_object_private__every = 260; // native
+const uint32_t __AS3___vec_Vector_object_private__forEach = 261; // native
+const uint32_t __AS3___vec_Vector_object_private__some = 262; // native
+const uint32_t __AS3___vec_Vector_object_private__sort = 263; // native
+const uint32_t __AS3___vec_Vector_object_private_newThisType = 265; // native
+const uint32_t __AS3___vec_Vector_object_length_get = 266; // native
+const uint32_t __AS3___vec_Vector_object_length_set = 267; // native
+const uint32_t __AS3___vec_Vector_object_fixed_set = 268; // native
+const uint32_t __AS3___vec_Vector_object_fixed_get = 269; // native
+const uint32_t __AS3___vec_Vector_object_AS3_toString = 270; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_toLocaleString = 271; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_join = 272; // abc
+const uint32_t __AS3___vec_Vector_object_private__concat = 273; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_every = 274; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_forEach = 275; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_map = 276; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_push = 277; // native
+const uint32_t __AS3___vec_Vector_object_private__reverse = 278; // native
+const uint32_t __AS3___vec_Vector_object_AS3_some = 279; // abc
+const uint32_t __AS3___vec_Vector_object_private__slice = 280; // abc
+const uint32_t __AS3___vec_Vector_object_private__splice = 281; // abc
+const uint32_t __AS3___vec_Vector_object_private__spliceHelper = 282; // native
+const uint32_t __AS3___vec_Vector_object_AS3_unshift = 283; // native
+const uint32_t __AS3___vec_Vector_object_private__filter = 284; // native
+const uint32_t __AS3___vec_Vector_object_private__map = 285; // native
+const uint32_t __AS3___vec_Vector_object_private_clamp = 286; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_concat = 287; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_filter = 288; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_pop = 289; // native
+const uint32_t __AS3___vec_Vector_object_AS3_reverse = 290; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_shift = 291; // native
+const uint32_t __AS3___vec_Vector_object_AS3_slice = 292; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_sort = 293; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_splice = 294; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_insertAt = 295; // native
+const uint32_t __AS3___vec_Vector_object_AS3_removeAt = 296; // native
+const uint32_t __AS3___vec_Vector_object_AS3_indexOf = 297; // abc
+const uint32_t __AS3___vec_Vector_object_AS3_lastIndexOf = 298; // abc
+const uint32_t __AS3___vec_Vector_int_private_castToThisType = 319; // abc
+const uint32_t __AS3___vec_Vector_int_private__every = 320; // native
+const uint32_t __AS3___vec_Vector_int_private__forEach = 321; // native
+const uint32_t __AS3___vec_Vector_int_private__some = 322; // native
+const uint32_t __AS3___vec_Vector_int_private__sort = 323; // native
+const uint32_t __AS3___vec_Vector_int_private_newThisType = 325; // native
+const uint32_t __AS3___vec_Vector_int_length_get = 326; // native
+const uint32_t __AS3___vec_Vector_int_length_set = 327; // native
+const uint32_t __AS3___vec_Vector_int_fixed_set = 328; // native
+const uint32_t __AS3___vec_Vector_int_fixed_get = 329; // native
+const uint32_t __AS3___vec_Vector_int_AS3_toString = 330; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_toLocaleString = 331; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_join = 332; // abc
+const uint32_t __AS3___vec_Vector_int_private__concat = 333; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_every = 334; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_forEach = 335; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_map = 336; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_push = 337; // native
+const uint32_t __AS3___vec_Vector_int_private__reverse = 338; // native
+const uint32_t __AS3___vec_Vector_int_AS3_some = 339; // abc
+const uint32_t __AS3___vec_Vector_int_private__slice = 340; // abc
+const uint32_t __AS3___vec_Vector_int_private__splice = 341; // abc
+const uint32_t __AS3___vec_Vector_int_private__spliceHelper = 342; // native
+const uint32_t __AS3___vec_Vector_int_AS3_unshift = 343; // native
+const uint32_t __AS3___vec_Vector_int_private__filter = 344; // native
+const uint32_t __AS3___vec_Vector_int_private__map = 345; // native
+const uint32_t __AS3___vec_Vector_int_private_clamp = 346; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_concat = 347; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_filter = 348; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_pop = 349; // native
+const uint32_t __AS3___vec_Vector_int_AS3_reverse = 350; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_shift = 351; // native
+const uint32_t __AS3___vec_Vector_int_AS3_slice = 352; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_sort = 353; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_splice = 354; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_insertAt = 355; // native
+const uint32_t __AS3___vec_Vector_int_AS3_removeAt = 356; // native
+const uint32_t __AS3___vec_Vector_int_AS3_indexOf = 357; // abc
+const uint32_t __AS3___vec_Vector_int_AS3_lastIndexOf = 358; // abc
+const uint32_t __AS3___vec_Vector_uint_private_castToThisType = 379; // abc
+const uint32_t __AS3___vec_Vector_uint_private__every = 380; // native
+const uint32_t __AS3___vec_Vector_uint_private__forEach = 381; // native
+const uint32_t __AS3___vec_Vector_uint_private__some = 382; // native
+const uint32_t __AS3___vec_Vector_uint_private__sort = 383; // native
+const uint32_t __AS3___vec_Vector_uint_private_newThisType = 385; // native
+const uint32_t __AS3___vec_Vector_uint_length_get = 386; // native
+const uint32_t __AS3___vec_Vector_uint_length_set = 387; // native
+const uint32_t __AS3___vec_Vector_uint_fixed_set = 388; // native
+const uint32_t __AS3___vec_Vector_uint_fixed_get = 389; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_toString = 390; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_toLocaleString = 391; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_join = 392; // abc
+const uint32_t __AS3___vec_Vector_uint_private__concat = 393; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_every = 394; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_forEach = 395; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_map = 396; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_push = 397; // native
+const uint32_t __AS3___vec_Vector_uint_private__reverse = 398; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_some = 399; // abc
+const uint32_t __AS3___vec_Vector_uint_private__slice = 400; // abc
+const uint32_t __AS3___vec_Vector_uint_private__splice = 401; // abc
+const uint32_t __AS3___vec_Vector_uint_private__spliceHelper = 402; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_unshift = 403; // native
+const uint32_t __AS3___vec_Vector_uint_private__filter = 404; // native
+const uint32_t __AS3___vec_Vector_uint_private__map = 405; // native
+const uint32_t __AS3___vec_Vector_uint_private_clamp = 406; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_concat = 407; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_filter = 408; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_pop = 409; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_reverse = 410; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_shift = 411; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_slice = 412; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_sort = 413; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_splice = 414; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_insertAt = 415; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_removeAt = 416; // native
+const uint32_t __AS3___vec_Vector_uint_AS3_indexOf = 417; // abc
+const uint32_t __AS3___vec_Vector_uint_AS3_lastIndexOf = 418; // abc
+const uint32_t __AS3___vec_Vector_double_private_castToThisType = 439; // abc
+const uint32_t __AS3___vec_Vector_double_private__every = 440; // native
+const uint32_t __AS3___vec_Vector_double_private__forEach = 441; // native
+const uint32_t __AS3___vec_Vector_double_private__some = 442; // native
+const uint32_t __AS3___vec_Vector_double_private__sort = 443; // native
+const uint32_t __AS3___vec_Vector_double_private_newThisType = 445; // native
+const uint32_t __AS3___vec_Vector_double_length_get = 446; // native
+const uint32_t __AS3___vec_Vector_double_length_set = 447; // native
+const uint32_t __AS3___vec_Vector_double_fixed_set = 448; // native
+const uint32_t __AS3___vec_Vector_double_fixed_get = 449; // native
+const uint32_t __AS3___vec_Vector_double_AS3_toString = 450; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_toLocaleString = 451; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_join = 452; // abc
+const uint32_t __AS3___vec_Vector_double_private__concat = 453; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_every = 454; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_forEach = 455; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_map = 456; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_push = 457; // native
+const uint32_t __AS3___vec_Vector_double_private__reverse = 458; // native
+const uint32_t __AS3___vec_Vector_double_AS3_some = 459; // abc
+const uint32_t __AS3___vec_Vector_double_private__slice = 460; // abc
+const uint32_t __AS3___vec_Vector_double_private__splice = 461; // abc
+const uint32_t __AS3___vec_Vector_double_private__spliceHelper = 462; // native
+const uint32_t __AS3___vec_Vector_double_AS3_unshift = 463; // native
+const uint32_t __AS3___vec_Vector_double_private__filter = 464; // native
+const uint32_t __AS3___vec_Vector_double_private__map = 465; // native
+const uint32_t __AS3___vec_Vector_double_private_clamp = 466; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_concat = 467; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_filter = 468; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_pop = 469; // native
+const uint32_t __AS3___vec_Vector_double_AS3_reverse = 470; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_shift = 471; // native
+const uint32_t __AS3___vec_Vector_double_AS3_slice = 472; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_sort = 473; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_splice = 474; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_insertAt = 475; // native
+const uint32_t __AS3___vec_Vector_double_AS3_removeAt = 476; // native
+const uint32_t __AS3___vec_Vector_double_AS3_indexOf = 477; // abc
+const uint32_t __AS3___vec_Vector_double_AS3_lastIndexOf = 478; // abc
+const uint32_t private_MethodClosure_prototype_get = 480; // abc
+const uint32_t private_MethodClosure_prototype_set = 481; // abc
+const uint32_t native_script_function_flash_net_getClassByAlias = 484; // native
+const uint32_t native_script_function_flash_net_registerClassAlias = 485; // native
+const uint32_t Math_private__min = 489; // native
+const uint32_t Math_private__max = 490; // native
+const uint32_t Math_abs = 491; // native
+const uint32_t Math_acos = 492; // native
+const uint32_t Math_asin = 493; // native
+const uint32_t Math_atan = 494; // native
+const uint32_t Math_ceil = 495; // native
+const uint32_t Math_cos = 496; // native
+const uint32_t Math_exp = 497; // native
+const uint32_t Math_floor = 498; // native
+const uint32_t Math_log = 499; // native
+const uint32_t Math_round = 500; // native
+const uint32_t Math_sin = 501; // native
+const uint32_t Math_sqrt = 502; // native
+const uint32_t Math_tan = 503; // native
+const uint32_t Math_atan2 = 504; // native
+const uint32_t Math_pow = 505; // native
+const uint32_t Math_max = 506; // native
+const uint32_t Math_min = 507; // native
+const uint32_t Math_random = 508; // native
+const uint32_t Error_getErrorMessage = 513; // native
+const uint32_t Error_throwError = 515; // abc
+const uint32_t Error_getStackTrace = 517; // native
+const uint32_t Error_errorID_get = 518; // abc
+const uint32_t Date_parse = 593; // native
+const uint32_t Date_UTC = 594; // native
+const uint32_t Date_AS3_valueOf = 595; // native
+const uint32_t Date_private__toString = 596; // native
+const uint32_t Date_private__setTime = 597; // native
+const uint32_t Date_private__get = 598; // native
+const uint32_t Date_AS3_setTime = 599; // abc
+const uint32_t Date_AS3_toString = 600; // abc
+const uint32_t Date_AS3_toDateString = 601; // abc
+const uint32_t Date_AS3_toTimeString = 602; // abc
+const uint32_t Date_AS3_toLocaleString = 603; // abc
+const uint32_t Date_AS3_toLocaleDateString = 604; // abc
+const uint32_t Date_AS3_toLocaleTimeString = 605; // abc
+const uint32_t Date_AS3_toUTCString = 606; // abc
+const uint32_t Date_AS3_getUTCFullYear = 607; // native
+const uint32_t Date_AS3_getUTCMonth = 608; // native
+const uint32_t Date_AS3_getUTCDate = 609; // native
+const uint32_t Date_AS3_getUTCDay = 610; // native
+const uint32_t Date_AS3_getUTCHours = 611; // native
+const uint32_t Date_AS3_getUTCMinutes = 612; // native
+const uint32_t Date_AS3_getUTCSeconds = 613; // native
+const uint32_t Date_AS3_getUTCMilliseconds = 614; // native
+const uint32_t Date_AS3_getFullYear = 615; // native
+const uint32_t Date_AS3_getMonth = 616; // native
+const uint32_t Date_AS3_getDate = 617; // native
+const uint32_t Date_AS3_getDay = 618; // native
+const uint32_t Date_AS3_getHours = 619; // native
+const uint32_t Date_AS3_getMinutes = 620; // native
+const uint32_t Date_AS3_getSeconds = 621; // native
+const uint32_t Date_AS3_getMilliseconds = 622; // native
+const uint32_t Date_AS3_getTimezoneOffset = 623; // native
+const uint32_t Date_AS3_getTime = 624; // native
+const uint32_t Date_private__setFullYear = 625; // native
+const uint32_t Date_private__setMonth = 626; // native
+const uint32_t Date_private__setDate = 627; // native
+const uint32_t Date_private__setHours = 628; // native
+const uint32_t Date_private__setMinutes = 629; // native
+const uint32_t Date_private__setSeconds = 630; // native
+const uint32_t Date_private__setMilliseconds = 631; // native
+const uint32_t Date_private__setUTCFullYear = 632; // native
+const uint32_t Date_private__setUTCMonth = 633; // native
+const uint32_t Date_private__setUTCDate = 634; // native
+const uint32_t Date_private__setUTCHours = 635; // native
+const uint32_t Date_private__setUTCMinutes = 636; // native
+const uint32_t Date_private__setUTCSeconds = 637; // native
+const uint32_t Date_private__setUTCMilliseconds = 638; // native
+const uint32_t Date_AS3_setFullYear = 639; // abc
+const uint32_t Date_AS3_setMonth = 640; // abc
+const uint32_t Date_AS3_setDate = 641; // abc
+const uint32_t Date_AS3_setHours = 642; // abc
+const uint32_t Date_AS3_setMinutes = 643; // abc
+const uint32_t Date_AS3_setSeconds = 644; // abc
+const uint32_t Date_AS3_setMilliseconds = 645; // abc
+const uint32_t Date_AS3_setUTCFullYear = 646; // abc
+const uint32_t Date_AS3_setUTCMonth = 647; // abc
+const uint32_t Date_AS3_setUTCDate = 648; // abc
+const uint32_t Date_AS3_setUTCHours = 649; // abc
+const uint32_t Date_AS3_setUTCMinutes = 650; // abc
+const uint32_t Date_AS3_setUTCSeconds = 651; // abc
+const uint32_t Date_AS3_setUTCMilliseconds = 652; // abc
+const uint32_t Date_fullYear_get = 653; // abc
+const uint32_t Date_fullYear_set = 654; // abc
+const uint32_t Date_month_get = 655; // abc
+const uint32_t Date_month_set = 656; // abc
+const uint32_t Date_date_get = 657; // abc
+const uint32_t Date_date_set = 658; // abc
+const uint32_t Date_hours_get = 659; // abc
+const uint32_t Date_hours_set = 660; // abc
+const uint32_t Date_minutes_get = 661; // abc
+const uint32_t Date_minutes_set = 662; // abc
+const uint32_t Date_seconds_get = 663; // abc
+const uint32_t Date_seconds_set = 664; // abc
+const uint32_t Date_milliseconds_get = 665; // abc
+const uint32_t Date_milliseconds_set = 666; // abc
+const uint32_t Date_fullYearUTC_get = 667; // abc
+const uint32_t Date_fullYearUTC_set = 668; // abc
+const uint32_t Date_monthUTC_get = 669; // abc
+const uint32_t Date_monthUTC_set = 670; // abc
+const uint32_t Date_dateUTC_get = 671; // abc
+const uint32_t Date_dateUTC_set = 672; // abc
+const uint32_t Date_hoursUTC_get = 673; // abc
+const uint32_t Date_hoursUTC_set = 674; // abc
+const uint32_t Date_minutesUTC_get = 675; // abc
+const uint32_t Date_minutesUTC_set = 676; // abc
+const uint32_t Date_secondsUTC_get = 677; // abc
+const uint32_t Date_secondsUTC_set = 678; // abc
+const uint32_t Date_millisecondsUTC_get = 679; // abc
+const uint32_t Date_millisecondsUTC_set = 680; // abc
+const uint32_t Date_time_get = 681; // abc
+const uint32_t Date_time_set = 682; // abc
+const uint32_t Date_timezoneOffset_get = 683; // abc
+const uint32_t Date_day_get = 684; // abc
+const uint32_t Date_dayUTC_get = 685; // abc
+const uint32_t RegExp_source_get = 692; // native
+const uint32_t RegExp_global_get = 693; // native
+const uint32_t RegExp_ignoreCase_get = 694; // native
+const uint32_t RegExp_multiline_get = 695; // native
+const uint32_t RegExp_lastIndex_get = 696; // native
+const uint32_t RegExp_lastIndex_set = 697; // native
+const uint32_t RegExp_dotall_get = 698; // native
+const uint32_t RegExp_extended_get = 699; // native
+const uint32_t RegExp_AS3_exec = 700; // native
+const uint32_t RegExp_AS3_test = 701; // abc
+const uint32_t JSON_private_parseCore = 705; // native
+const uint32_t JSON_private_stringifySpecializedToString = 706; // native
+const uint32_t JSON_parse = 707; // abc
+const uint32_t JSON_stringify = 708; // abc
+const uint32_t JSON_private_computePropertyList = 709; // abc
+const uint32_t Walker_walk = 713; // abc
+const uint32_t XML_ignoreComments_get = 758; // native
+const uint32_t XML_ignoreComments_set = 759; // native
+const uint32_t XML_ignoreProcessingInstructions_get = 760; // native
+const uint32_t XML_ignoreProcessingInstructions_set = 761; // native
+const uint32_t XML_ignoreWhitespace_get = 762; // native
+const uint32_t XML_ignoreWhitespace_set = 763; // native
+const uint32_t XML_prettyPrinting_get = 764; // native
+const uint32_t XML_prettyPrinting_set = 765; // native
+const uint32_t XML_prettyIndent_get = 766; // native
+const uint32_t XML_prettyIndent_set = 767; // native
+const uint32_t XML_AS3_settings = 768; // abc
+const uint32_t XML_AS3_setSettings = 769; // abc
+const uint32_t XML_AS3_defaultSettings = 770; // abc
+const uint32_t XML_AS3_toString = 771; // native
+const uint32_t XML_AS3_hasOwnProperty = 772; // native
+const uint32_t XML_AS3_propertyIsEnumerable = 773; // native
+const uint32_t XML_AS3_addNamespace = 774; // native
+const uint32_t XML_AS3_appendChild = 775; // native
+const uint32_t XML_AS3_attribute = 776; // native
+const uint32_t XML_AS3_attributes = 777; // native
+const uint32_t XML_AS3_child = 778; // native
+const uint32_t XML_AS3_childIndex = 779; // native
+const uint32_t XML_AS3_children = 780; // native
+const uint32_t XML_AS3_comments = 781; // native
+const uint32_t XML_AS3_contains = 782; // native
+const uint32_t XML_AS3_copy = 783; // native
+const uint32_t XML_AS3_descendants = 784; // native
+const uint32_t XML_AS3_elements = 785; // native
+const uint32_t XML_AS3_hasComplexContent = 786; // native
+const uint32_t XML_AS3_hasSimpleContent = 787; // native
+const uint32_t XML_AS3_inScopeNamespaces = 788; // native
+const uint32_t XML_AS3_insertChildAfter = 789; // native
+const uint32_t XML_AS3_insertChildBefore = 790; // native
+const uint32_t XML_AS3_length = 791; // abc
+const uint32_t XML_AS3_localName = 792; // native
+const uint32_t XML_AS3_name = 793; // native
+const uint32_t XML_private__namespace = 794; // native
+const uint32_t XML_AS3_namespace = 795; // abc
+const uint32_t XML_AS3_namespaceDeclarations = 796; // native
+const uint32_t XML_AS3_nodeKind = 797; // native
+const uint32_t XML_AS3_normalize = 798; // native
+const uint32_t XML_AS3_parent = 799; // native
+const uint32_t XML_AS3_processingInstructions = 800; // native
+const uint32_t XML_AS3_prependChild = 801; // native
+const uint32_t XML_AS3_removeNamespace = 802; // native
+const uint32_t XML_AS3_replace = 803; // native
+const uint32_t XML_AS3_setChildren = 804; // native
+const uint32_t XML_AS3_setLocalName = 805; // native
+const uint32_t XML_AS3_setName = 806; // native
+const uint32_t XML_AS3_setNamespace = 807; // native
+const uint32_t XML_AS3_text = 808; // native
+const uint32_t XML_AS3_toXMLString = 809; // native
+const uint32_t XML_AS3_notification = 810; // native
+const uint32_t XML_AS3_setNotification = 811; // native
+const uint32_t XML_AS3_toJSON = 812; // abc
+const uint32_t XML_AS3_valueOf = 814; // abc
+const uint32_t XMLList_AS3_toString = 855; // native
+const uint32_t XMLList_AS3_valueOf = 856; // abc
+const uint32_t XMLList_AS3_hasOwnProperty = 857; // native
+const uint32_t XMLList_AS3_propertyIsEnumerable = 858; // native
+const uint32_t XMLList_AS3_attribute = 859; // native
+const uint32_t XMLList_AS3_attributes = 860; // native
+const uint32_t XMLList_AS3_child = 861; // native
+const uint32_t XMLList_AS3_children = 862; // native
+const uint32_t XMLList_AS3_comments = 863; // native
+const uint32_t XMLList_AS3_contains = 864; // native
+const uint32_t XMLList_AS3_copy = 865; // native
+const uint32_t XMLList_AS3_descendants = 866; // native
+const uint32_t XMLList_AS3_elements = 867; // native
+const uint32_t XMLList_AS3_hasComplexContent = 868; // native
+const uint32_t XMLList_AS3_hasSimpleContent = 869; // native
+const uint32_t XMLList_AS3_length = 870; // native
+const uint32_t XMLList_AS3_name = 871; // native
+const uint32_t XMLList_AS3_normalize = 872; // native
+const uint32_t XMLList_AS3_parent = 873; // native
+const uint32_t XMLList_AS3_processingInstructions = 874; // native
+const uint32_t XMLList_AS3_text = 875; // native
+const uint32_t XMLList_AS3_toXMLString = 876; // native
+const uint32_t XMLList_AS3_addNamespace = 877; // native
+const uint32_t XMLList_AS3_appendChild = 878; // native
+const uint32_t XMLList_AS3_childIndex = 879; // native
+const uint32_t XMLList_AS3_inScopeNamespaces = 880; // native
+const uint32_t XMLList_AS3_insertChildAfter = 881; // native
+const uint32_t XMLList_AS3_insertChildBefore = 882; // native
+const uint32_t XMLList_AS3_nodeKind = 883; // native
+const uint32_t XMLList_private__namespace = 884; // native
+const uint32_t XMLList_AS3_namespace = 885; // abc
+const uint32_t XMLList_AS3_localName = 886; // native
+const uint32_t XMLList_AS3_namespaceDeclarations = 887; // native
+const uint32_t XMLList_AS3_prependChild = 888; // native
+const uint32_t XMLList_AS3_removeNamespace = 889; // native
+const uint32_t XMLList_AS3_replace = 890; // native
+const uint32_t XMLList_AS3_setChildren = 891; // native
+const uint32_t XMLList_AS3_setLocalName = 892; // native
+const uint32_t XMLList_AS3_setName = 893; // native
+const uint32_t XMLList_AS3_setNamespace = 894; // native
+const uint32_t XMLList_AS3_toJSON = 895; // abc
+const uint32_t QName_localName_get = 899; // native
+const uint32_t QName_uri_get = 900; // native
+const uint32_t QName_AS3_valueOf = 901; // abc
+const uint32_t QName_AS3_toString = 902; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readBytes = 906; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readBoolean = 907; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readByte = 908; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedByte = 909; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readShort = 910; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedShort = 911; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readInt = 912; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUnsignedInt = 913; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readFloat = 914; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readDouble = 915; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readMultiByte = 916; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUTF = 917; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readUTFBytes = 918; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_bytesAvailable_get = 919; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_readObject = 920; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_objectEncoding_get = 921; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_objectEncoding_set = 922; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_endian_get = 923; // abc
+const uint32_t flash_utils_IDataInput_flash_utils_IDataInput_endian_set = 924; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeBytes = 928; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeBoolean = 929; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeByte = 930; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeShort = 931; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeInt = 932; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUnsignedInt = 933; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeFloat = 934; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeDouble = 935; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeMultiByte = 936; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUTF = 937; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeUTFBytes = 938; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_writeObject = 939; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_objectEncoding_get = 940; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_objectEncoding_set = 941; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_endian_get = 942; // abc
+const uint32_t flash_utils_IDataOutput_flash_utils_IDataOutput_endian_set = 943; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_getProperty = 947; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_setProperty = 948; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_callProperty = 949; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_hasProperty = 950; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_deleteProperty = 951; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_getDescendants = 952; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_nextNameIndex = 953; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_nextName = 954; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_nextValue = 955; // abc
+const uint32_t flash_utils_Proxy_flash_proxy_isAttribute = 956; // native
+const uint32_t flash_utils_Dictionary_private_init = 961; // native
+const uint32_t flash_net_IDynamicPropertyOutput_flash_net_IDynamicPropertyOutput_writeDynamicProperty = 965; // abc
+const uint32_t flash_net_IDynamicPropertyWriter_flash_net_IDynamicPropertyWriter_writeDynamicProperties = 969; // abc
+const uint32_t flash_utils_IExternalizable_flash_utils_IExternalizable_writeExternal = 973; // abc
+const uint32_t flash_utils_IExternalizable_flash_utils_IExternalizable_readExternal = 974; // abc
+const uint32_t flash_net_ObjectEncoding_dynamicPropertyWriter_get = 978; // native
+const uint32_t flash_net_ObjectEncoding_dynamicPropertyWriter_set = 979; // native
+const uint32_t native_script_function_avm2_intrinsics_memory_casi32 = 982; // native
+const uint32_t native_script_function_avm2_intrinsics_memory_mfence = 983; // native
+const uint32_t flash_concurrent_Mutex_isSupported_get = 985; // native
+const uint32_t flash_concurrent_Mutex_lock = 987; // native
+const uint32_t flash_concurrent_Mutex_tryLock = 988; // native
+const uint32_t flash_concurrent_Mutex_unlock = 989; // native
+const uint32_t flash_concurrent_Mutex_private_ctor = 990; // native
+const uint32_t flash_concurrent_Condition_isSupported_get = 992; // native
+const uint32_t flash_concurrent_Condition_mutex_get = 994; // native
+const uint32_t flash_concurrent_Condition_wait = 995; // native
+const uint32_t flash_concurrent_Condition_notify = 996; // native
+const uint32_t flash_concurrent_Condition_notifyAll = 997; // native
+const uint32_t flash_concurrent_Condition_private_ctor = 998; // native
+const uint32_t flash_utils_ObjectInput_readBytes = 1001; // native
+const uint32_t flash_utils_ObjectInput_readBoolean = 1002; // native
+const uint32_t flash_utils_ObjectInput_readByte = 1003; // native
+const uint32_t flash_utils_ObjectInput_readUnsignedByte = 1004; // native
+const uint32_t flash_utils_ObjectInput_readShort = 1005; // native
+const uint32_t flash_utils_ObjectInput_readUnsignedShort = 1006; // native
+const uint32_t flash_utils_ObjectInput_readInt = 1007; // native
+const uint32_t flash_utils_ObjectInput_readUnsignedInt = 1008; // native
+const uint32_t flash_utils_ObjectInput_readFloat = 1009; // native
+const uint32_t flash_utils_ObjectInput_readDouble = 1010; // native
+const uint32_t flash_utils_ObjectInput_readMultiByte = 1011; // native
+const uint32_t flash_utils_ObjectInput_readUTF = 1012; // native
+const uint32_t flash_utils_ObjectInput_readUTFBytes = 1013; // native
+const uint32_t flash_utils_ObjectInput_bytesAvailable_get = 1014; // native
+const uint32_t flash_utils_ObjectInput_readObject = 1015; // native
+const uint32_t flash_utils_ObjectInput_objectEncoding_get = 1016; // native
+const uint32_t flash_utils_ObjectInput_objectEncoding_set = 1017; // native
+const uint32_t flash_utils_ObjectInput_endian_get = 1018; // native
+const uint32_t flash_utils_ObjectInput_endian_set = 1019; // native
+const uint32_t flash_utils_ByteArray_defaultObjectEncoding_get = 1030; // native
+const uint32_t flash_utils_ByteArray_defaultObjectEncoding_set = 1031; // native
+const uint32_t flash_utils_ByteArray_readBytes = 1033; // native
+const uint32_t flash_utils_ByteArray_writeBytes = 1034; // native
+const uint32_t flash_utils_ByteArray_writeBoolean = 1035; // native
+const uint32_t flash_utils_ByteArray_writeByte = 1036; // native
+const uint32_t flash_utils_ByteArray_writeShort = 1037; // native
+const uint32_t flash_utils_ByteArray_writeInt = 1038; // native
+const uint32_t flash_utils_ByteArray_writeUnsignedInt = 1039; // native
+const uint32_t flash_utils_ByteArray_writeFloat = 1040; // native
+const uint32_t flash_utils_ByteArray_writeDouble = 1041; // native
+const uint32_t flash_utils_ByteArray_writeMultiByte = 1042; // native
+const uint32_t flash_utils_ByteArray_writeUTF = 1043; // native
+const uint32_t flash_utils_ByteArray_writeUTFBytes = 1044; // native
+const uint32_t flash_utils_ByteArray_readBoolean = 1045; // native
+const uint32_t flash_utils_ByteArray_readByte = 1046; // native
+const uint32_t flash_utils_ByteArray_readUnsignedByte = 1047; // native
+const uint32_t flash_utils_ByteArray_readShort = 1048; // native
+const uint32_t flash_utils_ByteArray_readUnsignedShort = 1049; // native
+const uint32_t flash_utils_ByteArray_readInt = 1050; // native
+const uint32_t flash_utils_ByteArray_readUnsignedInt = 1051; // native
+const uint32_t flash_utils_ByteArray_readFloat = 1052; // native
+const uint32_t flash_utils_ByteArray_readDouble = 1053; // native
+const uint32_t flash_utils_ByteArray_readMultiByte = 1054; // native
+const uint32_t flash_utils_ByteArray_readUTF = 1055; // native
+const uint32_t flash_utils_ByteArray_readUTFBytes = 1056; // native
+const uint32_t flash_utils_ByteArray_length_get = 1057; // native
+const uint32_t flash_utils_ByteArray_length_set = 1058; // native
+const uint32_t flash_utils_ByteArray_writeObject = 1059; // native
+const uint32_t flash_utils_ByteArray_readObject = 1060; // native
+const uint32_t flash_utils_ByteArray_deflate = 1061; // abc
+const uint32_t flash_utils_ByteArray_private__compress = 1062; // native
+const uint32_t flash_utils_ByteArray_compress = 1063; // abc
+const uint32_t flash_utils_ByteArray_inflate = 1064; // abc
+const uint32_t flash_utils_ByteArray_private__uncompress = 1065; // native
+const uint32_t flash_utils_ByteArray_uncompress = 1066; // abc
+const uint32_t flash_utils_ByteArray_toString = 1067; // abc
+const uint32_t flash_utils_ByteArray_private__toString = 1068; // native
+const uint32_t flash_utils_ByteArray_bytesAvailable_get = 1069; // native
+const uint32_t flash_utils_ByteArray_position_get = 1070; // native
+const uint32_t flash_utils_ByteArray_position_set = 1071; // native
+const uint32_t flash_utils_ByteArray_objectEncoding_get = 1072; // native
+const uint32_t flash_utils_ByteArray_objectEncoding_set = 1073; // native
+const uint32_t flash_utils_ByteArray_endian_get = 1074; // native
+const uint32_t flash_utils_ByteArray_endian_set = 1075; // native
+const uint32_t flash_utils_ByteArray_clear = 1076; // native
+const uint32_t flash_utils_ByteArray_atomicCompareAndSwapIntAt = 1077; // native
+const uint32_t flash_utils_ByteArray_atomicCompareAndSwapLength = 1078; // native
+const uint32_t flash_utils_ByteArray_shareable_get = 1079; // native
+const uint32_t flash_utils_ByteArray_shareable_set = 1080; // native
+const uint32_t flash_utils_ObjectOutput_writeBytes = 1083; // native
+const uint32_t flash_utils_ObjectOutput_writeBoolean = 1084; // native
+const uint32_t flash_utils_ObjectOutput_writeByte = 1085; // native
+const uint32_t flash_utils_ObjectOutput_writeShort = 1086; // native
+const uint32_t flash_utils_ObjectOutput_writeInt = 1087; // native
+const uint32_t flash_utils_ObjectOutput_writeUnsignedInt = 1088; // native
+const uint32_t flash_utils_ObjectOutput_writeFloat = 1089; // native
+const uint32_t flash_utils_ObjectOutput_writeDouble = 1090; // native
+const uint32_t flash_utils_ObjectOutput_writeMultiByte = 1091; // native
+const uint32_t flash_utils_ObjectOutput_writeUTF = 1092; // native
+const uint32_t flash_utils_ObjectOutput_writeUTFBytes = 1093; // native
+const uint32_t flash_utils_ObjectOutput_writeObject = 1094; // native
+const uint32_t flash_utils_ObjectOutput_objectEncoding_get = 1095; // native
+const uint32_t flash_utils_ObjectOutput_objectEncoding_set = 1096; // native
+const uint32_t flash_utils_ObjectOutput_endian_get = 1097; // native
+const uint32_t flash_utils_ObjectOutput_endian_set = 1098; // native
+const uint32_t flash_net_DynamicPropertyOutput_writeDynamicProperty = 1102; // native
 
 extern avmplus::Atom native_script_function_flash_net_registerClassAlias_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom native_script_function_flash_net_registerClassAlias_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1531,6 +1548,10 @@ extern avmplus::Atom Array_private__map_thunk(MethodEnv* env, uint32_t argc, Ato
 extern avmplus::Atom Array_private__map_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom Array_private__some_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom Array_private__some_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom Array_AS3_insertAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom Array_AS3_insertAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom Array_AS3_removeAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom Array_AS3_removeAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom Array_length_get_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom Array_length_get_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom Array_length_set_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1599,6 +1620,10 @@ extern avmplus::Atom __AS3___vec_Vector_object_AS3_pop_thunk(MethodEnv* env, uin
 extern avmplus::Atom __AS3___vec_Vector_object_AS3_pop_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_object_AS3_shift_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_object_AS3_shift_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_object_AS3_insertAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_object_AS3_insertAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_object_AS3_removeAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_object_AS3_removeAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_int_private__every_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_int_private__every_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_int_private__forEach_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1633,6 +1658,10 @@ extern avmplus::Atom __AS3___vec_Vector_int_AS3_pop_thunk(MethodEnv* env, uint32
 extern avmplus::Atom __AS3___vec_Vector_int_AS3_pop_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_int_AS3_shift_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_int_AS3_shift_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_int_AS3_insertAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_int_AS3_insertAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_int_AS3_removeAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_int_AS3_removeAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_uint_private__every_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_uint_private__every_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_uint_private__forEach_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1667,6 +1696,10 @@ extern avmplus::Atom __AS3___vec_Vector_uint_AS3_pop_thunk(MethodEnv* env, uint3
 extern avmplus::Atom __AS3___vec_Vector_uint_AS3_pop_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_uint_AS3_shift_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_uint_AS3_shift_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_uint_AS3_insertAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_uint_AS3_insertAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_uint_AS3_removeAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_uint_AS3_removeAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_double_private__every_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_double_private__every_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom __AS3___vec_Vector_double_private__forEach_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1701,6 +1734,10 @@ extern double __AS3___vec_Vector_double_AS3_pop_thunk(MethodEnv* env, uint32_t a
 extern double __AS3___vec_Vector_double_AS3_pop_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern double __AS3___vec_Vector_double_AS3_shift_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern double __AS3___vec_Vector_double_AS3_shift_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_double_AS3_insertAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern avmplus::Atom __AS3___vec_Vector_double_AS3_insertAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern double __AS3___vec_Vector_double_AS3_removeAt_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
+extern double __AS3___vec_Vector_double_AS3_removeAt_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom native_script_function_avmplus_describeTypeJSON_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom native_script_function_avmplus_describeTypeJSON_sampler_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
 extern avmplus::Atom native_script_function_avmplus_getQualifiedClassName_thunk(MethodEnv* env, uint32_t argc, Atom* argv);
@@ -1714,6 +1751,7 @@ class SlotOffsetsAndAsserts;
 class avmplus_ObjectClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectClass;
 private:
     int32_t m_length;
@@ -1764,6 +1802,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_ObjectClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_ObjectClass.m_length = newVal; } \
@@ -1778,6 +1817,7 @@ private:
 class avmplus_ClassClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ClassClass;
 private:
     int32_t m_length;
@@ -1828,6 +1868,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_ClassClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_ClassClass.m_length = newVal; } \
@@ -1842,6 +1883,7 @@ private:
 class avmplus_ClassClosureSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ClassClosure;
 #define GC_TRIVIAL_TRACER_ClassClosure
 };
@@ -1852,6 +1894,7 @@ class avmplus_ClassClosureSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1861,6 +1904,7 @@ class avmplus_ClassClosureSlots
 class avmplus_FunctionClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::FunctionClass;
 private:
     int32_t m_length;
@@ -1912,12 +1956,16 @@ private:
     public: \
         inline GCRef<avmplus::FunctionObject> call_createEmptyFunction() \
         { \
+            _PRAGMAFUNCTION("clang diagnostic push") \
+            _PRAGMAFUNCTION("clang diagnostic ignored \"-Warray-bounds\"") \
             avmplus::MethodEnv* const method = vtable->methods[5]; \
+            _PRAGMAFUNCTION("clang diagnostic pop") \
             avmplus::Atom const result = method->coerceEnter(thisRef.reinterpretCast<avmplus::ScriptObject>()->atom()); \
             return GCRef<avmplus::FunctionObject>((avmplus::FunctionObject*)(avmplus::AvmCore::atomToScriptObject(result))); \
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_FunctionClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_FunctionClass.m_length = newVal; } \
@@ -1932,6 +1980,7 @@ private:
 class avmplus_FunctionObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::FunctionObject;
 #define GC_TRIVIAL_TRACER_FunctionObject
 };
@@ -1942,6 +1991,7 @@ class avmplus_FunctionObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -1951,6 +2001,7 @@ class avmplus_FunctionObjectSlots
 class avmplus_NamespaceClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NamespaceClass;
 private:
     avmplus::AtomWB m_length;
@@ -2017,6 +2068,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::Atom get_length() const { return m_slots_NamespaceClass.m_length; } \
         REALLY_INLINE void setconst_length(avmplus::Atom newVal) { m_slots_NamespaceClass.m_length = newVal; } \
@@ -2031,6 +2083,7 @@ public:
 class avmplus_BooleanClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::BooleanClass;
 private:
     int32_t m_length;
@@ -2074,6 +2127,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_BooleanClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_BooleanClass.m_length = newVal; } \
@@ -2088,6 +2142,7 @@ private:
 class avmplus_NumberClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::NumberClass;
 private:
     int32_t m_length;
@@ -2147,6 +2202,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_NumberClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_NumberClass.m_length = newVal; } \
@@ -2209,6 +2265,7 @@ private:
 class avmplus_IntClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IntClass;
 private:
     int32_t m_MIN_VALUE;
@@ -2254,6 +2311,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_MIN_VALUE() const { return m_slots_IntClass.m_MIN_VALUE; } \
         REALLY_INLINE void setconst_MIN_VALUE(int32_t newVal) { m_slots_IntClass.m_MIN_VALUE = newVal; } \
@@ -2274,6 +2332,7 @@ private:
 class avmplus_UIntClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::UIntClass;
 private:
     uint32_t m_MIN_VALUE;
@@ -2319,6 +2378,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE uint32_t get_MIN_VALUE() const { return m_slots_UIntClass.m_MIN_VALUE; } \
         REALLY_INLINE void setconst_MIN_VALUE(uint32_t newVal) { m_slots_UIntClass.m_MIN_VALUE = newVal; } \
@@ -2339,6 +2399,7 @@ private:
 class avmplus_StringClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::StringClass;
 private:
     int32_t m_length;
@@ -2395,6 +2456,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_StringClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_StringClass.m_length = newVal; } \
@@ -2409,6 +2471,7 @@ private:
 class avmplus_ArrayClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ArrayClass;
 private:
     uint32_t m_CASEINSENSITIVE;
@@ -2459,6 +2522,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE uint32_t get_CASEINSENSITIVE() const { return m_slots_ArrayClass.m_CASEINSENSITIVE; } \
         REALLY_INLINE void setconst_CASEINSENSITIVE(uint32_t newVal) { m_slots_ArrayClass.m_CASEINSENSITIVE = newVal; } \
@@ -2488,6 +2552,7 @@ private:
 class avmplus_ArrayObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ArrayObject;
 #define GC_TRIVIAL_TRACER_ArrayObject
 };
@@ -2498,6 +2563,7 @@ class avmplus_ArrayObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2507,6 +2573,7 @@ class avmplus_ArrayObjectSlots
 class avmplus_VectorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::VectorClass;
 #define GC_TRIVIAL_TRACER_VectorClass
 };
@@ -2555,6 +2622,7 @@ class avmplus_VectorClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2564,6 +2632,7 @@ class avmplus_VectorClassSlots
 class avmplus_ObjectVectorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectVectorObject;
 #define GC_TRIVIAL_TRACER_ObjectVectorObject
 };
@@ -2574,6 +2643,7 @@ class avmplus_ObjectVectorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2583,6 +2653,7 @@ class avmplus_ObjectVectorObjectSlots
 class avmplus_ObjectVectorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectVectorClass;
 #define GC_TRIVIAL_TRACER_ObjectVectorClass
 };
@@ -2645,6 +2716,7 @@ class avmplus_ObjectVectorClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2654,6 +2726,7 @@ class avmplus_ObjectVectorClassSlots
 class avmplus_IntVectorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IntVectorClass;
 #define GC_TRIVIAL_TRACER_IntVectorClass
 };
@@ -2716,6 +2789,7 @@ class avmplus_IntVectorClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2725,6 +2799,7 @@ class avmplus_IntVectorClassSlots
 class avmplus_IntVectorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IntVectorObject;
 #define GC_TRIVIAL_TRACER_IntVectorObject
 };
@@ -2735,6 +2810,7 @@ class avmplus_IntVectorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2744,6 +2820,7 @@ class avmplus_IntVectorObjectSlots
 class avmplus_UIntVectorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::UIntVectorClass;
 #define GC_TRIVIAL_TRACER_UIntVectorClass
 };
@@ -2806,6 +2883,7 @@ class avmplus_UIntVectorClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2815,6 +2893,7 @@ class avmplus_UIntVectorClassSlots
 class avmplus_UIntVectorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::UIntVectorObject;
 #define GC_TRIVIAL_TRACER_UIntVectorObject
 };
@@ -2825,6 +2904,7 @@ class avmplus_UIntVectorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2834,6 +2914,7 @@ class avmplus_UIntVectorObjectSlots
 class avmplus_DoubleVectorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DoubleVectorClass;
 #define GC_TRIVIAL_TRACER_DoubleVectorClass
 };
@@ -2896,6 +2977,7 @@ class avmplus_DoubleVectorClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2905,6 +2987,7 @@ class avmplus_DoubleVectorClassSlots
 class avmplus_DoubleVectorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DoubleVectorObject;
 #define GC_TRIVIAL_TRACER_DoubleVectorObject
 };
@@ -2915,6 +2998,7 @@ class avmplus_DoubleVectorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2924,6 +3008,7 @@ class avmplus_DoubleVectorObjectSlots
 class avmplus_MethodClosureClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MethodClosureClass;
 #define GC_TRIVIAL_TRACER_MethodClosureClass
 };
@@ -2972,6 +3057,7 @@ class avmplus_MethodClosureClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -2981,6 +3067,7 @@ class avmplus_MethodClosureClassSlots
 class avmplus_MethodClosureSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MethodClosure;
 #define GC_TRIVIAL_TRACER_MethodClosure
 };
@@ -2991,6 +3078,7 @@ class avmplus_MethodClosureSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3000,6 +3088,7 @@ class avmplus_MethodClosureSlots
 class avmplus_MathClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MathClass;
 private:
     double m_E;
@@ -3051,6 +3140,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE double get_E() const { return m_slots_MathClass.m_E; } \
         REALLY_INLINE void setconst_E(double newVal) { m_slots_MathClass.m_E = newVal; } \
@@ -3089,6 +3179,7 @@ private:
 class avmplus_ErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ErrorClass;
 private:
     int32_t m_length;
@@ -3153,6 +3244,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_ErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_ErrorClass.m_length = newVal; } \
@@ -3167,6 +3259,7 @@ private:
 class avmplus_ErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ErrorObject;
 private:
     int32_t m_private__errorID;
@@ -3186,6 +3279,7 @@ public:
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE int32_t get__errorID() const { return m_slots_ErrorObject.m_private__errorID; } \
         REALLY_INLINE void set__errorID(int32_t newVal) { m_slots_ErrorObject.m_private__errorID = newVal; } \
@@ -3206,6 +3300,7 @@ public:
 class avmplus_DefinitionErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DefinitionErrorClass;
 private:
     int32_t m_length;
@@ -3270,6 +3365,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_DefinitionErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_DefinitionErrorClass.m_length = newVal; } \
@@ -3284,6 +3380,7 @@ private:
 class avmplus_DefinitionErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DefinitionErrorObject;
 #define GC_TRIVIAL_TRACER_DefinitionErrorObject
 };
@@ -3294,6 +3391,7 @@ class avmplus_DefinitionErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3303,6 +3401,7 @@ class avmplus_DefinitionErrorObjectSlots
 class avmplus_EvalErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EvalErrorClass;
 private:
     int32_t m_length;
@@ -3367,6 +3466,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_EvalErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_EvalErrorClass.m_length = newVal; } \
@@ -3381,6 +3481,7 @@ private:
 class avmplus_EvalErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EvalErrorObject;
 #define GC_TRIVIAL_TRACER_EvalErrorObject
 };
@@ -3391,6 +3492,7 @@ class avmplus_EvalErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3400,6 +3502,7 @@ class avmplus_EvalErrorObjectSlots
 class avmplus_RangeErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::RangeErrorClass;
 private:
     int32_t m_length;
@@ -3464,6 +3567,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_RangeErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_RangeErrorClass.m_length = newVal; } \
@@ -3478,6 +3582,7 @@ private:
 class avmplus_RangeErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::RangeErrorObject;
 #define GC_TRIVIAL_TRACER_RangeErrorObject
 };
@@ -3488,6 +3593,7 @@ class avmplus_RangeErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3497,6 +3603,7 @@ class avmplus_RangeErrorObjectSlots
 class avmplus_ReferenceErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ReferenceErrorClass;
 private:
     int32_t m_length;
@@ -3561,6 +3668,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_ReferenceErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_ReferenceErrorClass.m_length = newVal; } \
@@ -3575,6 +3683,7 @@ private:
 class avmplus_ReferenceErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ReferenceErrorObject;
 #define GC_TRIVIAL_TRACER_ReferenceErrorObject
 };
@@ -3585,6 +3694,7 @@ class avmplus_ReferenceErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3594,6 +3704,7 @@ class avmplus_ReferenceErrorObjectSlots
 class avmplus_SecurityErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SecurityErrorClass;
 private:
     int32_t m_length;
@@ -3658,6 +3769,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_SecurityErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_SecurityErrorClass.m_length = newVal; } \
@@ -3672,6 +3784,7 @@ private:
 class avmplus_SecurityErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SecurityErrorObject;
 #define GC_TRIVIAL_TRACER_SecurityErrorObject
 };
@@ -3682,6 +3795,7 @@ class avmplus_SecurityErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3691,6 +3805,7 @@ class avmplus_SecurityErrorObjectSlots
 class avmplus_SyntaxErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SyntaxErrorClass;
 private:
     int32_t m_length;
@@ -3755,6 +3870,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_SyntaxErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_SyntaxErrorClass.m_length = newVal; } \
@@ -3769,6 +3885,7 @@ private:
 class avmplus_SyntaxErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::SyntaxErrorObject;
 #define GC_TRIVIAL_TRACER_SyntaxErrorObject
 };
@@ -3779,6 +3896,7 @@ class avmplus_SyntaxErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3788,6 +3906,7 @@ class avmplus_SyntaxErrorObjectSlots
 class avmplus_TypeErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::TypeErrorClass;
 private:
     int32_t m_length;
@@ -3852,6 +3971,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_TypeErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_TypeErrorClass.m_length = newVal; } \
@@ -3866,6 +3986,7 @@ private:
 class avmplus_TypeErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::TypeErrorObject;
 #define GC_TRIVIAL_TRACER_TypeErrorObject
 };
@@ -3876,6 +3997,7 @@ class avmplus_TypeErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3885,6 +4007,7 @@ class avmplus_TypeErrorObjectSlots
 class avmplus_URIErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::URIErrorClass;
 private:
     int32_t m_length;
@@ -3949,6 +4072,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_URIErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_URIErrorClass.m_length = newVal; } \
@@ -3963,6 +4087,7 @@ private:
 class avmplus_URIErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::URIErrorObject;
 #define GC_TRIVIAL_TRACER_URIErrorObject
 };
@@ -3973,6 +4098,7 @@ class avmplus_URIErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -3982,6 +4108,7 @@ class avmplus_URIErrorObjectSlots
 class avmplus_VerifyErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::VerifyErrorClass;
 private:
     int32_t m_length;
@@ -4046,6 +4173,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_VerifyErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_VerifyErrorClass.m_length = newVal; } \
@@ -4060,6 +4188,7 @@ private:
 class avmplus_VerifyErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::VerifyErrorObject;
 #define GC_TRIVIAL_TRACER_VerifyErrorObject
 };
@@ -4070,6 +4199,7 @@ class avmplus_VerifyErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4079,6 +4209,7 @@ class avmplus_VerifyErrorObjectSlots
 class avmplus_UninitializedErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::UninitializedErrorClass;
 private:
     int32_t m_length;
@@ -4143,6 +4274,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_UninitializedErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_UninitializedErrorClass.m_length = newVal; } \
@@ -4157,6 +4289,7 @@ private:
 class avmplus_UninitializedErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::UninitializedErrorObject;
 #define GC_TRIVIAL_TRACER_UninitializedErrorObject
 };
@@ -4167,6 +4300,7 @@ class avmplus_UninitializedErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4176,6 +4310,7 @@ class avmplus_UninitializedErrorObjectSlots
 class avmplus_ArgumentErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ArgumentErrorClass;
 private:
     int32_t m_length;
@@ -4240,6 +4375,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_ArgumentErrorClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_ArgumentErrorClass.m_length = newVal; } \
@@ -4254,6 +4390,7 @@ private:
 class avmplus_ArgumentErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ArgumentErrorObject;
 #define GC_TRIVIAL_TRACER_ArgumentErrorObject
 };
@@ -4264,6 +4401,7 @@ class avmplus_ArgumentErrorObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4273,6 +4411,7 @@ class avmplus_ArgumentErrorObjectSlots
 class avmplus_IOErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IOErrorClass;
 #define GC_TRIVIAL_TRACER_IOErrorClass
 };
@@ -4284,6 +4423,7 @@ class avmplus_IOErrorClassSlots
 class avmplus_IOErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IOErrorObject;
 #define GC_TRIVIAL_TRACER_IOErrorObject
 };
@@ -4295,6 +4435,7 @@ class avmplus_IOErrorObjectSlots
 class avmplus_MemoryErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MemoryErrorClass;
 #define GC_TRIVIAL_TRACER_MemoryErrorClass
 };
@@ -4306,6 +4447,7 @@ class avmplus_MemoryErrorClassSlots
 class avmplus_MemoryErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MemoryErrorObject;
 #define GC_TRIVIAL_TRACER_MemoryErrorObject
 };
@@ -4317,6 +4459,7 @@ class avmplus_MemoryErrorObjectSlots
 class avmplus_IllegalOperationErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IllegalOperationErrorClass;
 #define GC_TRIVIAL_TRACER_IllegalOperationErrorClass
 };
@@ -4328,6 +4471,7 @@ class avmplus_IllegalOperationErrorClassSlots
 class avmplus_IllegalOperationErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::IllegalOperationErrorObject;
 #define GC_TRIVIAL_TRACER_IllegalOperationErrorObject
 };
@@ -4339,6 +4483,7 @@ class avmplus_IllegalOperationErrorObjectSlots
 class avmplus_EOFErrorClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EOFErrorClass;
 #define GC_TRIVIAL_TRACER_EOFErrorClass
 };
@@ -4350,6 +4495,7 @@ class avmplus_EOFErrorClassSlots
 class avmplus_EOFErrorObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::EOFErrorObject;
 #define GC_TRIVIAL_TRACER_EOFErrorObject
 };
@@ -4361,6 +4507,7 @@ class avmplus_EOFErrorObjectSlots
 class avmplus_DateClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DateClass;
 private:
     int32_t m_length;
@@ -4453,6 +4600,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_DateClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_DateClass.m_length = newVal; } \
@@ -4467,6 +4615,7 @@ private:
 class avmplus_DateObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DateObject;
 #define GC_TRIVIAL_TRACER_DateObject
 };
@@ -4477,6 +4626,7 @@ class avmplus_DateObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4486,6 +4636,7 @@ class avmplus_DateObjectSlots
 class avmplus_RegExpClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::RegExpClass;
 private:
     int32_t m_length;
@@ -4548,6 +4699,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE int32_t get_length() const { return m_slots_RegExpClass.m_length; } \
         REALLY_INLINE void setconst_length(int32_t newVal) { m_slots_RegExpClass.m_length = newVal; } \
@@ -4562,6 +4714,7 @@ private:
 class avmplus_RegExpObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::RegExpObject;
 #define GC_TRIVIAL_TRACER_RegExpObject
 };
@@ -4572,6 +4725,7 @@ class avmplus_RegExpObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4581,6 +4735,7 @@ class avmplus_RegExpObjectSlots
 class avmplus_JSONClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::JSONClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::Namespace> m_private_as3ns;
@@ -4628,6 +4783,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE avmplus::Namespace* get_as3ns() const { return m_slots_JSONClass.m_private_as3ns; } \
         REALLY_INLINE void setconst_as3ns(avmplus::Namespace* newVal) { m_slots_JSONClass.m_private_as3ns = newVal; } \
@@ -4642,6 +4798,7 @@ public:
 class avmplus_JSONObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::JSONObject;
 #define GC_TRIVIAL_TRACER_JSONObject
 };
@@ -4653,6 +4810,7 @@ class avmplus_JSONObjectSlots
 class avmplus_WalkerClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WalkerClass;
 #define GC_TRIVIAL_TRACER_WalkerClass
 };
@@ -4664,6 +4822,7 @@ class avmplus_WalkerClassSlots
 class avmplus_WalkerObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::WalkerObject;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::FunctionObject> m_reviver;
@@ -4681,6 +4840,7 @@ public:
 class avmplus_XMLClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::XMLClass;
 private:
     avmplus::AtomWB m_length;
@@ -4741,6 +4901,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::Atom get_length() const { return m_slots_XMLClass.m_length; } \
         REALLY_INLINE void setconst_length(avmplus::Atom newVal) { m_slots_XMLClass.m_length = newVal; } \
@@ -4755,6 +4916,7 @@ public:
 class avmplus_XMLObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::XMLObject;
 #define GC_TRIVIAL_TRACER_XMLObject
 };
@@ -4765,6 +4927,7 @@ class avmplus_XMLObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4774,6 +4937,7 @@ class avmplus_XMLObjectSlots
 class avmplus_XMLListClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::XMLListClass;
 private:
     avmplus::AtomWB m_length;
@@ -4834,6 +4998,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::Atom get_length() const { return m_slots_XMLListClass.m_length; } \
         REALLY_INLINE void setconst_length(avmplus::Atom newVal) { m_slots_XMLListClass.m_length = newVal; } \
@@ -4848,6 +5013,7 @@ public:
 class avmplus_XMLListObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::XMLListObject;
 #define GC_TRIVIAL_TRACER_XMLListObject
 };
@@ -4858,6 +5024,7 @@ class avmplus_XMLListObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4867,6 +5034,7 @@ class avmplus_XMLListObjectSlots
 class avmplus_QNameClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::QNameClass;
 private:
     avmplus::AtomWB m_length;
@@ -4933,6 +5101,7 @@ public:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE avmplus::Atom get_length() const { return m_slots_QNameClass.m_length; } \
         REALLY_INLINE void setconst_length(avmplus::Atom newVal) { m_slots_QNameClass.m_length = newVal; } \
@@ -4947,6 +5116,7 @@ public:
 class avmplus_QNameObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::QNameObject;
 #define GC_TRIVIAL_TRACER_QNameObject
 };
@@ -4957,6 +5127,7 @@ class avmplus_QNameObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -4966,6 +5137,7 @@ class avmplus_QNameObjectSlots
 class avmplus_ProxyClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ProxyClass;
 #define GC_TRIVIAL_TRACER_ProxyClass
 };
@@ -5016,6 +5188,7 @@ class avmplus_ProxyClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5025,6 +5198,7 @@ class avmplus_ProxyClassSlots
 class avmplus_ProxyObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ProxyObject;
 #define GC_TRIVIAL_TRACER_ProxyObject
 };
@@ -5035,6 +5209,7 @@ class avmplus_ProxyObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5044,6 +5219,7 @@ class avmplus_ProxyObjectSlots
 class avmplus_DictionaryClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DictionaryClass;
 #define GC_TRIVIAL_TRACER_DictionaryClass
 };
@@ -5100,6 +5276,7 @@ class avmplus_DictionaryClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5109,6 +5286,7 @@ class avmplus_DictionaryClassSlots
 class avmplus_DictionaryObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DictionaryObject;
 #define GC_TRIVIAL_TRACER_DictionaryObject
 };
@@ -5119,6 +5297,7 @@ class avmplus_DictionaryObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5128,6 +5307,7 @@ class avmplus_DictionaryObjectSlots
 class avmplus_ObjectEncodingClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectEncodingClass;
 private:
     uint32_t m_AMF0;
@@ -5173,6 +5353,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     public: \
         REALLY_INLINE uint32_t get_AMF0() const { return m_slots_ObjectEncodingClass.m_AMF0; } \
         REALLY_INLINE void setconst_AMF0(uint32_t newVal) { m_slots_ObjectEncodingClass.m_AMF0 = newVal; } \
@@ -5193,6 +5374,7 @@ private:
 class avmplus_ObjectEncodingObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectEncodingObject;
 #define GC_TRIVIAL_TRACER_ObjectEncodingObject
 };
@@ -5204,6 +5386,7 @@ class avmplus_ObjectEncodingObjectSlots
 class avmplus_MutexClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MutexClass;
 #define GC_TRIVIAL_TRACER_MutexClass
 };
@@ -5254,6 +5437,7 @@ class avmplus_MutexClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5263,6 +5447,7 @@ class avmplus_MutexClassSlots
 class avmplus_MutexObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::MutexObject;
 #define GC_TRIVIAL_TRACER_MutexObject
 };
@@ -5273,6 +5458,7 @@ class avmplus_MutexObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5282,6 +5468,7 @@ class avmplus_MutexObjectSlots
 class avmplus_ConditionClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ConditionClass;
 #define GC_TRIVIAL_TRACER_ConditionClass
 };
@@ -5332,6 +5519,7 @@ class avmplus_ConditionClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5341,6 +5529,7 @@ class avmplus_ConditionClassSlots
 class avmplus_ConditionObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ConditionObject;
 #define GC_TRIVIAL_TRACER_ConditionObject
 };
@@ -5351,6 +5540,7 @@ class avmplus_ConditionObjectSlots
         AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } ) \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5360,6 +5550,7 @@ class avmplus_ConditionObjectSlots
 class avmplus_ObjectInputClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectInputClass;
 #define GC_TRIVIAL_TRACER_ObjectInputClass
 };
@@ -5376,7 +5567,7 @@ class avmplus_ObjectInputClassSlots
         inline GCRef<avmplus::ObjectInputObject> constructObject() \
         { \
             avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() }; \
-            avmplus::Atom const result = this->construct(0, args); \
+            avmplus::Atom const result = this->construct_native(avmplus::ObjectInputClass::createInstanceProc, 0, args); \
             return GCRef<avmplus::ObjectInputObject>((avmplus::ObjectInputObject*)(avmplus::AvmCore::atomToScriptObject(result))); \
         } \
     public: \
@@ -5410,6 +5601,7 @@ class avmplus_ObjectInputClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5419,6 +5611,7 @@ class avmplus_ObjectInputClassSlots
 class avmplus_ObjectInputObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectInputObject;
 #define GC_TRIVIAL_TRACER_ObjectInputObject
 };
@@ -5434,6 +5627,7 @@ class avmplus_ObjectInputObjectSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5443,6 +5637,7 @@ class avmplus_ObjectInputObjectSlots
 class avmplus_CompressionAlgorithmClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CompressionAlgorithmClass;
 private:
     MMgc::GCTraceableObject::GCMember<avmplus::String> m_ZLIB;
@@ -5464,6 +5659,7 @@ public:
 class avmplus_CompressionAlgorithmObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::CompressionAlgorithmObject;
 #define GC_TRIVIAL_TRACER_CompressionAlgorithmObject
 };
@@ -5475,6 +5671,7 @@ class avmplus_CompressionAlgorithmObjectSlots
 class avmplus_ByteArrayClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ByteArrayClass;
 private:
     uint32_t m_private__defaultObjectEncoding;
@@ -5527,6 +5724,7 @@ private:
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
     protected: \
         REALLY_INLINE uint32_t get__defaultObjectEncoding() const { return m_slots_ByteArrayClass.m_private__defaultObjectEncoding; } \
         REALLY_INLINE void set__defaultObjectEncoding(uint32_t newVal) { m_slots_ByteArrayClass.m_private__defaultObjectEncoding = newVal; } \
@@ -5541,6 +5739,7 @@ private:
 class avmplus_ByteArrayObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ByteArrayObject;
 #define GC_TRIVIAL_TRACER_ByteArrayObject
 };
@@ -5560,6 +5759,7 @@ class avmplus_ByteArrayObjectSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5569,6 +5769,7 @@ class avmplus_ByteArrayObjectSlots
 class avmplus_ObjectOutputClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectOutputClass;
 #define GC_TRIVIAL_TRACER_ObjectOutputClass
 };
@@ -5585,7 +5786,7 @@ class avmplus_ObjectOutputClassSlots
         inline GCRef<avmplus::ObjectOutputObject> constructObject() \
         { \
             avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() }; \
-            avmplus::Atom const result = this->construct(0, args); \
+            avmplus::Atom const result = this->construct_native(avmplus::ObjectOutputClass::createInstanceProc, 0, args); \
             return GCRef<avmplus::ObjectOutputObject>((avmplus::ObjectOutputObject*)(avmplus::AvmCore::atomToScriptObject(result))); \
         } \
     public: \
@@ -5619,6 +5820,7 @@ class avmplus_ObjectOutputClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5628,6 +5830,7 @@ class avmplus_ObjectOutputClassSlots
 class avmplus_ObjectOutputObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::ObjectOutputObject;
 #define GC_TRIVIAL_TRACER_ObjectOutputObject
 };
@@ -5643,6 +5846,7 @@ class avmplus_ObjectOutputObjectSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5652,6 +5856,7 @@ class avmplus_ObjectOutputObjectSlots
 class avmplus_DynamicPropertyOutputClassSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DynamicPropertyOutputClass;
 #define GC_TRIVIAL_TRACER_DynamicPropertyOutputClass
 };
@@ -5702,6 +5907,7 @@ class avmplus_DynamicPropertyOutputClassSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 
@@ -5711,6 +5917,7 @@ class avmplus_DynamicPropertyOutputClassSlots
 class avmplus_DynamicPropertyOutputObjectSlots
 {
     friend class SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmplus::DynamicPropertyOutputObject;
 #define GC_TRIVIAL_TRACER_DynamicPropertyOutputObject
 };
@@ -5726,6 +5933,7 @@ class avmplus_DynamicPropertyOutputObjectSlots
         } \
     private: \
         friend class avmplus::NativeID::SlotOffsetsAndAsserts; \
+        friend class halfmoon::JitFriend; \
 
 //-----------------------------------------------------------
 

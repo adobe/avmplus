@@ -29,6 +29,8 @@ outfile          = sys.argv[1]
 relative_to_dir  = os.getcwd()
 
 _lineExp = re.compile("#(?:line)? ?\d+ \"([^\"<>]+[^/])\"");
+_winabs = re.compile(r'[A-Za-z]:[\\/].*')
+_unixabs = re.compile("/.*");
 
 deps = set()
 
@@ -36,7 +38,7 @@ for line in sys.stdin:
     m = _lineExp.match(line)
     if m:
         path = m.group(1)
-        if not os.path.isabs(path):
+        if not _unixabs.match(path) and not _winabs.match(path):
             path = os.path.abspath(os.path.join(relative_to_dir, path))
         deps.add(path)
 

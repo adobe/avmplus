@@ -48,6 +48,8 @@ case HR_cknull:
   return a->do_cknull(cast<UnaryStmt>(instr));
 case HR_cknullobject: 
   return a->do_cknullobject(cast<UnaryStmt>(instr));
+case HR_makenullrefexception: 
+  return a->do_makenullrefexception(cast<UnaryStmt>(instr));
 case HR_cktimeout: 
   return a->do_cktimeout(cast<UnaryStmt>(instr));
 case HR_abc_hasnext: 
@@ -270,6 +272,8 @@ case HR_safepoint:
   return a->do_safepoint(cast<SafepointInstr>(instr));
 case HR_setlocal: 
   return a->do_setlocal(cast<SetlocalInstr>(instr));
+case HR_getlocal: 
+  return a->do_getlocal(cast<GetlocalStmt>(instr));
 case HR_newstate: 
   return a->do_newstate(cast<ConstantExpr>(instr));
 case HR_deopt_safepoint: 
@@ -282,6 +286,8 @@ case HR_debugline:
   return a->do_debugline(cast<DebugInstr>(instr));
 case HR_debugfile: 
   return a->do_debugfile(cast<DebugInstr>(instr));
+case HR_debug: 
+  return a->do_debug(cast<DebugInstr2>(instr));
 case HR_string2atom: 
   return a->do_string2atom(cast<UnaryExpr>(instr));
 case HR_double2atom: 
@@ -662,6 +668,8 @@ case HR_findprop2getouter:
   return a->do_findprop2getouter(cast<NaryStmt1>(instr));
 case HR_callprop_string: 
   return a->do_callprop_string(cast<CallStmt2>(instr));
+case HR_callprop_int: 
+  return a->do_callprop_int(cast<CallStmt2>(instr));
 case HR_coerce_any: 
   return a->do_coerce_any(cast<BinaryStmt>(instr));
 case HR_coerce_object: 

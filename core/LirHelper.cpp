@@ -17,14 +17,6 @@
 namespace avmplus
 {
 
-bool neverReturns(const CallInfo* call)
-{
-    return call == FUNCTIONID(throwAtom) ||
-        call == FUNCTIONID(npe) ||
-        call == FUNCTIONID(upe) ||
-        call == FUNCTIONID(mop_rangeCheckFailed);
-}
-
 CodeMgr* initCodeMgr(PoolObject *pool)
 {
     if (!pool->codeMgr) {
@@ -83,10 +75,6 @@ LIns* LirHelper::vcallIns(const CallInfo *ci, uint32_t argc, va_list ap)
         argIns[argc-i-1] = va_arg(ap, LIns*);
     LIns* ins = lirout->insCall(ci, argIns);
 
-    // for non-returning functions ensure that we signify this fact
-    // by terminating control-flow with a ret.
-    if (neverReturns(ci))
-        lirout->ins1(LIR_retp, InsConstPtr(0));
     NanoAssert(!ins->isInReg());
     return ins;
 }

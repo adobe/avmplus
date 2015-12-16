@@ -23,9 +23,11 @@ RETURN_TYPE do_DebugInstr(DebugInstr* i) { return static_cast<SELF_CLASS*>(this)
 RETURN_TYPE do_DeoptFinishCallInstr(DeoptFinishCallInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_NaryStmt1(NaryStmt1* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_UnaryStmt(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_DebugInstr2(DebugInstr2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_CallStmt2(CallStmt2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_NaryStmt2(NaryStmt2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_BinaryStmt(BinaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_GetlocalStmt(GetlocalStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_Hasnext2Stmt(Hasnext2Stmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_CallStmt3(CallStmt3* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_NaryStmt3(NaryStmt3* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }

@@ -25,7 +25,7 @@ template<class FR, class TR>
 inline void copyRange(FR from_range, TR to_range) {
   for (; !from_range.empty(); from_range.popFront(), to_range.popFront())
     to_range.front() = from_range.front();
-  assert(to_range.empty());
+  AvmAssert(to_range.empty());
 }
 
 /// Find value in range starting at the front.  Returns new range starting

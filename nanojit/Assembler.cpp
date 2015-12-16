@@ -591,8 +591,11 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
         float4_t* p = _immF4Pool.get(q);
         if (!p)
         {
-            p = new (_dataAlloc, alignof<float4_t>()) float4_t;
-
+#if _MSC_VER >= 1900
+			p = new (_dataAlloc, alignof(float4_t)) float4_t;
+#else
+            p = new (_dataAlloc, alignof1<float4_t>()) float4_t;
+#endif
             *p = q;
             _immF4Pool.put(q, p);
         }
@@ -1199,7 +1202,11 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
 #endif
 
         // note: the code pages are no longer writable from this point onwards
-        _codeAlloc.markExec(codeList);
+#if defined(NANOJIT_WIN_CFG)
+		_codeAlloc.markExec(codeList, _nIns);
+#else
+		_codeAlloc.markExec(codeList);
+#endif
 
         // at this point all our new code is in the d-cache and not the i-cache,
         // so flush the i-cache on cpu's that need it.
@@ -1313,6 +1320,15 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
 #define countlir_jtbl()
 #endif
 
+	void Assembler::asm_unreachable()
+    {
+#ifdef NANOJIT_IA32
+        // Unreachable, so assume correct stack depth.
+        debug_only( _fpuStkDepth = 0; )
+#endif
+        releaseRegisters();
+    }
+	
     void Assembler::asm_jmp(LIns* ins, InsList& pending_lives)
     {
         NanoAssert((ins->isop(LIR_j) && !ins->oprnd1()) ||
@@ -2245,6 +2261,10 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
                     })
                     break;
                 }
+					
+				case LIR_unreachable:
+					asm_unreachable();
+					break;
 
                 case LIR_xbarrier:
                     break;

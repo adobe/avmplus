@@ -28,7 +28,7 @@ namespace MMgc
 
         if (top < limit) {
             *top++ = obj;
-#ifdef DEBUG
+#ifdef GCDEBUG
             obj->setZCTIndexAndMaybeUnpin(topIndex++, KeepPinned());
 #else
             obj->setZCTIndexAndMaybeUnpin(topIndex++, uint32_t(reaping));
@@ -41,7 +41,7 @@ namespace MMgc
     REALLY_INLINE uint32_t ZCT::KeepPinned()
     {
         uint32_t keepPinned = reaping;
-#ifdef DEBUG
+#ifdef GCDEBUG
         // The validation MarkSweep happens right before we Reap
         // and reaping isn't set but we don't want to unpin things
         // because the validation MarkSweep does the pinning and

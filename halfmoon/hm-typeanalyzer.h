@@ -113,6 +113,7 @@ public: // dispatch() adapter methods.
   void do_newactivation(UnaryStmt*);
   void do_newcatch(UnaryStmt*);
   void do_loadenv(BinaryExpr*);
+  void do_getlocal(GetlocalStmt* instr);
   void do_loadenv_atom(BinaryExpr* i) { do_loadenv(i); }
   void do_loadenv_interface(BinaryExpr*);
   void do_loadenv_string(BinaryExpr* i) { do_loadenv(i); }

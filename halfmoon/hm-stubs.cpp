@@ -5,7 +5,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "hm-main.h"
-#ifdef VMCFG_HALFMOON
+#if defined(VMCFG_HALFMOON) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+
+#ifndef VMCFG_HALFMOON
+//
+// TODO: We really need a way to distinguish the halfmoon runtime from the halfmoon optimizer/compiler
+//
+
+namespace halfmoon {
+    using namespace avmplus;
+    
+    inline BuiltinType builtinType(Traits* t) {
+        return Traits::getBuiltinType(t);
+    }
+}
+#include "generated/Stub_protos.hh"
+#include "hm-jitfriend.h"
+#endif
 
 namespace avmplus {
   // todo declare these globally
@@ -40,7 +56,9 @@ inline static BoolKind boolKind(bool b) {
 }
 
 ScriptObject* Stubs::do_cast(MethodFrame* f, Traits* t, Atom value) {
-  assert(coerceKind(t) == HR_cast);
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
+  AvmAssert(coerceKind(t) == HR_cast);
+#endif
   coerceobj_atom(env(f), value, t);
   return (ScriptObject*)atomPtr(value);
 }
@@ -99,9 +117,11 @@ MethodEnv* Stubs::do_loadinitenv(MethodFrame*, ScriptObject* object) {
   return object->vtable->init;
 }
 
+#ifndef VMCFG_HALFMOON_AOT_RUNTIME
 MethodEnv* Stubs::do_loadsuperinitenv(MethodFrame*, MethodEnv* env) {
   return JitFriend::superInitEnv(env);
 }
+#endif
 
 MethodEnv* Stubs::do_loadenv_env(avmplus::MethodFrame*, int method_id, avmplus::MethodEnv* env) {
   return env->abcEnv()->getMethod(method_id);
@@ -218,7 +238,7 @@ int32_t Stubs::do_negi(MethodFrame*, int32_t x) {
 /// runtime-index, known namespace.
 void initnamex(AvmCore* core, const Multiname* name, Atom index,
                Multiname* tempname) {
-  assert(name->isRtname() && !name->isRtns());
+  AvmAssert(name->isRtname() && !name->isRtns());
   *tempname = *name;
   if (AvmCore::isObject(index)) {
     ScriptObject* i = AvmCore::atomToScriptObject(index);
@@ -237,7 +257,7 @@ void initnamex(AvmCore* core, const Multiname* name, Atom index,
 /// runtime-ns, known name.
 void initnamens(MethodEnv* env, const Multiname* name, Atom ns,
                 Multiname* tempname) {
-  assert(name->isRtns() && !name->isRtname());
+  AvmAssert(name->isRtns() && !name->isRtname());
   *tempname = *name;
   tempname->setNamespace(env->internRtns(ns));
 }
@@ -246,7 +266,7 @@ void initnamens(MethodEnv* env, const Multiname* name, Atom ns,
 /// runtime-index, runtime-namespace.
 void initnamensx(MethodEnv* env, const Multiname* name, Atom ns, Atom index,
                  Multiname* tempname) {
-  assert(name->isRtname() && name->isRtns());
+  AvmAssert(name->isRtname() && name->isRtns());
   *tempname = *name;
   if (AvmCore::isObject(index)) {
     ScriptObject* i = AvmCore::atomToScriptObject(index);
@@ -432,6 +452,14 @@ Atom Stubs::do_cknull(MethodFrame* f, Atom x) {
   return x;
 }
 
+Atom Stubs::do_makenullrefexception(MethodFrame* f, Atom x) {
+  int errorID = x == undefinedAtom ? kConvertUndefinedToObjectError : kConvertNullToObjectError;
+  Stringp out = core(f)->formatErrorMessageV( errorID );
+  Atom args[3] = { nullObjectAtom, out->atom(), core(f)->intToAtom(errorID) };
+  Atom a = toplevel(f)->typeErrorClass()->construct(2, args);
+  return a;
+}
+    
 ScriptObject* Stubs::do_cknullobject(MethodFrame* f, ScriptObject* object) {
   if (!object)
     avmplus::npe(env(f));
@@ -444,7 +472,7 @@ Atom Stubs::do_abc_getprop(MethodFrame* f, const Multiname* name, Atom object) {
 
 Atom Stubs::do_abc_getpropx(MethodFrame* f, const Multiname* name, Atom index,
                             Atom object) {
-  assert(!AvmCore::isNullOrUndefined(object));
+  AvmAssert(!AvmCore::isNullOrUndefined(object));
   if (!AvmCore::isDictionaryLookup(index, object)) {
     Multiname tempname;
     initnamex(core(f), name, index, &tempname);
@@ -671,27 +699,27 @@ Atom Stubs::do_ns2atom(MethodFrame*, Namespace* ns) {
 }
 
 ScriptObject* Stubs::do_atom2scriptobject(MethodFrame*, Atom x) {
-  assert(AvmCore::isObject(x) || AvmCore::isNull(x));
+  AvmAssert(AvmCore::isObject(x) || AvmCore::isNull(x));
   return (ScriptObject*)atomPtr(x);
 }
 
 String* Stubs::do_atom2string(MethodFrame*, Atom x) {
-  assert(AvmCore::isString(x) || AvmCore::isNull(x));
+  AvmAssert(AvmCore::isString(x) || AvmCore::isNull(x));
   return (String*)atomPtr(x);
 }
 
 BoolKind Stubs::do_atom2bool(MethodFrame*, Atom x) {
-  assert(AvmCore::isBoolean(x));
+  AvmAssert(AvmCore::isBoolean(x));
   return BoolKind(x == trueAtom);
 }
 
 Namespace* Stubs::do_atom2ns(MethodFrame*, Atom x) {
-  assert(AvmCore::isNamespace(x) || AvmCore::isNull(x));
+  AvmAssert(AvmCore::isNamespace(x) || AvmCore::isNull(x));
   return (Namespace*)atomPtr(x);
 }
 
 int Stubs::do_atom2int(MethodFrame*, Atom x) {
-  return AvmCore::integer_i(x);
+  return ISNULL(x) ? 0: AvmCore::integer_i(x);
 }
 
 uint32_t Stubs::do_atom2uint(MethodFrame*, Atom x) {
@@ -765,12 +793,40 @@ Atom Stubs::do_getouterscope(MethodFrame*, int k, MethodEnv* env) {
 void Stubs::do_deopt_finish(MethodFrame*) {}
 
 // debugline: (Effect, Int) -> Effect
-void Stubs::do_debugline(MethodFrame*, int32_t line) {
+void Stubs::do_debugline(MethodFrame* f, int32_t line) {
+#if defined DEBUGGER
+  AvmCore* avmcore = core(f);
+  if (avmcore->debugger()) avmcore->debugger()->debugLine(line);
+#else
+  (void)f;
   (void)line;
+#endif
 }
   
 // debugfile: (Effect, String) -> Effect
-void Stubs::do_debugfile(MethodFrame*, String*) {}
+void Stubs::do_debugfile(MethodFrame* f, String* file) {
+#if defined DEBUGGER
+  AvmCore* avmcore = core(f);
+  if (avmcore->debugger()) avmcore->debugger()->debugFile(file);
+#else
+  (void)f;
+  (void)file;
+#endif
+}
+  
+// debug: (Effect, String, Int) -> Effect
+void Stubs::do_debug(avmplus::MethodFrame* f, avmplus::String* name, int32_t local) {
+#if defined DEBUGGER
+  AvmCore* avmcore = core(f);
+  if (!avmcore->debugger())
+    return;
+  env(f)->method->setRegName(local, name);
+#else
+  (void)f;
+  (void)name;
+  (void)local;
+#endif
+}
 
 inline Atom abc_find(MethodEnv* env, const Multiname* name, Atom* scopes,
                      int scope_count, bool strict, Atom* withbase) {
@@ -807,14 +863,14 @@ inline Atom abc_findnsx(MethodEnv* env, const Multiname* name, Atom ns,
 
 Atom Stubs::do_abc_findproperty(MethodFrame*, const Multiname* name,
                                 MethodEnv* env, int32_t withbase, int scope_count, Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_find(env, name, scopes, scope_count, false, withbasep);
 }
 
 Atom Stubs::do_abc_findpropstrict(MethodFrame*, const Multiname* name,
                                 MethodEnv* env, int32_t withbase, int scope_count, Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_find(env, name, scopes, scope_count, true, withbasep);
 }
@@ -822,7 +878,7 @@ Atom Stubs::do_abc_findpropstrict(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropertyx(MethodFrame*, const Multiname* name,
                                  MethodEnv* env, int32_t withbase, Atom index, int scope_count,
                                  Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_findx(env, name, index, scopes, scope_count, false, withbasep);
 }
@@ -830,7 +886,7 @@ Atom Stubs::do_abc_findpropertyx(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropstrictx(MethodFrame*, const Multiname* name,
                                    MethodEnv* env, int32_t withbase, Atom index, int scope_count,
                                    Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_findx(env, name, index, scopes, scope_count, true, withbasep);
 }
@@ -838,7 +894,7 @@ Atom Stubs::do_abc_findpropstrictx(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropertyns(MethodFrame*, const Multiname* name,
                                   MethodEnv* env, int32_t withbase, Atom ns, int scope_count,
                                   Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_findns(env, name, ns, scopes, scope_count, false, withbasep);
 }
@@ -846,7 +902,7 @@ Atom Stubs::do_abc_findpropertyns(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropstrictns(MethodFrame*, const Multiname* name,
                                     MethodEnv* env, int32_t withbase, Atom ns, int scope_count,
                                     Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   return abc_findns(env, name, ns, scopes, scope_count, true, withbasep);
 }
@@ -854,7 +910,7 @@ Atom Stubs::do_abc_findpropstrictns(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropertynsx(MethodFrame*, const Multiname* name,
                                    MethodEnv* env, int32_t withbase, Atom ns,
                                    int scope_count, Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   Atom index = *scopes;
   scopes++;
@@ -865,7 +921,7 @@ Atom Stubs::do_abc_findpropertynsx(MethodFrame*, const Multiname* name,
 Atom Stubs::do_abc_findpropstrictnsx(MethodFrame*, const Multiname* name,
                                      MethodEnv* env, int32_t withbase, Atom ns,
                                      int scope_count, Atom* scopes) {
-  assert(withbase >= -1 && withbase < scope_count);
+  AvmAssert(withbase >= -1 && withbase < scope_count);
   Atom* withbasep = (withbase == -1) ? NULL : scopes + withbase;
   Atom index = *scopes;
   scopes++;
@@ -903,7 +959,7 @@ BoolKind Stubs::do_abc_instanceof(MethodFrame* f, Atom x, Atom t) {
 
 Atom Stubs::do_abc_callsuper(MethodFrame* f, const Multiname* name, int argc,
                              Atom* args) {
-  assert(!name->isRuntime());
+  AvmAssert(!name->isRuntime());
   // CallStmt's always counts the "this" arg, but VM calling conventions don't.
   return env(f)->callsuper(name, argc - 1, args);
 }
@@ -1325,9 +1381,9 @@ Atom Stubs::do_newcatch(MethodFrame* f, Traits* traits) {
   return env(f)->newcatch(traits)->atom();
 }
 
-Traits* Stubs::do_slottype(MethodFrame*, ScriptObject*, int) { assert(false && "slottype not implemented"); return 0; }
-int Stubs::do_toslot(MethodFrame*, ScriptObject*, const Multiname*) { assert(false && "toslot not implemented"); return 0; }
-void Stubs::do_never(MethodFrame*) { assert(false && "never not implemented"); }
+Traits* Stubs::do_slottype(MethodFrame*, ScriptObject*, int) { AvmAssert(false && "slottype not implemented"); return 0; }
+int Stubs::do_toslot(MethodFrame*, ScriptObject*, const Multiname*) { AvmAssert(false && "toslot not implemented"); return 0; }
+void Stubs::do_never(MethodFrame*) { AvmAssert(false && "never not implemented"); }
 
 } // namespace halfmoon
 #endif // #ifdef VMCFG_HALFMOON

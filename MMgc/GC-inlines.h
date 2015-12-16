@@ -31,7 +31,8 @@ namespace MMgc
         fm->OutOfLineFree(object);
     }
 
-#ifndef VMCFG_AOT
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
     REALLY_INLINE GC *GCRoot::GetGC() const { return gc; }
 #endif
 
@@ -94,7 +95,7 @@ namespace MMgc
         return Alloc(GCHeap::CheckForCallocSizeOverflow(count, elsize), flags);
     }
 
-#if defined _DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
     #define SIZEARG size ,
 #else
     #define SIZEARG
@@ -105,7 +106,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocPtrZero(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
 #endif
@@ -114,7 +115,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocPtrZeroExact(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
 #endif
@@ -123,7 +124,7 @@ namespace MMgc
     
     REALLY_INLINE void *GC::AllocPtrZeroFinalized(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
 #endif
@@ -132,7 +133,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocPtrZeroFinalizedExact(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
 #endif
@@ -141,7 +142,7 @@ namespace MMgc
     
     REALLY_INLINE void *GC::AllocRCObject(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
 #endif
@@ -150,7 +151,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocRCObjectExact(size_t size)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if (size <= kLargestAlloc)
             return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
 #endif
@@ -159,7 +160,7 @@ namespace MMgc
     
     REALLY_INLINE void* GC::AllocDouble()
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER && !defined MMGC_MEMORY_PROFILER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER && !defined MMGC_MEMORY_PROFILER
         return GetUserPointer(noPointersNonfinalizedAllocs[0]->Alloc(/*flags*/0));
 #else
         return Alloc(8,0);
@@ -168,7 +169,7 @@ namespace MMgc
 
     REALLY_INLINE void* GC::AllocBibop(GCAlloc* bibopAlloc)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER && !defined MMGC_MEMORY_PROFILER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER && !defined MMGC_MEMORY_PROFILER
         return GetUserPointer(bibopAlloc->Alloc(/*flags*/0));
 #else
         return AllocSlow(bibopAlloc);
@@ -185,7 +186,7 @@ namespace MMgc
     REALLY_INLINE void* GC::AllocBibopType<avmplus::AtomConstants::kBibopFloat4Type>()
     {
         void* p = AllocBibop(bibopAllocFloat4);
-#if defined VMCFG_FLOAT && (defined DEBUG || 0) /* Change 0 to 1 to enable the test in release builds */
+#if defined VMCFG_FLOAT && (defined GCDEBUG || 0) /* Change 0 to 1 to enable the test in release builds */
         if (uintptr_t(p) & 15)
             GCHeap::GetGCHeap()->Abort();
 #endif
@@ -201,7 +202,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocExtraPtrZero(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
             return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
@@ -212,7 +213,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocExtraPtrZeroExact(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
             return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
@@ -223,7 +224,7 @@ namespace MMgc
     
     REALLY_INLINE void *GC::AllocExtraPtrZeroFinalized(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
             return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
@@ -234,7 +235,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocExtraPtrZeroFinalizedExact(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
             return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
@@ -245,7 +246,7 @@ namespace MMgc
     
     REALLY_INLINE void *GC::AllocExtraRCObject(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= kLargestAlloc/2) {
             size += extra;
             return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
@@ -256,7 +257,7 @@ namespace MMgc
 
     REALLY_INLINE void *GC::AllocExtraRCObjectExact(size_t size, size_t extra)
     {
-#if !defined _DEBUG && !defined AVMPLUS_SAMPLER
+#if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
         if ((size|extra) <= kLargestAlloc/2) {
             size += extra;
             return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
@@ -587,7 +588,7 @@ namespace MMgc
 
     REALLY_INLINE void GC::FreeBits(uint32_t *bits, int sizeClass)
     {
-#ifdef _DEBUG
+#ifdef GCDEBUG
         for(int i=0, n=noPointersNonfinalizedAllocs[sizeClass]->m_numBitmapBytes; i<n;i++)
             GCAssert(((uint8_t*)bits)[i] == 0);
 #endif

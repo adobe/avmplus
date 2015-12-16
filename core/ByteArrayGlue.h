@@ -8,6 +8,62 @@
 #ifndef BYTEARRAYGLUE_INCLUDED
 #define BYTEARRAYGLUE_INCLUDED
 
+#ifdef VMCFG_PARTITION_BYTEARRAY_DATA
+
+// TODO
+// We should arguably track allocations here with MMgc::GCHeap::SignalExternalAllocation().
+// The difficulty is that we need to track deallocations as well, and the size of the allocation
+// is not available from the pointer.  This will require some refactoring to keep track of the
+// size in the ByteArray::Buffer object.  Furthermore, we are tracking dependent allocations via
+// TellGcNewBufferMemory() and TellGcDeleteBufferMemory, and need to be careful to avoid double
+// counting.  As it is, we're handling DataList (Vector) buffers in a similar way, and no serious
+// issues have so far arisen.
+
+static inline uint8_t* ByteArrayBuffer_alloc(size_t count)
+{
+    size_t size = MMgc::GCHeap::CheckForNewSizeOverflow(count, sizeof(uint8_t), /*canFail*/false);  // abort on bad size
+    void* mem = ::malloc(size);
+    if (!mem)
+    {
+        MMgc::GCHeap::GetGCHeap()->Abort();  // size was OK, but no memory
+    }
+    return (uint8_t*) mem;
+}
+
+static inline uint8_t* ByteArrayBuffer_alloc_CanFail(size_t count)
+{
+    size_t size = MMgc::GCHeap::CheckForNewSizeOverflow(count, sizeof(uint8_t), /*canFail*/true);  // return 0 on bad size
+    if (!size)
+    {
+        return NULL;
+    }
+    return (uint8_t*) ::malloc(size);
+}
+
+static inline uint8_t* ByteArrayBuffer_alloc_CanFailAndZero(size_t count)
+{
+    size_t size = MMgc::GCHeap::CheckForNewSizeOverflow(count, sizeof(uint8_t), /*canFail*/true);  // return 0 on bad size
+    if (!size)
+    {
+        return NULL;
+    }
+    return (uint8_t*) ::calloc(size, 1);
+}
+
+static inline void ByteArrayBuffer_free(void* p)
+{
+    ::free(p);
+}
+
+#else
+
+#define ByteArrayBuffer_alloc(n)					mmfx_new_array(uint8_t, n)
+#define ByteArrayBuffer_alloc_CanFail(n)			mmfx_new_array_opt(uint8_t, n, MMgc::kCanFail)
+#define ByteArrayBuffer_alloc_CanFailAndZero(n)		mmfx_new_array_opt(uint8_t, n, MMgc::kCanFailAndZero)
+#define ByteArrayBuffer_free(p)						mmfx_delete_array(p)
+
+#endif
+
 namespace avmplus
 {
     class ByteArray : public DataInput,
@@ -22,6 +78,9 @@ namespace avmplus
         friend class ByteArraySwapBufferTask;
         friend class ByteArrayCompareAndSwapLengthTask;
         friend class ByteArrayClearTask;
+		friend class ByteArrayEnsureCapacityAndWriteTask;
+		friend class ByteArrayEnsureCapacityTask;
+		
         class Buffer : public FixedHeapRCObject
         {
         public:
@@ -30,6 +89,14 @@ namespace avmplus
             uint8_t* array;
             uint32_t capacity;
             uint32_t length;
+            // If copyOnWrite is false, the array member points to memory allocated by
+            // mmfx_new_array which is owned by this Buffer object, and will be deleted
+            // when the Buffer is destroyed.  If true, array data is assumed to be owned
+            // by another object, and it is the responsibility of code outside of the
+            // Buffer class to guarantee that the pointer remains valid.  If at any time
+            // that guarantee can no longer be made, a copy of the array data must be
+            // created and copyOnWrite set to false.
+            bool copyOnWrite;
         };
 
 
@@ -46,6 +113,20 @@ namespace avmplus
 
         REALLY_INLINE uint32_t GetLength() const { return m_buffer->length; }
         REALLY_INLINE bool IsShared() const { return m_isShareable && (m_buffer->RefCount() > 1); }
+
+		/* Normally at this point hasCurrent() should always return TRUE. However, if we have the following sequence:
+
+		 1. Declare a ByteArray as 'shared'
+		 2. Create a worker using CreateWorker()
+		 3. Set the ByteArray as a shared property using setSharedProperty()
+		 4. Skip starting the worker by doing Worker.start()
+		 5. Use the shared property (without starting the worker) 
+
+		Now despite the worker not having started we would do a requestSafepointTask() to enter into a safepoint for 
+		any action changing the buffer or length of the bytearray. So, with this new function, we would not issue a 
+		request for a safepoint task, if the worker hasn't started already. */
+
+		REALLY_INLINE bool IsSharedAndWorkerStarted() const { return (m_isShareable && (m_buffer->RefCount() > 1) && vmbase::SafepointRecord::hasCurrent());}
 
         // Ensure that the capacity of the ByteArray is at least 'newLength',
         // and set length = max(GetLength(), newLength),
@@ -66,7 +147,7 @@ namespace avmplus
         // expected maximum length for immediate future.
         void FASTCALL SetLengthFromAS3(uint32_t newLength);
         void SetLengthCommon(uint32_t newLength, bool calledFromSetter);
-        void UnprotectedSetLengthCommon(uint32_t newLength, bool calledFromSetter);
+		void UnprotectedSetLengthCommon(uint32_t newLength, bool calledFromSetter);
         int32_t UnprotectedAtomicCompareAndSwapLength(int32_t expectedLength, int32_t newLength);
 
     public:
@@ -116,6 +197,7 @@ namespace avmplus
         // This does not affect GetLength() or GetPosition().
         // If an attempted expansion fails, throws AS3 exception.
         void EnsureCapacity(uint32_t capacity);
+		void UnprotectedEnsureCapacity(uint32_t capacity);
         void EnsureCapacityNoInline(uint32_t capacity); // (same, but NO_INLINE)
 
         // Ensure that the ByteArray has a capacity of (at least) capacity
@@ -130,6 +212,8 @@ namespace avmplus
 
         // overrides from DataOutput
         /*virtual*/ void Write(const void* buffer, uint32_t count);
+		void EnsureCapacityAndWrite(uint32_t capacity, const void* buffer, uint32_t count);
+		void UnprotectedEnsureCapacityAndWrite(uint32_t capacity, const void* buffer, uint32_t count);
 
         bool isShareable () const;
         bool setShareable (bool value);
@@ -181,12 +265,16 @@ namespace avmplus
         static void UpdateSubscribers();
 
     private:
+		void ResetBufferMembers();
+		void RestoreOrigData(uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner);
 
-        void CompressViaZlibVariant(CompressionAlgorithm algorithm);
-        void UncompressViaZlibVariant(CompressionAlgorithm algorithm);
+		void HandleErrorInUncompressFn(FixedHeapRef<Buffer> origBuffer, uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner, const bool cShared);
 
-        void CompressViaLzma();
-        void UncompressViaLzma();
+        void CompressViaZlibVariant(CompressionAlgorithm algorithm, uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner);
+        void UncompressViaZlibVariant(CompressionAlgorithm algorithm, uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner);
+
+        void CompressViaLzma(uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner);
+        void UncompressViaLzma(uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner);
 
     public: // Tasks need it
         class Grower
@@ -198,11 +286,12 @@ namespace avmplus
                 , m_oldArray(owner->m_buffer->array)
                 , m_oldLength(owner->m_buffer->length)
                 , m_oldCapacity(owner->m_buffer->capacity)
+                , m_oldCopyOnWrite(owner->m_buffer->copyOnWrite)
                 , m_minimumCapacity(minimumCapacity)
             {
             }
-            void FASTCALL ReallocBackingStore(uint32_t newCapacity);
-            void FASTCALL EnsureWritableCapacity();
+            void FASTCALL ReallocBackingStore(uint32_t newCapacity, bool calledFromLengthSetter = false);
+            void FASTCALL EnsureWritableCapacity(bool calledFromLengthSetter = false);
             REALLY_INLINE bool RequestWillReallocBackingStore() const;
             REALLY_INLINE bool RequestExceedsMemoryAvailable() const;
             void SetLengthCommon(uint32_t newLength, bool calledFromLengthSetter);
@@ -214,6 +303,7 @@ namespace avmplus
             uint8_t*    m_oldArray;
             uint32_t    m_oldLength;
             uint32_t    m_oldCapacity;
+            bool        m_oldCopyOnWrite;
             uint32_t    m_minimumCapacity;
         };
     public:
@@ -236,7 +326,7 @@ namespace avmplus
         void TellGcNewBufferMemory(const uint8_t* buf, uint32_t numberOfBytes);
         void TellGcDeleteBufferMemory(const uint8_t* buf, uint32_t numberOfBytes);
         
-        REALLY_INLINE bool IsCopyOnWrite() const { return m_copyOnWriteOwner != NULL; }
+        REALLY_INLINE bool IsCopyOnWrite() const { return m_buffer->copyOnWrite; }
         void SetCopyOnWriteOwner(MMgc::GCObject* owner);
 
         ByteArray(const ByteArray& lhs);        // unimplemented
@@ -254,7 +344,7 @@ namespace avmplus
             DataOutput::gcTrace(gc);
         }
         
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Normally manually traced classes would subclass
         // GCInlineObject to pick this up but ByteArray is an anomaly.
         MMgc::GCTracerCheckResult gcTraceOffsetIsTraced(uint32_t) const
@@ -274,16 +364,6 @@ namespace avmplus
         // to ensure that our data isn't collected out from under us. (Note that this
         // currently requires the object to be GCObject or GCFinalizedObject, not RCObject;
         // that's fine for all extant use cases.) (Note that the pointer is written with explicit WB calls.)
-        //
-        // Note that (under the covers) we use GC::emptyWeakRef as a sentinel to mean
-        // "I am copy on write but there is no GCObject controlling my lifespan"; this
-        // can be the case if (e.g.) the data is compile-time-constant data we are just
-        // wrapping. Using GC::emptyWeakRef here is, admittedly, an ugly hack, but doing so
-        // avoids using the lower-three-bits-as-flags approach we're trying to eradicate elsewhere,
-        // and avoids adding a "bool" field which would expand this struct by an average of 7 bytes
-        // due to MMgc alignment rules.
-        // FIXME due to factoring out of the Buffer object alignment may be affected.
-        //
         MMgc::GCObject*         m_copyOnWriteOwner;
         uint32_t                m_position;
         FixedHeapRef<Buffer>    m_buffer;

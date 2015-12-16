@@ -82,7 +82,7 @@ JitWriter::JitWriter(MethodInfo* method, const Context *calling_context)
 , abc_env_(calling_context->abc_env)
 , toplevel_(calling_context->toplevel)
 , calling_context_(calling_context) {
-  assert(calling_context_ && "calling_context cannot be null");
+  AvmAssert(calling_context_ && "calling_context cannot be null");
 }
 
 JitWriter::~JitWriter() {
@@ -93,7 +93,7 @@ JitWriter::~JitWriter() {
 
 void JitWriter::writePrologue(const FrameState* frame, const uint8_t* pc,
                               CodegenDriver*) {
-  assert(frame->abc_pc == pc);
+  AvmAssert(frame->abc_pc == pc);
   (void) frame;
   (void) pc;
   jit_mgr_ = JitManager::init(method_->pool());
@@ -120,7 +120,7 @@ void JitWriter::writeEpilogue(const FrameState*) {
   Context cxt(method_, method_->pool()->core->console, toplevel_, abc_env_, calling_context_);
 
   InstrGraph* ir = parseAbc(method_, jit_mgr_->lattice(), jit_mgr_->infos(),
-                            jit_mgr_->mgr_alloc(), abc_,
+                            alloc_, abc_,
                             toplevel_, abc_env_, profiled_info_,
                             cxt);
   jit_mgr_->set_ir(method_, ir);
@@ -145,7 +145,7 @@ InstrGraph* JitWriter::ir() {
 
 void JitWriter::analyze(AbcOpcode abcop, const uint8_t* pc,
                         const FrameState* frame) {
-  assert(pc == frame->abc_pc);
+  AvmAssert(pc == frame->abc_pc);
   (void) frame;
 
 #ifdef AVMPLUS_VERBOSE
@@ -280,7 +280,7 @@ void JitWriter::writeCoerce(const FrameState* frame, uint32_t, Traits*) {
 }
 
 void JitWriter::writeBlockStart(const FrameState* frame) {
-  assert((!current_block_ || current_block_->start <= frame->abc_pc) &&
+  AvmAssert((!current_block_ || current_block_->start <= frame->abc_pc) &&
          "didn't expect blocks out of order");
   const uint8_t* pc = frame->abc_pc;
   if (current_block_ && current_block_->start < pc) {

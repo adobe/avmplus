@@ -538,7 +538,7 @@ namespace MMgc
          */
         bool findUnmarkedPointers;
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         /**
          * validateDefRef is a debugging flag.  It turns on code that does a
          * trace before reaping zero count object and asserting on any objects
@@ -559,11 +559,13 @@ namespace MMgc
         bool dontAddToZCTDuringCollection;
         bool incrementalValidation;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         bool incrementalValidationPedantic;
 #endif
 
-        /* NULL config means select defaults for configuration parameters. */
+        /**
+         * Create a new GC arena.
+		 */
         GC(GCHeap *heap, GCConfig& config);
 
         virtual ~GC();
@@ -658,7 +660,7 @@ namespace MMgc
 #define  AllocFloat     AllocBibopType<avmplus::AtomConstants::kBibopFloatType>
 #define  AllocFloat4    AllocBibopType<avmplus::AtomConstants::kBibopFloat4Type>
 
-#if defined _DEBUG || defined AVMPLUS_SAMPLER || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined AVMPLUS_SAMPLER || defined MMGC_MEMORY_PROFILER
         /**
          * The actual allocator in situations where there's a lot of singing and
          * dancing around book-keeping.
@@ -767,7 +769,7 @@ namespace MMgc
         void reversePointersWithinBlock(void* mem, size_t offsetInBytes, size_t numPointers);
 
     private:
-#ifdef DEBUG
+#ifdef GCDEBUG
         void AllocPrologue(size_t size);
         void* AllocEpilogue(void* item, int flags);
 #endif
@@ -932,7 +934,7 @@ namespace MMgc
 
         bool Reaping();
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Test whether the RCObject cleaned itself properly by zeroing everything.
         void RCObjectZeroCheck(RCObject *);
 
@@ -1173,7 +1175,7 @@ namespace MMgc
 
         /**
          * Will reliably return NULL if gcItem does not point into
-         * managed memory (and _DEBUG code will also assert if that
+         * managed memory (and GCDEBUG code will also assert if that
          * happens - it should not unless allowGarbage is true).  Note
          * that this function is for pointers to bytes inside GC items,
          * pointers to GC block headers (ie before the first object on
@@ -1379,7 +1381,7 @@ namespace MMgc
         void TraceAtomValue(avmplus::Atom atom HEAP_GRAPH_ARG(avmplus::Atom *loc));
         
     public:
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Check that invariants for an inactive GC hold
         void ShouldBeInactive();
 #endif
@@ -1560,7 +1562,7 @@ namespace MMgc
         // reach.  Managed entirely within MarkItem.
         uint32_t mark_item_recursion_control;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Works on any address
         bool IsWhite(const void *item);
 #endif
@@ -1633,14 +1635,14 @@ namespace MMgc
         GCLargeAlloc *largeAlloc;
         GCHeap *heap;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     public:
 #else
     private:
 #endif
         void ClearMarks();
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         /**
          * Do a full GC mark phase for DRC validation purposes.
          */
@@ -1806,7 +1808,7 @@ namespace MMgc
         bool Push_RootProtector(const void* p);
         void Push_LargeObjectProtector(const void* p);
         
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Assert invariants on GCObjects about to go on the mark stack.
         void WorkItemInvariants_GCObject(const void *p);
         
@@ -1909,7 +1911,7 @@ public:
 
         AllocaStackSegment* top_segment;// segment at the stack top
         void* stacktop;                 // current first free word in top_segment
-#ifdef _DEBUG
+#ifdef GCDEBUG
         size_t stackdepth;              // useful to have for debugging
 #endif
 
@@ -1971,7 +1973,7 @@ public:
         HeapGraph markerGraph;
 #endif
 
-#ifdef DEBUG
+#ifdef GCDEBUG
 
         // Debugging code that validates reference count during reaping.
         void DefRefValidate(RCObject* obj);
@@ -1984,7 +1986,8 @@ public:
 
         // Called by write barrier classes to verify that its being traced.
         static void TracePointerCheck(const void *derivedPointer);
-#endif // DEBUG
+#endif // GCDEBUG
+
     };
 
     // helper class to wipe out vtable pointer of members for DRC

@@ -46,7 +46,18 @@ namespace avmplus
                                 FramePtr framep,
                                 volatile intptr_t *eip)
     {
+        
+#if defined (__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-undefined-compare"
+#endif // defined __clang__
+        
         AvmAssert(this != 0);
+        
+#if defined (__clang__)
+#pragma clang diagnostic pop
+#endif // defined __clang__
+        
         AvmAssert(callstack != 0);
         callstack->init(this, framep, frame_sst, eip);
         debugEnterInner();
@@ -54,7 +65,18 @@ namespace avmplus
 
     void MethodEnv::debugEnterInner()
     {
+        
+#if defined (__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-undefined-compare"
+#endif // defined __clang__
+        
         AvmAssert(this != 0);
+        
+#if defined (__clang__)
+#pragma clang diagnostic pop
+#endif // defined __clang__
+        
         AvmCore* core = this->core();
 
         Sampler* s = core->get_sampler();
@@ -79,7 +101,18 @@ namespace avmplus
 
     void MethodEnv::debugExit(CallStackNode* callstack)
     {
+        
+#if defined (__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-undefined-compare"
+#endif // defined __clang__
+        
         AvmAssert(this != 0);
+        
+#if defined (__clang__)
+#pragma clang diagnostic pop
+#endif // defined __clang__
+        
         AvmAssert(callstack != 0);
         AvmCore* core = this->core();
 

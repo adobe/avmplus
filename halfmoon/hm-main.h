@@ -52,9 +52,11 @@ class DeoptSafepointInstr;  // DEOPT
 class DeoptFinishInstr;  // DEOPT
 class DeoptFinishCallInstr;  // DEOPT
 class SetlocalInstr;
+class GetlocalStmt;
 class UnaryExpr;
 class UnaryStmt;
 class DebugInstr;
+class DebugInstr2;
 
 // CFG-related Instrs
 class BlockStartInstr;
@@ -117,13 +119,14 @@ enum BoolKind {
 #include "hm-typeinference.h"
 #include "hm-jitmanager.h"
 #include "hm-valnum.h"
+#include "hm-jitfriend.h"
 
 namespace halfmoon {
 
 /// Replace references to instructions with references to the instructions
 /// identity instr (if different).
 ///
-void computeIdentities(InstrGraph*);
+void computeIdentities(InstrGraph*, bool preserveModels);
 
 /// Peephole-optimize one def.
 ///
@@ -266,6 +269,7 @@ public: // do_shape interface
     Instr* do_UnaryExpr(UnaryExpr* i)               { return copyFixedArgInstr(i); }
     Instr* do_BinaryExpr(BinaryExpr* i)             { return copyFixedArgInstr(i); }
     Instr* do_SetlocalInstr(SetlocalInstr* i);
+    Instr* do_GetlocalStmt(GetlocalStmt* i);
     Instr* do_StopInstr(StopInstr* i);
     Instr* do_VoidStmt(VoidStmt* i)                 { return copyVarArgInstr(i); }
     Instr* do_NaryStmt0(NaryStmt0* i)               { return copyVarArgInstr(i); }
@@ -305,60 +309,15 @@ private:
   Allocator& to_alloc_;
 };
 
-/**
- * class JitFriend is a layer of indirection for accessing private
- * avm data structures without avm needing to refer to compiler internal
- * classes.
- */
-class JitFriend {
-
-public:
-  static uintptr_t getIID(MethodInfo* info) {
-    return ImtHolder::getIID(info);
-  }
-
-  static uint32_t hashIID(MethodInfo* info) {
-    return ImtHolder::hashIID(info);
-  }
-
-  static GprMethodProc envImplGpr(MethodEnv* env) {
-    return env->_implGPR;
-  }
-
-  static FprMethodProc envImplFpr(MethodEnv* env) {
-    return env->_implFPR;
-  }
-
-  static GprImtThunkProc envImplImtGpr(MethodEnv* env) {
-    return env->_implImtGPR;
-  }
-
-  static FprImtThunkProc envImplImtFpr(MethodEnv* env) {
-    return (FprImtThunkProc) env->_implImtGPR;
-  }
-
-  static MethodEnv* imtEntry(VTable* vtable, MethodInfo* info) {
-    return reinterpret_cast<MethodEnv*>(vtable->imt.entries[hashIID(info)]);
-  }
-
-  static MethodEnv* superInitEnv(MethodEnv* env) {
-    return env->vtable()->base->init;
-  }
-
-public:
-  // Offsets of fields accessed directly by halfmoon JIT.
-  static const size_t core_cmf_offset = offsetof(AvmCore, currentMethodFrame);
-  static const size_t core_minstack_offset = offsetof(AvmCore, minstack);
-  static const size_t core_interrupted_offset = offsetof(AvmCore, interrupted);
-  static const size_t mf_env_offset = offsetof(MethodFrame, envOrCodeContext);
-  static const size_t mf_dxns_offset = offsetof(MethodFrame, dxns);
-  static const size_t env_impl_offset = offsetof(MethodEnvProcHolder, _implGPR);
-  static const size_t env_scope_offset = offsetof(MethodEnv, _scope);
-  static const size_t scope_vtable_offset = offsetof(ScopeChain, _vtable);
-  static const size_t scope_scopes_offset = offsetof(ScopeChain, _scopes);
-  static const size_t vtable_imt_offset = offsetof(VTable, imt.entries);
-};
-
+   
 } // end namespace halfmoon
-#endif // VMCFG_HALFMOON
+#else // VMCFG_HALFMOON
+// Duplicating BoolKind to use it in VMCFG_HALFMOON_AOT_RUNTIME 
+/// Enumerator for boolean values passed as it.  Doing it this way
+/// allows overloading, whereas a typedef of int would not.
+enum BoolKind {
+    kBoolFalse,
+    kBoolTrue
+};
+#endif //VMCFG_HALFMOON
 #endif // HM_MAIN_H

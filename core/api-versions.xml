@@ -48,6 +48,15 @@ ASC and AVM to control the visibility of names in the API.
         <version name="AIR_3_7"/>
         <version name="AIR_3_8"/>
 		<version name="AIR_3_9"/>
+		<version name="AIR_4_0"/>
+		<version name="AIR_13_0"/>
+		<version name="AIR_14_0"/>
+		<version name="AIR_15_0"/>
+		<version name="AIR_16_0"/>
+		<version name="AIR_17_0"/>
+		<version name="AIR_18_0"/>
+		<version name="AIR_19_0"/>
+	<!-- //ADD_PREVIOUS_VERSIONED_LINE -->
     </series>
     <series name="FP">
         <version name="FP_10_0"/>
@@ -68,6 +77,15 @@ ASC and AVM to control the visibility of names in the API.
         <version name="SWF_20"/>
         <version name="SWF_21"/>
 		<version name="SWF_22"/>
+		<version name="SWF_23"/>
+		<version name="SWF_24"/>
+		<version name="SWF_25"/>
+		<version name="SWF_26"/>
+		<version name="SWF_27"/>
+		<version name="SWF_28"/>
+		<version name="SWF_29"/>
+		<version name="SWF_30"/>
+	<!-- //ADD_PREVIOUS_VERSIONED_LINE -->
     </series>
 
     <!-- this means "every API in sub is also in super" -->
@@ -87,5 +105,14 @@ ASC and AVM to control the visibility of names in the API.
         <set sub="SWF_20" super="AIR_3_7"/>
         <set sub="SWF_21" super="AIR_3_8"/>
 		<set sub="SWF_22", super="AIR_3_9"/>
+		<set sub="SWF_23", super="AIR_4_0"/>
+		<set sub="SWF_24", super="AIR_13_0"/>
+		<set sub="SWF_25", super="AIR_14_0"/>
+		<set sub="SWF_26", super="AIR_15_0"/>
+		<set sub="SWF_27", super="AIR_16_0"/>
+		<set sub="SWF_28", super="AIR_17_0"/>
+		<set sub="SWF_29", super="AIR_18_0"/>
+		<set sub="SWF_30", super="AIR_19_0"/>
+	<!-- //ADD_PREVIOUS_VERSIONED_LINE -->
     </ordering>
 </api>

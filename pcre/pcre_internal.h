@@ -360,6 +360,7 @@ support is omitted, we don't even define it. */
 #define GETCHARINCTEST(c, eptr) c = *eptr++;
 #define GETCHARLEN(c, eptr, len) c = *eptr;
 /* #define BACKCHAR(eptr) */
+/* #define FORWARDCHAR(eptr) */
 
 #else   /* SUPPORT_UTF8 */
 
@@ -456,6 +457,9 @@ it is. This is called only in UTF-8 mode - we don't put a test within the macro
 because almost all calls are already within a block of UTF-8 only code. */
 
 #define BACKCHAR(eptr) while((*eptr & 0xc0) == 0x80) eptr--
+
+/* Same as above, just in the other direction. */
+#define FORWARDCHAR(eptr) while((*eptr & 0xc0) == 0x80) eptr++
 
 #endif
 
@@ -759,7 +763,12 @@ enum {
   /* These are forced failure and success verbs */
 
   OP_FAIL,           /* 108 */
-  OP_ACCEPT          /* 109 */
+  OP_ACCEPT,          /* 109 */
+
+  /* This is not an opcode, but is used to check that tables indexed by opcode
+  are the correct length, in order to catch updating errors - there have been
+  some in the past. */
+  OP_TABLE_LENGTH
 };
 
 
@@ -928,6 +937,7 @@ typedef struct compile_data {
   uschar *name_table;           /* The name/number table */
   int  names_found;             /* Number of entries so far */
   int  name_entry_size;         /* Size of each entry */
+  int  workspace_size;          /* Size of workspace */
   int  bracount;                /* Count of capturing parens */
   int  top_backref;             /* Maximum back reference */
   unsigned int backref_map;     /* Bitmap of low back refs */

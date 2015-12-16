@@ -58,7 +58,7 @@ namespace halfmoon {
   }
 
   SafepointData* BailoutData::getSafepointData(int abc_pc) {
-    assert (state_map_.containsKey(abc_pc));
+    AvmAssert (state_map_.containsKey(abc_pc));
     return state_map_.get(abc_pc);
   }
 

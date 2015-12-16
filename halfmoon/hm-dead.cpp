@@ -12,7 +12,7 @@ namespace halfmoon {
 /// remove a goto from a [goto]:label cluster
 ///
 void removeGoto(GotoInstr* go) {
-  assert(go->target && "goto has no target");
+  AvmAssert(go->target && "goto has no target");
   if (enable_verbose)
     printf("removing dead goto %s%d\n", kInstrPrefix, go->id);
   LabelInstr* target = go->target;
@@ -136,10 +136,10 @@ bool compactLabelParams(LabelInstr* label, Dead* dead) {
       if (i > used) {
         // move param def to first unused slot, and repoint its uses
         Def& new_param = label->params[used];
-        assert(!new_param.isUsed());
+        AvmAssert(!new_param.isUsed());
         new (&new_param) Def(label, type(param)); // placement new
         copyUses(&param, &new_param);
-        assert(!param.isUsed() && new_param.isUsed());
+        AvmAssert(!param.isUsed() && new_param.isUsed());
         // move arg use to corresponding slot in all goto preds
         for (PredRange r(label); !r.empty(); r.popFront()) {
           GotoInstr* go = r.front();
@@ -204,10 +204,10 @@ bool compactCondArgs(CondInstr* instr, Dead* dead) {
           ArmInstr& arm = *r.front();
           Def& param = arm.params[i];
           Def& new_param = arm.params[used];
-          assert(!new_param.isUsed());
+          AvmAssert(!new_param.isUsed());
           new (&new_param) Def(&arm, type(param)); // placement new
           copyUses(&param, &new_param);
-          assert(!param.isUsed());
+          AvmAssert(!param.isUsed());
         }
       }
       ++used;
@@ -280,7 +280,7 @@ void Dead::mark() {
       scanDef(defwork.pop());
   } while (!instrwork.empty());
 
-  assert(checkDead());
+  AvmAssert(checkDead());
 }
 
 bool Dead::checkDead() {
@@ -291,7 +291,7 @@ bool Dead::checkDead() {
         if (enable_verbose)
           printf("dead: i%d\n", instr->id);
         for (ArrayRange<Def> d = defRange(instr); !d.empty(); d.popFront())
-          assert(!keepDef(&d.front()) && "live def on dead instruction");
+          AvmAssert(!keepDef(&d.front()) && "live def on dead instruction");
       } else if (enable_verbose) {
         for (ArrayRange<Def> d = defRange(instr); !d.empty(); d.popFront()) {
           if (!keepDef(&d.front())) {
@@ -420,7 +420,7 @@ void unlinkDeadCode(InstrGraph* ir, Dead* dead, Cleaner* clean) {
           printf("      nearest live rdom is i%d %s argc %d\n", rdom->id,
                  name(rdom), numDefs(rdom));
         }
-        assert(numDefs(rdom) == 0);
+        AvmAssert(numDefs(rdom) == 0);
         LabelInstr* label = kind(rdom) == HR_label ? cast<LabelInstr>(rdom) :
                             clean->ensureLabel(cast<ArmInstr>(rdom));
         GotoInstr* go = factory.newGotoStmt(label);
@@ -447,12 +447,12 @@ void unlinkDeadCode(InstrGraph* ir, Dead* dead, Cleaner* clean) {
 /// been fully unlinked at the time, this traversal would not be needed.
 ///
 void removeDeadCode(Context* cxt, InstrGraph* ir) {
-  assert(checkPruned(ir));
+  AvmAssert(checkPruned(ir));
   if (enable_verbose) {
     printf("Before removeDeadCode\n");
     listCfg(ir->lattice.console(), ir);
   }
-  assert(checkSSA(ir));
+  AvmAssert(checkSSA(ir));
 
   Allocator scratch;
   Dead dead(scratch, ir);
@@ -469,12 +469,12 @@ void removeDeadCode(Context* cxt, InstrGraph* ir) {
 
   cleanBlocks(cxt, ir, &clean);
 
-  assert(checkPruned(ir));
+  AvmAssert(checkPruned(ir));
   if (enable_verbose) {
     printf("After CLEAN\n");
     listCfg(ir->lattice.console(), ir);
   }
-  assert(checkSSA(ir));
+  AvmAssert(checkSSA(ir));
 }
 
 }

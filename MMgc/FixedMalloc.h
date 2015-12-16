@@ -159,7 +159,7 @@ namespace MMgc
 #endif
 
     private:
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Data type used for tracking live large objects, used by EnsureFixedMallocMemory.
         struct LargeObject;
 #endif
@@ -184,7 +184,7 @@ namespace MMgc
         // in support of large-object freeing.
         void UpdateLargeFreeStats(void* item, size_t blocksFreed);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Check that item was allocated by an allocator owned by this FixedMalloc,
         // otherwise trigger an assertion failure.
         void EnsureFixedMallocMemory(const void* item);
@@ -196,7 +196,7 @@ namespace MMgc
         // Untrack large object 'item', which is about to be freed.
         void RemoveFromLargeObjectTracker(const void* item);
 #endif // !AVMPLUS_SAMPLER
-#endif // DEBUG
+#endif // GCDEBUG
 
         // Find the beginning of an object into which 'addr' points.
         //
@@ -324,7 +324,7 @@ namespace MMgc
 #ifdef MMGC_MEMORY_PROFILER
         size_t totalAskSizeLargeAllocs;     // The current number of bytes requested for large objects
 #endif
-#if defined DEBUG
+#if defined GCDEBUG
         vmpi_spin_lock_t m_largeObjectLock; // Protects largeObjects
         LargeObject      *largeObjects;     // Data structure of live large objects, initially NULL
 #endif

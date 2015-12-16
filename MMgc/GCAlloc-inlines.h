@@ -116,7 +116,7 @@ namespace MMgc
     {
         GCAlloc* alloc = (GCAlloc*)block->alloc;
         uint32_t index = (uint32_t)((((char*) item - block->items) * alloc->multiple) >> alloc->shift);
- #ifdef _DEBUG
+ #ifdef GCDEBUG
         GCAssert(((char*) item - block->items) / block->size == index);
  #endif
         return index;
@@ -128,7 +128,7 @@ namespace MMgc
     REALLY_INLINE uint32_t GCAlloc::GetBitsIndex(const GCBlock *block, const void *item)
     {
         uint32_t index = (uintptr_t(item) & 0xFFF) >> block->bitsShift;
-#ifdef _DEBUG
+#ifdef GCDEBUG
         GCAssert(index < uint32_t(((GCAlloc*)block->alloc)->m_numBitmapBytes));
 #endif
         return index;

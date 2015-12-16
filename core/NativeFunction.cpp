@@ -51,6 +51,9 @@ namespace avmplus
         , aotInfo(_aotInfo)
         , compiledMethods(_aotInfo->abcMethods)
         , compiledMethodCount(_aotInfo->nABCMethods)
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        , compiledMethodFlagsArr(_aotInfo->methodFlagsArr)
+#endif
     {
         if (versioned_uris)
             core->addVersionedURIs(versioned_uris);
@@ -124,6 +127,17 @@ namespace avmplus
             return false;
         }
     }
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+    bool NativeInitializer::getNeedArgsArrInMethodSigFlag(uint32_t i) const
+    {
+        if (i < compiledMethodCount)
+        {
+            return compiledMethodFlagsArr[i] > 0 ? true:false;
+        }
+        return false;
+    }
+#endif
+    
 #endif
 
     void ClassManifestBase::fillInClass(uint32_t class_id, ClassClosure* c)

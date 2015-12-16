@@ -32,7 +32,7 @@ namespace halfmoon {
  * possibly by using a different opcode.
  */
 bool isSwappable(InstrKind k) {
-  assert(InstrFactory::isBinaryExpr(k));
+  AvmAssert(InstrFactory::isBinaryExpr(k));
   switch (k) {
     case HR_addi:
     case HR_muli:
@@ -62,9 +62,9 @@ bool isSwappable(InstrKind k) {
 
 /** Return the opcode to use when swapping left/right operands */
 InstrKind swap(InstrKind k) {
-  assert(isSwappable(k));
+  AvmAssert(isSwappable(k));
   switch (k) {
-    default: assert(false && "bad kind. fix isInvertable() or add case");
+    default: AvmAssert(false && "bad kind. fix isInvertable() or add case");
     case HR_addi:
     case HR_muli:
     case HR_ori:
@@ -236,7 +236,7 @@ private:
 
 /** simplify a unary expression */
 Def* Simplifier::simplify(Def* d, InstrKind k, Def* x) {
-  assert(InstrFactory::isUnaryExpr(k));
+  AvmAssert(InstrFactory::isUnaryExpr(k));
   const Type* tx = type(x);
   if (isConst(tx)) {
     const Type* t = fold(l_, k, tx);
@@ -273,13 +273,16 @@ Def* Simplifier::simplify(Def* d, InstrKind k, Def* x) {
       if (match(x, HR_i2u, &t))
         return t;
       break;
+    //Bug # 3727278: if two newinstances are in same block, we can't replace one with other.
+    case HR_newinstance:
+        return d;
   }
   return ht->lookup(d, k, x);
 }
 
 /** simplify a binary expression */
 Def* Simplifier::simplify(Def* d, InstrKind k, Def* x0, Def* y0) {
-  assert(InstrFactory::isBinaryExpr(k));
+  AvmAssert(InstrFactory::isBinaryExpr(k));
   const Type* tx = type(x0);
   const Type* ty = type(y0);
   if (isConst(tx) && isConst(ty)) {
@@ -324,7 +327,7 @@ Def* Simplifier::simplify(Def* d, InstrKind k, Def* x0, Def* y0) {
 }
 
 Def* Simplifier::simplify(Def* d, InstrKind k, int pos, Def* effect, Def* value) {
-  assert(InstrFactory::isUnaryStmt(k));
+  AvmAssert(InstrFactory::isUnaryStmt(k));
   switch (k) {
     case HR_tonumber:
       if (match(value, l_->double_type))
@@ -421,7 +424,7 @@ void DVN::pass() {
   for (EachBlock b(ir_); !b.empty(); ) {
     BlockStartInstr* block = b.popFront();
     ExprTable* idom_table = doms->hasIDom(block) ? tables[doms->idom(block)->blockid] : 0;
-    assert((!doms->hasIDom(block) || idom_table) && "visited block before its dominator");
+    AvmAssert((!doms->hasIDom(block) || idom_table) && "visited block before its dominator");
     ExprTable* table = new (scratch) ExprTable(scratch, table_size, idom_table);
     tables[block->blockid] = table;
     Simplifier s(&ir_->lattice, table);
@@ -516,7 +519,7 @@ public:
           break;
         }
       }
-      assert(t);
+      AvmAssert(t != NULL);
       changed |= update(d, t);
     }
     return changed;
@@ -549,7 +552,7 @@ public:
   }
 
   bool update(Def* d, Def* t) {
-    assert(d && t);
+    AvmAssert(d && t);
     int dx = defId(d);
     if (vn_[dx] != t) {
       vn_[dx] = t;

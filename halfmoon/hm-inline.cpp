@@ -49,10 +49,10 @@ inline MethodInfo * targetOfCallSite(CallStmt2 *call_site) {
   //the value ought to be of type kTypeEnv.
   //it represents a MethodEnv that we can ask questions of (like finality)
   //
-  assert(shape(call_site) == CALLSTMT2_SHAPE);
+  AvmAssert(shape(call_site) == CALLSTMT2_SHAPE);
   const Use& target = call_site->param_in(); //target of call stmt is methodenv
   const Type *target_type = type(target);    //type is method_env
-  assert(isEnv(target_type));                //better be a methodenv!
+  AvmAssert(isEnv(target_type));                //better be a methodenv!
   MethodInfo* method_info = getMethod(target_type);
   return method_info;
 }
@@ -182,7 +182,7 @@ bool isRecursiveCallsite(Context *cxt, CallStmt2* call_site) {
  * could not be done.
  */
 InstrGraph* compileCallee(Context *cxt, CallStmt2* call_site) {
-  assert(ableToInline(cxt, call_site));
+  AvmAssert(ableToInline(cxt, call_site));
   MethodInfo* method_info = targetOfCallSite(call_site);
   InstrGraph* ir = JitManager::init(method_info->pool())->ir(method_info);
 
@@ -192,7 +192,7 @@ InstrGraph* compileCallee(Context *cxt, CallStmt2* call_site) {
   }
   // Code copied from way up stack: BaseExecMgr::verifyJ2()
   MethodSignaturep method_signature = method_info->getMethodSignature();
-  assert(halfmoon::canCompile(method_info));
+  AvmAssert(halfmoon::canCompile(method_info));
 
   //create a new verifier pipeline that will compile the callee
   //JitWriter instance will carry Context instance from
@@ -240,13 +240,13 @@ struct InlineWorklistItem {
 /// TODO comment
 ///
 void propagateTypesInliner(InstrGraph* callee_ir, CallStmt2 *call_site) {
-  assert(kind(callee_ir->begin) == HR_start);
+  AvmAssert(kind(callee_ir->begin) == HR_start);
   StartInstr* start_instr = cast<StartInstr>(callee_ir->begin);
 
   // Watch out: same impedance mismatch as in connectInputs
   int param_count = start_instr->paramc;
   // the two extras are effect and methodEnv
-  assert(call_site->arg_count() == param_count - 2);
+  AvmAssert(call_site->arg_count() == param_count - 2);
 
   Allocator scratch;
   const Type** types = new (scratch) const Type*[param_count];
@@ -298,7 +298,7 @@ void connectInputs(StartInstr* callee_start_instr, CallStmt2 *call_site) {
   // callmethod: (effect,      object, [N extra args])
   // start:      (effect,      object, [N extra params])
   // TODO handle rest
-  assert(call_site->arg_count() == callee_start_instr->paramc - 2);
+  AvmAssert(call_site->arg_count() == callee_start_instr->paramc - 2);
 
   // start instruction doesn't count effect amongst its "data parameters"
   // ie. data_param(0)  is not the effect
@@ -321,7 +321,7 @@ void connectInputs(StartInstr* callee_start_instr, CallStmt2 *call_site) {
     Def * def_of_actual_arg = def(an_arg);
     Def *corresponding_formal_parm = callee_start_instr->data_param(i+extra_formal_parameters);
     //TODO: how do i distinguish between "FinalDefaultClass[O]~" and FinalDefaultClass[A]~"
-    assert(type(def_of_actual_arg)->isSubtypeOf(*type(corresponding_formal_parm)));
+    AvmAssert(type(def_of_actual_arg)->isSubtypeOf(*type(corresponding_formal_parm)));
     if (!corresponding_formal_parm->isUsed()) {
       continue; //formal has no uses nothing to do
     }
@@ -475,9 +475,9 @@ void inlineCallsite(InstrGraph* outer_ir, InstrFactory* factory, InstrGraph *cal
                     const InlineWorklistItem& item) {
   Instr* callsite = item.call_site;
 
-  assert(kind(callee_ir->begin) == HR_start);
-  assert(checkOneEnd(callee_ir, callee_ir->end, HR_return));
-  assert(checkOneEnd(outer_ir, outer_ir->exit, HR_throw));
+  AvmAssert(kind(callee_ir->begin) == HR_start);
+  AvmAssert(checkOneEnd(callee_ir, callee_ir->end, HR_return));
+  AvmAssert(checkOneEnd(outer_ir, outer_ir->exit, HR_throw));
 
   dbgDumpIr(callsite, outer_ir, callee_ir);
 
@@ -529,7 +529,7 @@ void inlineCallsite(InstrGraph* outer_ir, InstrFactory* factory, InstrGraph *cal
  */
 bool inlineGraph(Context *cxt, InstrGraph* ir, const char *title) {
   (void)title;
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
 
   String *caller_name = cxt->method->getMethodName();
 
@@ -591,11 +591,11 @@ bool inlineGraph(Context *cxt, InstrGraph* ir, const char *title) {
   dbgDumpIr(ir, "after-inlining", cxt );
 
   pruneGraph(ir);
-  assert(checkPruned(ir));
+  AvmAssert(checkPruned(ir));
 
   dbgDumpIr(ir, "after-pruning", cxt );
 
-  assert(checkSSA(ir));
+  AvmAssert(checkSSA(ir));
   return did_ir_change;
 }
 

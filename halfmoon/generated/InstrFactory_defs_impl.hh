@@ -27,9 +27,11 @@ extern const ShapeRep shape_reps[SHAPE_MAX] = {
   { 2, 1, kVarNone },   // DEOPTFINISHCALLINSTR_SHAPE
   { 2, 2, kVarIn },     // NARYSTMT1_SHAPE
   { 2, 2, kVarNone },   // UNARYSTMT_SHAPE
+  { 3, 1, kVarNone },   // DEBUGINSTR2_SHAPE
   { 3, 2, kVarIn },     // CALLSTMT2_SHAPE
   { 3, 2, kVarIn },     // NARYSTMT2_SHAPE
   { 3, 2, kVarNone },   // BINARYSTMT_SHAPE
+  { 3, 2, kVarNone },   // GETLOCALSTMT_SHAPE
   { 3, 4, kVarNone },   // HASNEXT2STMT_SHAPE
   { 4, 2, kVarIn },     // CALLSTMT3_SHAPE
   { 4, 2, kVarIn },     // NARYSTMT3_SHAPE
@@ -63,6 +65,7 @@ extern const InstrAttrs instr_attrs[HR_MAX] = {
   { "castns",                UNARYSTMT_SHAPE, false },
   { "cknull",                UNARYSTMT_SHAPE, false },
   { "cknullobject",          UNARYSTMT_SHAPE, false },
+  { "makenullrefexception",  UNARYSTMT_SHAPE, false },
   { "cktimeout",             UNARYSTMT_SHAPE, false },
   { "abc_hasnext",           BINARYSTMT_SHAPE, false },
   { "abc_hasnext2",          HASNEXT2STMT_SHAPE, false },
@@ -174,12 +177,14 @@ extern const InstrAttrs instr_attrs[HR_MAX] = {
   { "getouterscope",         BINARYEXPR_SHAPE, false },
   { "safepoint",             SAFEPOINTINSTR_SHAPE, false },
   { "setlocal",              SETLOCALINSTR_SHAPE, false },
+  { "getlocal",              GETLOCALSTMT_SHAPE, false },
   { "newstate",              CONSTANTEXPR_SHAPE, false },
   { "deopt_safepoint",       DEOPTSAFEPOINTINSTR_SHAPE, false },
   { "deopt_finish",          DEOPTFINISHINSTR_SHAPE, false },
   { "deopt_finishcall",      DEOPTFINISHCALLINSTR_SHAPE, false },
   { "debugline",             DEBUGINSTR_SHAPE, false },
   { "debugfile",             DEBUGINSTR_SHAPE, false },
+  { "debug",                 DEBUGINSTR2_SHAPE, false },
   { "string2atom",           UNARYEXPR_SHAPE, false },
   { "double2atom",           UNARYEXPR_SHAPE, false },
   { "int2atom",              UNARYEXPR_SHAPE, false },
@@ -370,6 +375,7 @@ extern const InstrAttrs instr_attrs[HR_MAX] = {
   { "findprop2finddef",      NARYSTMT1_SHAPE, true },
   { "findprop2getouter",     NARYSTMT1_SHAPE, true },
   { "callprop_string",       CALLSTMT2_SHAPE, true },
+  { "callprop_int",          CALLSTMT2_SHAPE, true },
   { "coerce_any",            BINARYSTMT_SHAPE, true },
   { "coerce_object",         BINARYSTMT_SHAPE, true },
   { "coerce_number",         BINARYSTMT_SHAPE, true },

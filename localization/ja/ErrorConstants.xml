@@ -758,5 +758,6 @@ class B extends A {
   <error id="2107" label="kProxyNextValueError">Proxy クラスは、nextValue を実装しません。サブクラスでオーバーライドする必要があります。</error>
   <error id="2108" label="kInvalidArrayLengthError">値 %1 は有効な配列の長さではありません。</error>
   <error id="2173" label="kReadExternalNotImplementedError">ストリーム内のオブジェクトを読み取れません。クラス %1 は flash.utils.IExternalizable を実装しませんが、外部化可能なクラスにエイリアス処理されます。</error>
+  <error id="3735" label="kAPICannotAcceptSharedByteArray">この API は共有の ByteArrays を受け付けません。</error>
 
 </errors>

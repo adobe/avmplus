@@ -25,6 +25,7 @@ RETURN_TYPE do_caststring(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)-
 RETURN_TYPE do_castns(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_cknull(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_cknullobject(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_makenullrefexception(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_cktimeout(UnaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_abc_hasnext(BinaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_abc_hasnext2(Hasnext2Stmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
@@ -136,12 +137,14 @@ RETURN_TYPE do_slottype(BinaryExpr* i) { return static_cast<SELF_CLASS*>(this)->
 RETURN_TYPE do_getouterscope(BinaryExpr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_safepoint(SafepointInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_setlocal(SetlocalInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_getlocal(GetlocalStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_newstate(ConstantExpr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_deopt_safepoint(DeoptSafepointInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_deopt_finish(DeoptFinishInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_deopt_finishcall(DeoptFinishCallInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_debugline(DebugInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_debugfile(DebugInstr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_debug(DebugInstr2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_string2atom(UnaryExpr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_double2atom(UnaryExpr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_int2atom(UnaryExpr* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
@@ -332,6 +335,7 @@ RETURN_TYPE do_abc_setslot(CallStmt2* i) { return static_cast<SELF_CLASS*>(this)
 RETURN_TYPE do_findprop2finddef(NaryStmt1* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_findprop2getouter(NaryStmt1* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_callprop_string(CallStmt2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
+RETURN_TYPE do_callprop_int(CallStmt2* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_coerce_any(BinaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_coerce_object(BinaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }
 RETURN_TYPE do_coerce_number(BinaryStmt* i) { return static_cast<SELF_CLASS*>(this)->do_default(i); }

@@ -88,7 +88,12 @@ namespace avmshell
     {
         MMgc::GCHeap::EnterLockInit();
         MMgc::GCHeapConfig conf;
-        //conf.verbose = AvmCore::DEFAULT_VERBOSE_ON;
+        
+#if defined(AVMSYSTEM_IPHONE)
+        //same as in iOS,CTAIRAppController
+        conf.returnMemory = false;
+#endif
+		conf.secret = (uint32_t)VMPI_getPerformanceCounter();
         MMgc::GCHeap::Init(conf);
 
         // Note that output from the command line parser (usage messages, error messages,
@@ -179,7 +184,7 @@ namespace avmshell
 
         MMgc::GCConfig gcconfig;
         gcconfig.mode = settings.gcMode();
-        MMgc::GC* gc = mmfx_new(MMgc::GC(MMgc::GCHeap::GetGCHeap(),  gcconfig));
+        MMgc::GC* gc = mmfx_new(MMgc::GC(MMgc::GCHeap::GetGCHeap(), gcconfig));
         ShellToplevel* toplevel = NULL;
         {
             MMGC_GCENTER(gc);
@@ -230,8 +235,12 @@ namespace avmshell
         // The isolate is now live and operating independently.
         AvmAssert(avmplus::AvmCore::getActiveCore()->getIsolate() == this);
         AvmAssert(getAggregate()->queryState(this) == RUNNING);
-        
+
         avmplus::AvmCore* core = getAvmCore();
+#ifdef VMCFG_AOT
+        avmplus::ScriptBuffer dummyScriptBuffer;
+        core->evaluateScriptBuffer(dummyScriptBuffer, enter_debugger_on_launch);
+#else
         for (int i = 0; i < m_code.length; i++ ) {
             // execute event loop at the end of the last script
             if (i == (m_code.length - 1) && !isPrimordial())
@@ -245,6 +254,7 @@ namespace avmshell
             m_code.values[i].deallocate(); 
         }
         m_code.deallocate();
+#endif
     }
 	
 
@@ -259,6 +269,7 @@ namespace avmshell
         {
             Shell* aggregate = static_cast<Shell*>(getAggregate());
             ShellSettings& settings = aggregate->settings;
+
             MMgc::GCConfig gcconfig;
             if (settings.gcthreshold != 0)
                 // (zero means use default value already in gcconfig.)
@@ -268,8 +279,8 @@ namespace avmshell
             gcconfig.drc = settings.drc;
             gcconfig.mode = settings.gcMode();
             gcconfig.validateDRC = settings.drcValidation;
-            
-            MMgc::GC *gc = mmfx_new( MMgc::GC(MMgc::GCHeap::GetGCHeap(), gcconfig) );
+
+            MMgc::GC *gc = mmfx_new(MMgc::GC(MMgc::GCHeap::GetGCHeap(), gcconfig));
             
             MMGC_GCENTER(gc);
 
@@ -312,8 +323,7 @@ namespace avmshell
         
         if (exitCode != 0)
             Platform::GetInstance()->exit(exitCode);
-        return;
-#endif
+#else // ndef VMCFG_AOT
 
         // For -testswf we must have exactly one file
         if (settings.do_testSWFHasAS3 && settings.numfiles != 1)
@@ -335,6 +345,7 @@ namespace avmshell
         delete shell;
         mmfx_delete( gc );
         aggregate->afterGCDeletion(this);
+#endif // ndef VMCFG_AOT
     }
     };
 
@@ -538,7 +549,7 @@ namespace avmshell
         // Create collectors and cores.
         // Extra credit: perform setup in parallel on the threads.
         for ( int i=0 ; i < numcores ; i++ ) {
-            MMgc::GC* gc = new MMgc::GC(MMgc::GCHeap::GetGCHeap(),  gcconfig);
+            MMgc::GC* gc = new MMgc::GC(MMgc::GCHeap::GetGCHeap(), gcconfig);
             MMGC_GCENTER(gc);
             cores[i] = new CoreNode(new ShellCoreImpl(gc, settings, false), i);
             if (!cores[i]->core->setup(settings))
@@ -937,11 +948,20 @@ namespace avmshell
                     else if (!VMPI_strcmp(arg+2, "nocse")) {
                         settings.njconfig.cseopt = false;
                     }
+                    else if (!VMPI_strcmp(arg+2, "forcelongbranch")) {
+                        settings.njconfig.force_long_branch = true;
+                    }
                     else if (!VMPI_strcmp(arg+2, "checkjitpageflags")) {
                         settings.njconfig.check_page_flags = true;
                     }
                     else if (!VMPI_strcmp(arg+2, "noinline")) {
                         settings.jitconfig.opt_inline = false;
+                    }
+                    else if (!VMPI_strcmp(arg+2, "noinlinevector")) {
+                        settings.jitconfig.opt_inline_vector_access = false;
+                    }
+                    else if (!VMPI_strcmp(arg+2, "arrayfastpath")) {
+                        settings.jitconfig.opt_array_read_fastpath = true;
                     }
                     else if (!VMPI_strcmp(arg+2, "jitordie")) {
                         settings.runmode = avmplus::RM_jit_all;
@@ -1314,12 +1334,15 @@ namespace avmshell
         avmplus::AvmLog("          [-Dinterp]    do not generate machine code, interpret instead\n");
         avmplus::AvmLog("          [-Ojit]       use jit always, never interp (except when the jit fails)\n");
         avmplus::AvmLog("          [-Dcheckjitpageflags] check page protection flags on JIT memory allocation (sometimes expensive)\n");
-#ifdef VMCFG_HALFMOON
+#  ifdef VMCFG_HALFMOON
         avmplus::AvmLog("          [-Dhalfmoon   use experimental 'halfmoon' jit (development only)\n");
-#endif
+#  endif
         avmplus::AvmLog("          [-Djitordie]  use jit always, and abort when the jit fails\n");
         avmplus::AvmLog("          [-Dnocse]     disable CSE optimization\n");
-        avmplus::AvmLog("          [-Dnoinline]  disable speculative inlining\n");
+        avmplus::AvmLog("          [-Dnoinline]  disable speculative inlining for arithmetic and conversions\n");
+        avmplus::AvmLog("          [-Dnoinlinevector]  disable inlining of vector get/set\n");
+        avmplus::AvmLog("          [-Darrayfastpath]  enable speculative inlining of simple array reads\n");
+        avmplus::AvmLog("          [-Dforcelongbranch]  force full-range branches even if not required (x86-64 only)\n");
         avmplus::AvmLog("          [-jitharden]  enable jit hardening techniques\n");
         avmplus::AvmLog("          [-osr=T]      enable OSR with invocation threshold T; disable with -osr=0; default is -osr=%d\n",
                         avmplus::AvmCore::osr_threshold_default);
@@ -1404,5 +1427,25 @@ namespace avmplus
 		
 		return toplevel->core()->getIsolate() != NULL;;
 	}
+    
+    // AOT compiler builds a shell with AOT ifdefs just to be sure aot changes
+    // don't break the shell builds. But this means we need to define symbols it uses.
+    void AOTThrowVerifyError(AvmCore* core, String* msg)
+    {
+        (void)core; (void)msg;
+        AvmAssert(false);
+    }
 }
+
+#ifdef VMCFG_HALFMOON
+namespace halfmoon
+{
+    // AOT compiler builds a shell with AOT ifdefs just to be sure aot changes
+    // don't break the shell builds. But this means we need to define symbols it uses.
+    bool AOTIsDebugMode()
+    {
+        return false;
+    }
+}
+#endif
 

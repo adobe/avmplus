@@ -21,6 +21,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IOErrorClass;
     REALLY_INLINE explicit IOErrorObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ErrorObject(ivtable, delegate) {}
@@ -95,6 +96,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IOErrorClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -115,6 +117,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::MemoryErrorClass;
     REALLY_INLINE explicit MemoryErrorObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ErrorObject(ivtable, delegate) {}
@@ -189,6 +192,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit MemoryErrorClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -209,6 +213,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IllegalOperationErrorClass;
     REALLY_INLINE explicit IllegalOperationErrorObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ErrorObject(ivtable, delegate) {}
@@ -283,6 +288,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IllegalOperationErrorClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -303,6 +309,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::EOFErrorClass;
     REALLY_INLINE explicit EOFErrorObject(VTable* ivtable, ScriptObject* delegate) : avmplus::IOErrorObject(ivtable, delegate) {}
@@ -377,6 +384,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit EOFErrorClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -397,6 +405,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::JSONClass;
     REALLY_INLINE explicit JSONObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -418,6 +427,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     REALLY_INLINE avmplus::FunctionObject* get_reviver() const { return m_slots_WalkerObject.m_reviver; }
     REALLY_INLINE void set_reviver(avmplus::FunctionObject* newVal) { m_slots_WalkerObject.m_reviver = newVal; }
@@ -484,6 +494,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit WalkerClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -501,28 +512,28 @@ public:
     inline uint32_t call_get_bytesAvailable()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1409);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1411);
         avmplus::Atom const result = this->toplevel()->getproperty(this->atom(), mn, this->vtable);
         return avmplus::AvmCore::toUInt32(result);
     }
     inline GCRef<avmplus::String> call_get_endian()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1412);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1414);
         avmplus::Atom const result = this->toplevel()->getproperty(this->atom(), mn, this->vtable);
         return GCRef<avmplus::String>(avmplus::AvmCore::atomToString(result));
     }
     inline uint32_t call_get_objectEncoding()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1411);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1413);
         avmplus::Atom const result = this->toplevel()->getproperty(this->atom(), mn, this->vtable);
         return avmplus::AvmCore::toUInt32(result);
     }
     inline bool call_readBoolean()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1397);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1399);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return ((result) != avmplus::falseAtom);
@@ -530,7 +541,7 @@ public:
     inline int32_t call_readByte()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1398);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1400);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::integer(result);
@@ -539,7 +550,7 @@ public:
     {
         avmplus::AvmCore* const core = ((avmplus::AvmCore*)(this->core()));
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1396);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1398);
         avmplus::Atom args[4] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom(), arg1.reinterpretCast<avmplus::ScriptObject>()->atom(), core->uintToAtom(arg2), core->uintToAtom(arg3) };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 3, args, this->vtable);
         AvmAssert(result == undefinedAtom); (void)result;
@@ -547,7 +558,7 @@ public:
     inline double call_readDouble()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1405);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1407);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::number(result);
@@ -555,7 +566,7 @@ public:
     inline double call_readFloat()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1404);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1406);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::number(result);
@@ -563,7 +574,7 @@ public:
     inline int32_t call_readInt()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1402);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1404);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::integer(result);
@@ -572,7 +583,7 @@ public:
     {
         avmplus::AvmCore* const core = ((avmplus::AvmCore*)(this->core()));
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1406);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1408);
         avmplus::Atom args[3] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom(), core->uintToAtom(arg1), arg2->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 2, args, this->vtable);
         return GCRef<avmplus::String>(avmplus::AvmCore::atomToString(result));
@@ -580,7 +591,7 @@ public:
     inline avmplus::Atom call_readObject()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1410);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1412);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return result;
@@ -588,7 +599,7 @@ public:
     inline int32_t call_readShort()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1400);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1402);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::integer(result);
@@ -596,7 +607,7 @@ public:
     inline GCRef<avmplus::String> call_readUTF()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1407);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1409);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return GCRef<avmplus::String>(avmplus::AvmCore::atomToString(result));
@@ -605,7 +616,7 @@ public:
     {
         avmplus::AvmCore* const core = ((avmplus::AvmCore*)(this->core()));
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1408);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1410);
         avmplus::Atom args[2] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom(), core->uintToAtom(arg1) };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 1, args, this->vtable);
         return GCRef<avmplus::String>(avmplus::AvmCore::atomToString(result));
@@ -613,7 +624,7 @@ public:
     inline uint32_t call_readUnsignedByte()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1399);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1401);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::toUInt32(result);
@@ -621,7 +632,7 @@ public:
     inline uint32_t call_readUnsignedInt()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1403);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1405);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::toUInt32(result);
@@ -629,7 +640,7 @@ public:
     inline uint32_t call_readUnsignedShort()
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1401);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1403);
         avmplus::Atom args[1] = { thisRef.reinterpretCast<avmplus::ScriptObject>()->atom() };
         avmplus::Atom const result = this->toplevel()->callproperty(this->atom(), mn, 0, args, this->vtable);
         return avmplus::AvmCore::toUInt32(result);
@@ -637,7 +648,7 @@ public:
     inline void call_set_endian(GCRef<avmplus::String> arg1)
     {
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1412);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1414);
         this->toplevel()->setproperty(this->atom(), mn, arg1->atom(), this->vtable);
         avmplus::Atom const result = undefinedAtom;
         AvmAssert(result == undefinedAtom); (void)result;
@@ -646,13 +657,14 @@ public:
     {
         avmplus::AvmCore* const core = ((avmplus::AvmCore*)(this->core()));
         PoolObject* pool = toplevel()->abcEnv()->pool();
-        const avmplus::Multiname* const mn = pool->precomputedMultiname(1411);
+        const avmplus::Multiname* const mn = pool->precomputedMultiname(1413);
         this->toplevel()->setproperty(this->atom(), mn, core->uintToAtom(arg1), this->vtable);
         avmplus::Atom const result = undefinedAtom;
         AvmAssert(result == undefinedAtom); (void)result;
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDataInputClass;
     REALLY_INLINE explicit IDataInputInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -697,6 +709,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDataInputClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -711,6 +724,7 @@ class IDataOutputInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDataOutputClass;
     REALLY_INLINE explicit IDataOutputInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -755,6 +769,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDataOutputClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -769,6 +784,7 @@ class IDynamicPropertyOutputInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDynamicPropertyOutputClass;
     REALLY_INLINE explicit IDynamicPropertyOutputInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -813,6 +829,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDynamicPropertyOutputClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -827,6 +844,7 @@ class IDynamicPropertyWriterInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDynamicPropertyWriterClass;
     REALLY_INLINE explicit IDynamicPropertyWriterInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -871,6 +889,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDynamicPropertyWriterClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -885,6 +904,7 @@ class IExternalizableInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IExternalizableClass;
     REALLY_INLINE explicit IExternalizableInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -929,6 +949,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IExternalizableClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -948,6 +969,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::ObjectEncodingClass;
     REALLY_INLINE explicit ObjectEncodingObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -969,6 +991,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::CompressionAlgorithmClass;
     REALLY_INLINE explicit CompressionAlgorithmObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1030,6 +1053,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::String* get_ZLIB() const { return m_slots_CompressionAlgorithmClass.m_ZLIB; }
     REALLY_INLINE void setconst_ZLIB(avmplus::String* newVal) { m_slots_CompressionAlgorithmClass.m_ZLIB = newVal; }
@@ -1061,6 +1085,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDataInput2Class;
     REALLY_INLINE explicit IDataInput2Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1105,6 +1130,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDataInput2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1124,6 +1150,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::IDataOutput2Class;
     REALLY_INLINE explicit IDataOutput2Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1168,6 +1195,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit IDataOutput2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:

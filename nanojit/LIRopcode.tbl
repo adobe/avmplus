@@ -90,6 +90,8 @@ OP___(start,     Op0,  V,    0)  // start of a fragment
 // allocation so that no registers are live when it is reached.
 OP___(regfence,  Op0, V,    0)
 
+OP___(unreachable, Op0, V,  0)	// indicate that this location cannot be reached (no live regs here)
+
 OP___(skip,      Sk,  V,    0)  // links code chunks
 
 OP_32(parami,     P,  I,    0)  // load an int parameter (register or stack location)
@@ -112,7 +114,6 @@ OP___(livef4,   Op1,  V,    0)  // extend live range of a float4
 OP___(file,     Op1,  V,    0)  // [VTune] source filename for debug symbols
 OP___(line,     Op1,  V,    0)  // [VTune] source line number for debug symbols
 OP___(pc,       Op1,  V,    0)  // [Shark] record the machine address of this instruction
-OP_UN(align_comment)
 OP___(comment,  Op1,  V,    0)  // a comment shown, on its own line, in LIR dumps
 OP___(safe,     Safe, V,    0)  // deoptimization safepoint
 OP___(endsafe,  Safe, V,    0)  // deoptimization safepoint

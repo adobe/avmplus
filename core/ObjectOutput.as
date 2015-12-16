@@ -18,7 +18,7 @@ package flash.utils
  * the same method on the real object being written to.
  */
     
-[native(cls="ObjectOutputClass", gc="exact", instance="ObjectOutputObject", methods="auto")]
+[native(cls="ObjectOutputClass", gc="exact", instance="ObjectOutputObject", methods="auto", construct="native")]
 internal class ObjectOutput implements IDataOutput
 {
     public native function writeBytes(bytes:ByteArray, offset:uint=0, length:uint=0):void;

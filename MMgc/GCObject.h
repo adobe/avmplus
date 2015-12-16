@@ -30,7 +30,7 @@ namespace MMgc
     class GCInlineObject
     {
     public:
-#ifdef DEBUG
+#ifdef GCDEBUG
         /**
          * The function gcTraceOffsetIsTraced is overriden in classes
          * with generated tracers (its declared by GC_DATA_BEGIN).  In
@@ -154,7 +154,7 @@ namespace MMgc
         REALLY_INLINE GCRef<T> GetThisRef(const T *ths) const
         {
             GCAssert(ths == (const T*)this);
-            GCRef<T> ref((T*)ths);
+            GCRef<T> ref(const_cast<T*>(ths));
             return ref;
         }
     };
@@ -202,7 +202,7 @@ namespace MMgc
         REALLY_INLINE GCRef<T> GetThisRef(const T *ths) const
         {
             GCAssert(ths == (const T*)this);
-            GCRef<T> ref((T*)ths);
+            GCRef<T> ref(const_cast<T*>(ths));
             return ref;
         }
     };
@@ -228,7 +228,7 @@ namespace MMgc
          */
         T* AsArray() 
         { 
-#ifdef DEBUG
+#ifdef GCDEBUG
             // check that the apiEnforcement field is untouched
             for(char *dummy = (char*)&apiEnforcement, *end=(char*)(&apiEnforcement+1); dummy < end; dummy++)
             {
@@ -266,12 +266,12 @@ namespace MMgc
         // Private ctor to prevent subclassing.
         LeafVector() 
         {
-#ifdef DEBUG
+#ifdef GCDEBUG
             VMPI_memset(&apiEnforcement, GCHeap::LeafApiEnforcementPoison, sizeof(T));
 #endif
         }
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         // prevent raw casting from LeafVector to T*
         T apiEnforcement;
 #endif
@@ -283,7 +283,7 @@ namespace MMgc
     class GCTraceableBase
     {
         friend class GC;
-#ifdef DEBUG
+#ifdef GCDEBUG
     protected:
         // See comments for GCInlineObject gcTraceOffsetIsTraced.
         virtual GCTracerCheckResult gcTraceOffsetIsTraced(uint32_t) const 
@@ -435,7 +435,7 @@ namespace MMgc
         REALLY_INLINE GCRef<T> GetThisRef(const T *ths) const
         {
             GCAssert(ths == (const T*) this);
-            GCRef<T> ref((T*)ths);
+            GCRef<T> ref(const_cast<T*>(ths));
             return ref;
         }
 
@@ -666,7 +666,7 @@ namespace MMgc
             return (composite & STACK_PIN) != 0;
         }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         REALLY_INLINE bool IsGCPoisoned() {
             return composite == uint32_t(GCHeap::GCFreedPoison) || composite == uint32_t(GCHeap::GCSweptPoison);
         }
@@ -680,7 +680,7 @@ namespace MMgc
          */
         void Pin()
         {
-#ifdef _DEBUG
+#ifdef GCDEBUG
             // This is a deleted object so ignore it.
             if(IsGCPoisoned())
                 return;
@@ -700,7 +700,7 @@ namespace MMgc
          */
         void Unpin()
         {
-#ifdef _DEBUG
+#ifdef GCDEBUG
             // This is a deleted object so ignore it.
             if(IsGCPoisoned())
                 return;
@@ -736,7 +736,7 @@ namespace MMgc
          */
         REALLY_INLINE void Stick()
         {
-#ifdef _DEBUG
+#ifdef GCDEBUG
             // This is a deleted object so ignore it.
             if(IsGCPoisoned())
                 return;
@@ -763,7 +763,7 @@ namespace MMgc
          */
         REALLY_INLINE void IncrementRef()
         {
-#ifdef _DEBUG
+#ifdef GCDEBUG
             // This is a deleted object so ignore it.
             if(IsGCPoisoned())
                 return;
@@ -775,7 +775,7 @@ namespace MMgc
             REFCOUNT_PROFILING_ONLY( GC::GetGC(this)->policy.signalIncrementRef(); )
             if(Sticky())
                 return;
-#ifdef _DEBUG
+#ifdef GCDEBUG
             GC* gc = GC::GetGC(this);
             GCAssert(gc->IsRCObjectSafe(this));
 #endif
@@ -807,7 +807,7 @@ namespace MMgc
          */
         REALLY_INLINE void DecrementRef()
         {
-#ifdef _DEBUG
+#ifdef GCDEBUG
             // This is a deleted object so ignore it.
             if(IsGCPoisoned())
                 return;
@@ -820,7 +820,7 @@ namespace MMgc
             if(Sticky())
                 return;
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
             GC* gc = GC::GetGC(this);
             GCAssert(gc->IsRCObjectSafe(this));
 
@@ -843,7 +843,7 @@ namespace MMgc
                 // will cause an underflow, flipping all kinds of bits
                 // in bad ways and resulting in a crash later.  Often,
                 // such a DecrementRef bug would be caught by the
-                // _DEBUG asserts above, but sometimes we have
+                // GCDEBUG asserts above, but sometimes we have
                 // release-only crashers like this.  Better to fail
                 // gracefully at the point of failure, rather than
                 // push the failure to some later point.

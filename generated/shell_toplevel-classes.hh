@@ -16,6 +16,7 @@ class ITestInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::ITestClass;
     REALLY_INLINE explicit ITestInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -60,6 +61,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit ITestClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -79,6 +81,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::CTestClass;
     REALLY_INLINE explicit CTestObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -140,6 +143,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit CTestClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -160,6 +164,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmshell::SystemClass;
     REALLY_INLINE explicit SystemObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -181,6 +186,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmshell::FileClass;
     REALLY_INLINE explicit FileObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -202,6 +208,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::NativeBaseAS3Class;
     REALLY_INLINE explicit NativeBaseAS3Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -263,6 +270,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit NativeBaseAS3Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -283,6 +291,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellCore;
 protected:
     friend class avmplus::ShellCoreFriend1Class;
@@ -345,6 +354,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellCore;
 protected:
     REALLY_INLINE int32_t get_foo() const { return m_slots_ShellCoreFriend1Class.m_private_foo; }
@@ -371,6 +381,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellCore;
     friend class avmshell::ShellToplevel;
 protected:
@@ -434,6 +445,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
     friend class avmshell::ShellCore;
     friend class avmshell::ShellToplevel;
 protected:
@@ -461,6 +473,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::CapabilitiesClass;
     REALLY_INLINE explicit CapabilitiesObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -522,6 +535,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit CapabilitiesClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -542,6 +556,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE bool get_public_var() const { return m_slots_public_classObject.m_public_var != 0; }
     REALLY_INLINE void set_public_var(avmplus::bool32 newVal) { m_slots_public_classObject.m_public_var = newVal; }
@@ -665,6 +680,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_classClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -685,6 +701,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_0Class;
     REALLY_INLINE explicit public_class_AIR_1_0Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -746,6 +763,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -766,6 +784,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_FP_10_0Class;
     REALLY_INLINE explicit public_class_FP_10_0Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -827,6 +846,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -847,6 +867,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_5Class;
     REALLY_INLINE explicit public_class_AIR_1_5Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -908,6 +929,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_5Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -928,6 +950,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_5_1Class;
     REALLY_INLINE explicit public_class_AIR_1_5_1Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -989,6 +1012,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_5_1Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1009,6 +1033,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_FP_10_0_32Class;
     REALLY_INLINE explicit public_class_FP_10_0_32Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1070,6 +1095,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_FP_10_0_32Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1090,6 +1116,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_5_2Class;
     REALLY_INLINE explicit public_class_AIR_1_5_2Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1151,6 +1178,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_5_2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1171,6 +1199,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_0_FP_10_0Class;
     REALLY_INLINE explicit public_class_AIR_1_0_FP_10_0Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1232,6 +1261,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_0_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1252,6 +1282,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Class;
     REALLY_INLINE explicit public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1313,6 +1344,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_AIR_1_5_1_FP_10_0_AIR_1_5_2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1333,6 +1365,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_class_FP_10_0_32_AIR_1_0_FP_10_0Class;
     REALLY_INLINE explicit public_class_FP_10_0_32_AIR_1_0_FP_10_0Object(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1394,6 +1427,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_class_FP_10_0_32_AIR_1_0_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1409,6 +1443,7 @@ class public_interfaceInterface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interfaceClass;
     REALLY_INLINE explicit public_interfaceInterface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1453,6 +1488,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interfaceClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1467,6 +1503,7 @@ class public_interface_AIR_1_0Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_0Class;
     REALLY_INLINE explicit public_interface_AIR_1_0Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1511,6 +1548,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1525,6 +1563,7 @@ class public_interface_FP_10_0Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_FP_10_0Class;
     REALLY_INLINE explicit public_interface_FP_10_0Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1569,6 +1608,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1583,6 +1623,7 @@ class public_interface_AIR_1_5Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_5Class;
     REALLY_INLINE explicit public_interface_AIR_1_5Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1627,6 +1668,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_5Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1641,6 +1683,7 @@ class public_interface_AIR_1_5_1Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_5_1Class;
     REALLY_INLINE explicit public_interface_AIR_1_5_1Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1685,6 +1728,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_5_1Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1699,6 +1743,7 @@ class public_interface_FP_10_0_32Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_FP_10_0_32Class;
     REALLY_INLINE explicit public_interface_FP_10_0_32Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1743,6 +1788,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_FP_10_0_32Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1757,6 +1803,7 @@ class public_interface_AIR_1_5_2Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_5_2Class;
     REALLY_INLINE explicit public_interface_AIR_1_5_2Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1801,6 +1848,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_5_2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1815,6 +1863,7 @@ class public_interface_AIR_1_0_FP_10_0Interface : public avmplus::ScriptObject
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_0_FP_10_0Class;
     REALLY_INLINE explicit public_interface_AIR_1_0_FP_10_0Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1859,6 +1908,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_0_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1873,6 +1923,7 @@ class public_interface_AIR_1_5_1_FP_10_0_AIR_1_5_2Interface : public avmplus::Sc
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_AIR_1_5_1_FP_10_0_AIR_1_5_2Class;
     REALLY_INLINE explicit public_interface_AIR_1_5_1_FP_10_0_AIR_1_5_2Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1917,6 +1968,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_AIR_1_5_1_FP_10_0_AIR_1_5_2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1931,6 +1983,7 @@ class public_interface_FP_10_0_32_AIR_1_0_FP_10_0Interface : public avmplus::Scr
 {
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::public_interface_FP_10_0_32_AIR_1_0_FP_10_0Class;
     REALLY_INLINE explicit public_interface_FP_10_0_32_AIR_1_0_FP_10_0Interface(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -1975,6 +2028,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit public_interface_FP_10_0_32_AIR_1_0_FP_10_0Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -1994,6 +2048,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::SubclassOfAbstractBaseClass;
     REALLY_INLINE explicit SubclassOfAbstractBaseObject(VTable* ivtable, ScriptObject* delegate) : avmshell::AbstractBaseObject(ivtable, delegate) {}
@@ -2055,6 +2110,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit SubclassOfAbstractBaseClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2075,6 +2131,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::SubclassOfRestrictedBaseClass;
     REALLY_INLINE explicit SubclassOfRestrictedBaseObject(VTable* ivtable, ScriptObject* delegate) : avmshell::RestrictedBaseObject(ivtable, delegate) {}
@@ -2136,6 +2193,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit SubclassOfRestrictedBaseClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2156,6 +2214,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::SubclassOfAbstractRestrictedBaseClass;
     REALLY_INLINE explicit SubclassOfAbstractRestrictedBaseObject(VTable* ivtable, ScriptObject* delegate) : avmshell::AbstractRestrictedBaseObject(ivtable, delegate) {}
@@ -2217,6 +2276,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit SubclassOfAbstractRestrictedBaseClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2237,6 +2297,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     REALLY_INLINE int32_t get_foo() const { return m_slots_NativeBaseExtender1Object.m_private_foo; }
     REALLY_INLINE void set_foo(int32_t newVal) { m_slots_NativeBaseExtender1Object.m_private_foo = newVal; }
@@ -2303,6 +2364,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit NativeBaseExtender1Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2323,6 +2385,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     REALLY_INLINE int32_t get_foo() const { return m_slots_NativeBaseExtender2Object.m_private_foo; }
     REALLY_INLINE void set_foo(int32_t newVal) { m_slots_NativeBaseExtender2Object.m_private_foo = newVal; }
@@ -2395,6 +2458,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit NativeBaseExtender2Class(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2415,6 +2479,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE uint32_t get_line() const { return m_slots_StackFrameObject.m_line; }
     REALLY_INLINE void setconst_line(uint32_t newVal) { m_slots_StackFrameObject.m_line = newVal; }
@@ -2490,6 +2555,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit StackFrameClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2510,6 +2576,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::ArrayObject* get_stack() const { return m_slots_SampleObject.m_stack; }
     REALLY_INLINE void setconst_stack(avmplus::ArrayObject* newVal) { m_slots_SampleObject.m_stack = newVal; }
@@ -2579,6 +2646,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit SampleClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2599,6 +2667,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::ClassFactoryClass;
     REALLY_INLINE explicit ClassFactoryObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -2660,6 +2729,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::ClassClosure* get_StackFrameClass() const { return m_slots_ClassFactoryClass.m_StackFrameClass; }
     REALLY_INLINE void setconst_StackFrameClass(avmplus::ClassClosure* newVal) { m_slots_ClassFactoryClass.m_StackFrameClass = newVal; }
@@ -2694,6 +2764,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE double get_id() const { return m_slots_DeleteObjectSampleObject.m_id; }
     REALLY_INLINE void setconst_id(double newVal) { m_slots_DeleteObjectSampleObject.m_id = newVal; }
@@ -2763,6 +2834,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     inline explicit DeleteObjectSampleClass(VTable* cvtable) : avmplus::ClassClosure(cvtable) { createVanillaPrototype(); }
 private:
@@ -2783,6 +2855,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::TraceClass;
     REALLY_INLINE explicit TraceObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -2804,6 +2877,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::EndianClass;
     REALLY_INLINE explicit EndianObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -2865,6 +2939,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::String* get_BIG_ENDIAN() const { return m_slots_EndianClass.m_BIG_ENDIAN; }
     REALLY_INLINE void setconst_BIG_ENDIAN(avmplus::String* newVal) { m_slots_EndianClass.m_BIG_ENDIAN = newVal; }
@@ -2893,6 +2968,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     friend class avmplus::WorkerStateClass;
     REALLY_INLINE explicit WorkerStateObject(VTable* ivtable, ScriptObject* delegate) : avmplus::ScriptObject(ivtable, delegate) {}
@@ -2954,6 +3030,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::String* get_NEW() const { return m_slots_WorkerStateClass.m_NEW; }
     REALLY_INLINE void setconst_NEW(avmplus::String* newVal) { m_slots_WorkerStateClass.m_NEW = newVal; }
@@ -2994,6 +3071,7 @@ private:
     AvmThunk_DEBUG_ONLY( virtual void createInstance() { AvmAssert(0); } )
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 protected:
     REALLY_INLINE avmplus::String* get_m_previousState() const { return m_slots_WorkerEventObject.m_private_m_previousState; }
     REALLY_INLINE void set_m_previousState(avmplus::String* newVal) { m_slots_WorkerEventObject.m_private_m_previousState = newVal; }
@@ -3066,6 +3144,7 @@ public:
     }
 private:
     friend class avmplus::NativeID::SlotOffsetsAndAsserts;
+    friend class halfmoon::JitFriend;
 public:
     REALLY_INLINE avmplus::String* get_WORKER_STATE() const { return m_slots_WorkerEventClass.m_WORKER_STATE; }
     REALLY_INLINE void setconst_WORKER_STATE(avmplus::String* newVal) { m_slots_WorkerEventClass.m_WORKER_STATE = newVal; }

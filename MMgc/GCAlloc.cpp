@@ -99,7 +99,7 @@
  * than Alloc can, so it makes sense to do so.  Two facts stand in the way.  One,
  * on 64-bit system the object may only be one word long.  Two, there's a system-wide
  * invariant that free RC objects have a 'composite' field (the second word) whose
- * value is zero (or some poison value, in DEBUG builds), and reference counting
+ * value is zero (or some poison value, in GCDEBUG builds), and reference counting
  * operations test the value of that field to ignore operations on objects that are
  * in the process of being deleted.  This protocol makes finalization work in the
  * current system.  See comments about this invariant in GCObject.h.
@@ -155,7 +155,7 @@ namespace MMgc
         m_finalized(false),
         m_gc(_gc)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         int usedSpace = m_itemsPerBlock * m_itemSize + sizeof(GCBlock);
 #endif
         GCAssert((unsigned)kBlockSize == GCHeap::kBlockSize);
@@ -335,7 +335,7 @@ namespace MMgc
         if(b->nextFree || b->prevFree || b == m_firstFree) {
             RemoveFromFreeList(b);
         }
-#ifdef _DEBUG
+#ifdef GCDEBUG
         b->next = b->prev = NULL;
         b->nextFree = b->prevFree = NULL;
 #endif
@@ -361,13 +361,13 @@ namespace MMgc
         VALGRIND_DESTROY_MEMPOOL(b);
     }
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
     void* GCAlloc::Alloc(size_t askSize, int flags)
 #else
     void* GCAlloc::Alloc(int flags)
 #endif
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         m_gc->heap->CheckForOOMAbortAllocation();
 #endif
 
@@ -394,28 +394,28 @@ namespace MMgc
 
         m_totalAllocatedBytes += m_itemSize;
         if (m_qList == NULL) {
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
             return AllocSlow(askSize, flags);
 #else
             return AllocSlow(flags);
 #endif
         }
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         return AllocFromQuickList(askSize, flags);
 #else
         return AllocFromQuickList(flags);
 #endif
     }
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
     REALLY_INLINE void* GCAlloc::AllocFromQuickList(size_t askSize, int flags)
 #else
     REALLY_INLINE void* GCAlloc::AllocFromQuickList(int flags)
 #endif
     {
         // This is absurd.
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         (void)askSize;
 #endif
         void *item = FLPopAndZero(m_qList);
@@ -459,7 +459,7 @@ namespace MMgc
         return item;
     }
 
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
     void *GCAlloc::AllocSlow(size_t askSize, int flags)
 #else
     void *GCAlloc::AllocSlow(int flags)
@@ -494,7 +494,7 @@ namespace MMgc
             // Fast path: fill the quick list from b, then tail-call AllocFromQuickList()
             FillQuickList(b);
             GCAssert(m_qList != NULL);
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
             return AllocFromQuickList(askSize, flags);
 #else
             return AllocFromQuickList(flags);
@@ -509,7 +509,7 @@ namespace MMgc
 
             FillQuickList(b);
             GCAssert(m_qList != NULL);
-#if defined DEBUG || defined MMGC_MEMORY_PROFILER
+#if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
             void *item = AllocFromQuickList(askSize, flags);
 #else
             void *item = AllocFromQuickList(flags);
@@ -559,7 +559,7 @@ namespace MMgc
             return;
         }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
         VerifyNotFree(b, item);
 
         // RCObject have contract that they must clean themselves, since they
@@ -612,7 +612,7 @@ namespace MMgc
         GCAssert(!b->needsSweeping());
         GCAssert(!(b->bits[bitsindex] & kHasWeakRef));
 
-#ifndef _DEBUG
+#ifndef GCDEBUG
         ClearNonRCObject((void*)item, b->size);
 #endif
 
@@ -630,7 +630,7 @@ namespace MMgc
         if(b->bits[bitsindex] & kHasWeakRef)
             b->gc->ClearWeakRef(GetUserPointer(item));
 
-#ifndef _DEBUG
+#ifndef GCDEBUG
         ClearNonRCObject((void*)item, b->size);
 #endif
         bool blockSwept = false;
@@ -665,7 +665,7 @@ namespace MMgc
 
     REALLY_INLINE void GCAlloc::ClearNonRCObject(void* item, size_t size)
     {
-        // memset rest of item not including free list pointer, in _DEBUG
+        // memset rest of item not including free list pointer, in GCDEBUG
         // we poison the memory (and clear in Alloc)
         //
         // BTW, experiments show that clearing on alloc instead of on free
@@ -717,7 +717,7 @@ namespace MMgc
             // The object was cleared in Free() or will be cleared in Alloc(), but
             // we need to link it onto the block's free list.
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
             VerifyNotFree(b, item);
 #endif
 
@@ -751,7 +751,7 @@ namespace MMgc
         m_qBudget += m_itemsPerBlock;
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     void GCAlloc::VerifyNotFree(GCBlock* b, const void* item)
     {
         for ( void *free = m_qList ; free != NULL ; free = FLNext(free) )
@@ -840,7 +840,7 @@ namespace MMgc
                     if(*(intptr_t*)obj != 0)
                         obj->~GCFinalizedObject();
 
-#if defined(_DEBUG)
+#if defined(GCDEBUG)
                     if(((GCAlloc*)b->alloc)->ContainsRCObjects()) {
                         m_gc->RCObjectZeroCheck((RCObject*)obj);
                     }
@@ -1058,7 +1058,7 @@ namespace MMgc
         }
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     void GCAlloc::CheckMarks()
     {
         GCBlock *b = m_firstBlock;
@@ -1122,7 +1122,7 @@ namespace MMgc
         }
     }
 
-#endif // _DEBUG
+#endif // GCDEBUG
 
     // allows us to avoid division in GetItemIndex, kudos to Tinic
     static void ComputeMultiplyShift(uint16_t d, uint16_t &muli, uint16_t &shft)
@@ -1155,7 +1155,7 @@ namespace MMgc
     REALLY_INLINE void GCAlloc::GCBlock::FreeSweptItem(const void *item, int bitsindex)
     {
         GCAlloc* alloc = (GCAlloc*)this->alloc;
-#ifdef _DEBUG
+#ifdef GCDEBUG
         // Check that we're not freeing something on the mark stack
         GCAssert((bits[bitsindex] & kQueued) == 0);
         alloc->VerifyNotFree(this, item);
@@ -1164,7 +1164,7 @@ namespace MMgc
         numFree++;
         bits[bitsindex] = kFreelist;
 
-#ifndef _DEBUG
+#ifndef GCDEBUG
         alloc->ClearNonRCObject((void*)item, size);
 #endif
         FLPush(firstFree, item);
@@ -1231,7 +1231,7 @@ namespace MMgc
         numAlloc -= (m_qBudgetObtained - m_qBudget);
     }
     
-#ifdef _DEBUG
+#ifdef GCDEBUG
     bool GCAlloc::IsOnEitherList(GCBlock *b)
     {
         return b->nextFree != NULL || b->prevFree != NULL || b == m_firstFree || b == m_needsSweeping;
@@ -1261,5 +1261,5 @@ namespace MMgc
         
         return (GC::GetGCBits(item) & (kMark|kQueued)) == 0;
     }
-#endif // _DEBUG
+#endif // GCDEBUG
 }

@@ -504,7 +504,12 @@ process_interrupt:
         const DomainEnv *domainEnv = cc->domainEnv();
         uint32_t domainMemSize = domainEnv->globalMemorySize();
 
-        if(uint32_t(addr) > (domainMemSize - sizeof(int32_t)))
+		/* If the DomainMemory ByteArray's length is less than 4, there is an integer
+		 * overeflow. For eg.: 0xaabbaab8	> 0x00000001 - sizeof(int32_t), 
+		 * becomes,	(4294967296-1430541640) > (4294967296-(-(1-4)))
+		 * which in turn becomes 2864425656 > 4294967293
+		 */
+        if(uint32_t(addr) > (domainMemSize - sizeof(int32_t)) || domainMemSize < sizeof(int32_t))
           toplevel->throwRangeError(kInvalidRangeError);
 
         int32_t *p = (int32_t *)(domainEnv->globalMemoryBase() + uint32_t(addr));

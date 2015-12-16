@@ -669,5 +669,6 @@ class B extends A {
   <error id="2107" label="kProxyNextValueError">The Proxy class does not implement nextValue. It must be overridden by a subclass.</error>
   <error id="2108" label="kInvalidArrayLengthError">The value %1 is not a valid Array length.</error>
   <error id="2173" label="kReadExternalNotImplementedError">Unable to read object in stream.  The class %1 does not implement flash.utils.IExternalizable but is aliased to an externalizable class.</error>
+  <error id="3735" label="kAPICannotAcceptSharedByteArray">This API cannot accept shared ByteArrays.</error>
 
 </errors>

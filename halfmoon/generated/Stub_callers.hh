@@ -86,6 +86,12 @@ class StubCaller {
         interp->getObject(instr->use(1))));
   }
 
+  // makenullrefexception: (Effect, Atom) -> (Effect, Atom~)
+  static void do_makenullrefexception(Interpreter* interp, UnaryStmt* instr) {
+    interp->resultVal(instr->value_out()) = AtomValue(Stubs::do_makenullrefexception(&interp->frame_,
+        interp->getAtom(instr->use(1))));
+  }
+
   // cktimeout: (Effect, Env) -> (Effect, Boolean)
   static void do_cktimeout(Interpreter* interp, UnaryStmt* instr) {
     interp->resultVal(instr->value_out()) = Value(Stubs::do_cktimeout(&interp->frame_,
@@ -969,6 +975,14 @@ class StubCaller {
     (void)interp;
   }
 
+  // debug: (Effect, String, Int) -> Effect
+  static void do_debug(Interpreter* interp, DebugInstr2* instr) {
+    Stubs::do_debug(&interp->frame_,
+        interp->getString(instr->use(1)),
+        interp->getInt(instr->use(2)));
+    (void)interp;
+  }
+
   // string2atom: String -> Atom
   static void do_string2atom(Interpreter* interp, UnaryExpr* instr) {
     interp->resultVal(instr->value_out()) = AtomValue(Stubs::do_string2atom(&interp->frame_,
@@ -1782,6 +1796,7 @@ const Interpreter::StubCall Interpreter::stub_table[] = {
   (StubCall)&StubCaller::do_castns,
   (StubCall)&StubCaller::do_cknull,
   (StubCall)&StubCaller::do_cknullobject,
+  (StubCall)&StubCaller::do_makenullrefexception,
   (StubCall)&StubCaller::do_cktimeout,
   (StubCall)&StubCaller::do_abc_hasnext,
   0, // abc_hasnext2
@@ -1893,12 +1908,14 @@ const Interpreter::StubCall Interpreter::stub_table[] = {
   (StubCall)&StubCaller::do_getouterscope,
   0, // safepoint
   0, // setlocal
+  0, // getlocal
   0, // newstate
   0, // deopt_safepoint
   (StubCall)&StubCaller::do_deopt_finish,
   0, // deopt_finishcall
   (StubCall)&StubCaller::do_debugline,
   (StubCall)&StubCaller::do_debugfile,
+  (StubCall)&StubCaller::do_debug,
   (StubCall)&StubCaller::do_string2atom,
   (StubCall)&StubCaller::do_double2atom,
   (StubCall)&StubCaller::do_int2atom,

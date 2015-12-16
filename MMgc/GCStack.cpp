@@ -176,7 +176,7 @@ namespace MMgc
 
     void GCMarkStack::ClearRootProtectorAndChunkAbove(uintptr_t index, const void* rootptr)
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         uintptr_t* top = (uintptr_t*)index;
         GCAssert(top[0] == ((kRootProtector << 2) | kFirstWord));
         GCAssert((void*)(top[-1] & ~3) == rootptr);
@@ -220,7 +220,7 @@ namespace MMgc
     inline uintptr_t* GCMarkStack::limit(GCMarkStack::StackSegment* seg)
     {
         static const size_t kMarkStackItems = (GCHeap::kBlockSize - sizeof(StackSegment)) / sizeof(uintptr_t);
-#ifdef DEBUG
+#ifdef GCDEBUG
         return items(seg) + kMarkStackItems - 2;    // Two sentinel words at the end
 #else
         return items(seg) + kMarkStackItems;
@@ -231,7 +231,7 @@ namespace MMgc
     {
         m_savedTop = NULL;
         m_prev = NULL;
-#ifdef DEBUG
+#ifdef GCDEBUG
         sentinel1 = 0;            // catch overwrites
         sentinel2 = 0;            //   as soon as they happen
         limit(this)[0] = 0;       // also
@@ -549,7 +549,7 @@ namespace MMgc
         GCHeap::GetGCHeap()->FreeNoOOM(p);
     }
 
-#ifdef _DEBUG
+#ifdef GCDEBUG
     bool GCMarkStack::Invariants()
     {
 #ifdef MMGC_MARKSTACK_ALLOWANCE

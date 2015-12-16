@@ -233,6 +233,22 @@ namespace vmbase {
                              :"r"(next), "r"(wordptr), "a"(expected)
                              :"memory", "cc");
         return val;
+#elif defined(__GNUC__) && (defined(__ARM_ARCH__) && __ARM_ARCH__ >= 7)
+
+        uint32_t prev_value, reloop;
+        do {
+            __asm__ __volatile__(" ldrex %1, [%3]      \n"
+                                 " mov %0, #0          \n"
+                                 " cmp %1, %4          \n"
+#ifdef __thumb2__
+                                 " it eq               \n"
+#endif
+                                 " strexeq %0, %5, [%3]\n"
+                                 : "=&r"(reloop), "=&r"(prev_value), "+m"(*wordptr)
+                                 : "r"(wordptr), "r"(expected), "r"(next)
+                                 : "memory", "cc");
+        } while (reloop != 0);
+        return prev_value;
 #elif defined(_MSC_VER) 
         // we know that we are dealing with only 32 bit word here
         return ::InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(wordptr), next, expected);

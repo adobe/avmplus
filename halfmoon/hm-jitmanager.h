@@ -81,21 +81,21 @@ public:
 private:
   // Return true if we have saved interpreter data for this method.
   bool haveInterp(int method_id) {
-    assert(checkMethodId(method_id));
+    AvmAssert(checkMethodId(method_id));
     MethodData* md = methods_[method_id];
     return md && md->interp_data;
   }
 
   // Return true if we have saved compiled code for this method.
   bool haveCode(int method_id) {
-    assert(checkMethodId(method_id));
+    AvmAssert(checkMethodId(method_id));
     MethodData* md = methods_[method_id];
     return md && md->code;
   }
 
   // Check if this object manages this method
   bool haveMethod(int method_id) {
-    assert(checkMethodId(method_id));
+    AvmAssert(checkMethodId(method_id));
     return methods_[method_id] != 0;
   }
 

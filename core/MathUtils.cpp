@@ -1381,7 +1381,9 @@ namespace avmplus
                 exp10 -= decimalDigits;
             }
             if (exp10 > 0) {
-                exactInt.multBy(quickPowTen(exp10));
+                bool success = exactInt.multBy(quickPowTen(exp10));
+				if (!success)
+					return false;
                 exp10 = 0;
             }
             //  This is an approximation which is at most off by 1.  To gain complete accuracy, we need to implement
@@ -1585,9 +1587,17 @@ namespace avmplus
       /--------------------------------------------*/
     void MathUtils::RandomFastInit(pTRandomFast pRandomFast)
     {
+		RandomFastInit(pRandomFast, (uint32_t)(VMPI_getPerformanceCounter()));
+ 	}
+	
+	// Allow the caller to provide a seed, preferably from a good random source,
+	// instead of the default timer-based seed, which is weak for security purposes.
+
+	void MathUtils::RandomFastInit(pTRandomFast pRandomFast, uint32_t seed)
+    {
         int32_t n = 31; // Changed from 32 to 31 per Prince (you mean "The Artist"?)
 
-        pRandomFast->uValue = (uint32_t)(VMPI_getPerformanceCounter());
+        pRandomFast->uValue = seed;
 
         /* Figure out the sequence length (2^n - 1). */
         pRandomFast->uSequenceLength = (1L << n) - 1L;

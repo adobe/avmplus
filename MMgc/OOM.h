@@ -62,7 +62,7 @@ namespace MMgc
         public:
             AbortUnwindObject() : next(NULL), previous(NULL)  {}
             virtual ~AbortUnwindObject()
-#ifdef DEBUG
+#ifdef GCDEBUG
                     ;
 #else
                     {}
@@ -99,7 +99,7 @@ namespace MMgc
         //  This method is not thread safe.
         void RemoveAbortUnwindObject(AbortUnwindObject *obj);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         static bool IsAbortUnwindObjectInList(AbortUnwindObject *obj);
 #endif
 

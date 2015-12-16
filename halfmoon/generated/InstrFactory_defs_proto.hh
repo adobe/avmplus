@@ -28,6 +28,7 @@ enum InstrKind {
   HR_castns,                // UnaryStmt 
   HR_cknull,                // UnaryStmt 
   HR_cknullobject,          // UnaryStmt 
+  HR_makenullrefexception,  // UnaryStmt 
   HR_cktimeout,             // UnaryStmt 
   HR_abc_hasnext,           // BinaryStmt 
   HR_abc_hasnext2,          // Hasnext2Stmt 
@@ -139,12 +140,14 @@ enum InstrKind {
   HR_getouterscope,         // BinaryExpr 
   HR_safepoint,             // SafepointInstr 
   HR_setlocal,              // SetlocalInstr 
+  HR_getlocal,              // GetlocalStmt 
   HR_newstate,              // ConstantExpr 
   HR_deopt_safepoint,       // DeoptSafepointInstr 
   HR_deopt_finish,          // DeoptFinishInstr 
   HR_deopt_finishcall,      // DeoptFinishCallInstr 
   HR_debugline,             // DebugInstr 
   HR_debugfile,             // DebugInstr 
+  HR_debug,                 // DebugInstr2 
   HR_string2atom,           // UnaryExpr 
   HR_double2atom,           // UnaryExpr 
   HR_int2atom,              // UnaryExpr 
@@ -335,6 +338,7 @@ enum InstrKind {
   HR_findprop2finddef,      // NaryStmt1 template
   HR_findprop2getouter,     // NaryStmt1 template
   HR_callprop_string,       // CallStmt2 template
+  HR_callprop_int,          // CallStmt2 template
   HR_coerce_any,            // BinaryStmt template
   HR_coerce_object,         // BinaryStmt template
   HR_coerce_number,         // BinaryStmt template
@@ -398,10 +402,12 @@ enum InstrShape {
   DEBUGINSTR_SHAPE,         // 2, 1, kVarNone           2 instrs
   DEOPTFINISHCALLINSTR_SHAPE, // 2, 1, kVarNone           1 instrs
   NARYSTMT1_SHAPE,          // 2, 2, kVarIn             3 instrs
-  UNARYSTMT_SHAPE,          // 2, 2, kVarNone           42 instrs
-  CALLSTMT2_SHAPE,          // 3, 2, kVarIn             39 instrs
+  UNARYSTMT_SHAPE,          // 2, 2, kVarNone           43 instrs
+  DEBUGINSTR2_SHAPE,        // 3, 1, kVarNone           1 instrs
+  CALLSTMT2_SHAPE,          // 3, 2, kVarIn             40 instrs
   NARYSTMT2_SHAPE,          // 3, 2, kVarIn             1 instrs
   BINARYSTMT_SHAPE,         // 3, 2, kVarNone           73 instrs
+  GETLOCALSTMT_SHAPE,       // 3, 2, kVarNone           1 instrs
   HASNEXT2STMT_SHAPE,       // 3, 4, kVarNone           1 instrs
   CALLSTMT3_SHAPE,          // 4, 2, kVarIn             52 instrs
   NARYSTMT3_SHAPE,          // 4, 2, kVarIn             2 instrs

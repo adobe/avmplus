@@ -435,7 +435,7 @@ namespace avmplus
             XMLObject* target = (notify) ? XMLObject::create(core->GetGC(), toplevel->xmlClass(), parent) : 0;
 
             m_children.removeAt(i);
-            for (uint32_t i2 = 0; i2 < src->numChildren(); i2++)
+            for (uint32_t i2 = 0; i2 < c->numChildren(); i2++)
             {
                 m_children.insert(i + i2, c->m_children.get(i2));
 
@@ -549,9 +549,17 @@ namespace avmplus
                 }
             }
 
-            // delete index from this list
+			// https://watsonexp.corp.adobe.com/#bug=3993626
+			// The problem is with the notifications for removal being sent in childChanges() 
+			// before the call to removeAt() and the event handler for the notifications 
+			// deleting the children. But since changing the order might break exisiting
+			// content, placing a range check for the index before the call to removeAt()
 
-            m_children.removeAt(index);
+            if (index < _length())
+			{
+				// delete index from this list
+				m_children.removeAt(index);
+			}
             return true;
         }
     }
@@ -1023,6 +1031,20 @@ namespace avmplus
     // E4X 13.5.4.11, pg 90
     bool XMLListObject::XMLList_AS3_hasOwnProperty (Atom P)
     {
+/*Bug : 3951226 : when XMLObject/XMLListObject's function are called with Object type variable from 
+actionscript side we get Object type ATOM as this pointer. Object is always handled as Atom in AOT. 
+therefore using this check to correctly finding out the object and call the function.*/
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        Atom thisAtom = (Atom)this;
+        if(atomKind(thisAtom) == kObjectType)
+        {
+            ScriptObject* obj = AvmCore::atomToScriptObject(thisAtom);
+            if(obj->hasAtomProperty(P))
+                return true;
+            
+            return false;
+        }
+#endif
         if (hasAtomProperty(P))
             return true;
 

@@ -63,17 +63,21 @@ namespace avmplus
                     outLen += 2;
                 }
                 else if (ch >= 0xD800 && ch <= 0xDBFF) {
-                    if (--inLen < 0) {
-                        return -1;
-                    }
-                    wchar ch2 = *++in;
-                    if (ch2 < 0xDC00 || ch2 > 0xDFFF) {
-                        // This is an invalid UTF-16 surrogate pair sequence
-                        // Encode the replacement character instead
-                        ch = 0xFFFD;
+                    if (inLen == 0) {
+						ch = 0xFFFD;
                         goto Encode3;
-                    }
+					}
 
+					wchar ch2 = *(in + 1);
+					if (ch2 < 0xDC00 || ch2 > 0xDFFF) {
+						// This is an invalid UTF-16 surrogate pair sequence
+						// Encode the replacement character instead
+						ch = 0xFFFD;
+						goto Encode3;
+					}
+
+					in++; 
+					inLen--;
                     uint32_t ucs4 = ((ch-0xD800)<<10) + (ch2-0xDC00) + 0x10000;
                     if ((outMax -= 4) < 0) {
                         return -1;
@@ -116,17 +120,20 @@ namespace avmplus
                     outLen += 2;
                 }
                 else if (ch >= 0xD800 && ch <= 0xDBFF) {
-                    if (--inLen < 0) {
-                        return -1;
-                    }
-                    wchar ch2 = *++in;
-                    if (ch2 < 0xDC00 || ch2 > 0xDFFF) {
-                        // Invalid...
-                        // We'll encode 0xFFFD for this
-                        outLen += 3;
-                    } else {
-                        outLen += 4;
-                    }
+                    if (inLen == 0) {
+                        outLen += 3;;
+					}else{
+						wchar ch2 = *(in + 1);
+						if (ch2 < 0xDC00 || ch2 > 0xDFFF) {
+							// Invalid...
+							// We'll encode 0xFFFD for this
+							outLen += 3;
+						} else {
+							in++; 
+							inLen--;
+							outLen += 4;
+						}
+					}
                 }
                 else {
                     outLen += 3;

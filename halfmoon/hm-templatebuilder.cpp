@@ -30,7 +30,7 @@ TemplateBuilder::TemplateBuilder(InstrFactory* factory)
 ///
 void TemplateBuilder::start(InstrKind k, int num_params,
                             const Type* param_types[]) {
-  assert(factory_.hasTemplate(k) && "instruction is not a template"); 
+  AvmAssert(factory_.hasTemplate(k) && "instruction is not a template"); 
   (void)k;
   start_instr_ = factory_.newStartInstr(HR_template, num_params, param_types);
   ir_->begin = (StartInstr*)builder_.addInstr(start_instr_);

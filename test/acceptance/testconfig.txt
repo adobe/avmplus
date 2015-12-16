@@ -331,13 +331,59 @@ regress/security/bug636565,     AOT ,, skip, attempts to load additional abc fil
 regress/vector_domain_bug,      AOT ,, skip, AOT does not support loadBytes()
 versioning/.*,                  AOT ,, skip, AOT does not support versioning yet
 
+####################
+# Halfmoon AOT specific
+####################
+abcasm/bug_554915b,             HMA ,, skip, Halfmoon compiled apps don't support script timeout
+as3/ByteArray/ByteArray_bug763519, HMA,, skip, test allocates too much memory and gets a kill -9  from the OS
+as3/ByteArray/ByteArrayLzmaThirdParty, HMA,, skip, test attempts to load a lzma compressed file which can't be done on iOS
+as3/Definitions/FunctionAccessors/InfRec,   HMA ,, skip, Halfmoon compiled apps don't support script timeout
+as3/RuntimeErrors/Error1115NotAConstructor, HMA ,, skip, Halfmoon compiler does not support versioning yet
+as3/sampling/.*,                HMA ,, skip, Halfmoon compiler does not yet support profiling
+as3/ShellClasses/Domain,        HMA ,, skip, Halfmoon compiler does not support loadBytes()
+as3/Types/Number/visibility,    HMA ,, skip, Halfmoon compiler does not support versioning yet
+as3/Vector/nonindexproperty,    HMA ,, skip, Halfmoon compiler does not support versioning yet
+as3/Workers/.*,                 HMA ,, skip, workers feature not yet supported on iOS
+ecma3/JSON/versioned,           HMA ,, skip, Halfmoon compiler does not support versioning yet
+misc/invalid_opcodes,           HMA ,, skip, Handled by the GO
+mops/mops,                      HMA ,, skip, precompilation of Halfmoon compiler application currently doesn't handle precompiled abcs
+regress/bug_498979,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time 
+regress/bug_520888,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_548684,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555045,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555048,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555053,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555097a,            HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555097b,            HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555097c,            HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555102,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555542,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555568,             HMA ,, skip, Needs additional abc files at compile time
+regress/bug_555612,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555614,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_555705,             HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_558442a,            HMA ,, skip, negative test that expects a verify error http://watsonexp.corp.adobe.com/#bug=3156646
+regress/bug_558442b,            HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/bug_618215, HMA,, skip, test attempts to load loads a fuzzed binary .abc using Domain.load which can't be done on iOS
+regress/patch_ByteArray_readFile, HMA ,, skip, used by bug_555568
+regress/printpassed,            HMA ,, skip, used by bug_555568
+regress/security/bug_441280,    HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/security/bug_555059a,   HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/security/bug_555059b,   HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/security/bug_556543,    HMA ,, skip, Halfmoon compiler catches Verify errors at compile time
+regress/security/bug567284,     HMA ,, skip, attempts to load additional abc file at runtime
+regress/vector_domain_bug,      HMA ,, skip, Halfmoon compiler does not support loadBytes()
+versioning/.*,                  HMA ,, skip, Halfmoon compiler does not support versioning yet
+spidermonkey/js1_5/Regress/regress-290656, HMA ,, skip, halfmoon does not support "with(object)"
+spidermonkey/js1_5/Scope/regress-208496-001, HMA ,, skip, halfmoon does not support "with(object)"
+ecma3/Statements/eforin_002, HMA ,, skip, halfmoon does not support "with(object)"
 
 ###########
 # MMgc
 ###########
 mmgc/outofmemory , (.*-Dgcthreshold|.*-Dverifyonly) ,, skip , Threshold test takes too long to run out of mem
 mmgc/pauseForGCIfCollectionImminent, arm-.*-debug,, skip, Test takes too long to run on debug android shell
-as3/ByteArray/ByteArray_bug662851 , (AOT|x86-mac-asc[0-9]+-releasedebugger-air),, skip , system malloc on mac32 produces stderr for this testcase which trips up the testing framework
+as3/ByteArray/ByteArray_bug662851 , (AOT|HMA|x86-mac-asc[0-9]+-releasedebugger-air),, skip , system malloc on mac32 produces stderr for this testcase which trips up the testing framework
 mmgc/outofmemory, .*, , verify_skip, Test takes too long to run when attempting to run with --verify
 
 ###########
@@ -374,3 +420,4 @@ as3/ByteArray/ByteArrayLzmaThirdParty , arm-android,, skip, reads helper files w
 # these should be expected failures but there's no way to specify that particular swf versions fail
 as3/Vector/nonindexproperty,                 halfmoon, , skip, halfmoon acts like interpreter instead of JIT for early swf versions
 regress/bug_551587_2,                        halfmoon, , skip, halfmoon acts like interpreter instead of JIT for early swf versions
+

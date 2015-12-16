@@ -25,15 +25,7 @@ namespace avmplus
                 ScriptObject* base = AvmCore::atomToScriptObject(baseAtom);
                 // make sure scope object is base type's class object
                 AvmAssert(base->traits()->itraits == cvtable->traits->itraits->base);
-                if (base->traits()->itraits->isAbstractBase)
-                {
-                    // If we get here, it means that we descend from an abstract base class,
-                    // but don't have a native createInstanceProc of our own; in that case, we
-                    // should just create a plain old ScriptObject. (Note that this can
-                    // happen for abstract and abstract-restricted; for the latter, we will do
-                    // a second check in checkForRestrictedInheritance() and may reject it anyway.)
-                    goto create_normal;
-                }
+                
                 // ...otherwise, we're done.
                 ClassClosure* base_cc = base->toClassClosure();
                 AvmAssert(base_cc != NULL);
@@ -53,7 +45,6 @@ namespace avmplus
             }
         }
 
-create_normal:
         return ClassClosure::createScriptObjectProc;
     }
 

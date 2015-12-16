@@ -368,6 +368,25 @@ regress/bug_557275,                             AOT.*-asc2,, skip , http://watso
 ecma3/Statements/edowhile_00(6|7),              AOT.*-asc2,, skip , http://watsonexp.corp.adobe.com/#bug=3348356
 
 ####################
+# Halfmoon AOT specific
+####################
+as3/ByteArray/ByteArray:ByteArray readFloat_2 #1, 	HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3153294
+as3/ByteArray/ByteArrayLzma:ByteArray readFloat_2 #1, HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3153294
+ecma3/Exceptions/bug127913,                         HMA ,, skip, Need to follow up as this hangs when HMA compiled
+spidermonkey/js1_5/Regress/regress-234389,          HMA ,, skip, Need to follow up as this hangs when HMA compiled
+spidermonkey/js1_5/Exceptions/regress-121658,       HMA,, skip, Need to follow up as this hangs when HMA compiled
+abcasm/bug_555006b,                                 HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3141005
+abcasm/semanticErrorDuplicateSlotName,              HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3141012
+abcasm/traitsSparseSlots,                           HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3141016
+as3/Types/Conversions/ImplicitConversionsString,    HMA.*-asc2,, skip, https://watsonexp.corp.adobe.com/#bug=3683224
+as3/Types/Conversions/ImplicitConversionsUndefined, HMA.*-asc2,, skip, https://watsonexp.corp.adobe.com/#bug=3683224
+ecma3/Statements/e12_2_1,                           HMA.*-asc2,, skip, https://watsonexp.corp.adobe.com/#bug=3683224
+regress/bug_615544,                                 HMA.*-asc2,, skip, https://watsonexp.corp.adobe.com/#bug=3683224
+regress/bug_515935,                             	arm-HMA,, skip , bug https://bugzilla.mozilla.org/show_bug.cgi?id=547282
+spidermonkey/js1_5/Regress/regress-155081.*,        HMA,, skip, http://watsonexp.corp.adobe.com/#bug=3153162
+as3/Vector/initializerLargeVector,                  HMA,, skip, Skipped in halfmoon (http://watsonexp.corp.adobe.com/#bug=3153162) and AOT both
+
+####################
 # Float
 ####################
 as3/Types/Float/round: sign check , .*, , expectedfail, https://bugzilla.mozilla.org/show_bug.cgi?id=686708

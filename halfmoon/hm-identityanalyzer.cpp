@@ -33,7 +33,7 @@ Def* IdentityAnalyzer::identity(NaryStmt3* instr, Def* value_in) {
 }
 
 Def* IdentityAnalyzer::identity(Instr* instr) {
-  assert(definer(def_) == instr && "Illegal def");
+  AvmAssert(definer(def_) == instr && "Illegal def");
   return do_instr(this, instr);
 }
 
@@ -111,7 +111,7 @@ Def* IdentityAnalyzer::do_u2i(UnaryExpr* instr) {
 ///    z = phi(x, z, ..., z) => z = x
 ///
 Def* IdentityAnalyzer::do_label(LabelInstr* label) {
-  assert(label->preds);
+  AvmAssert(label->preds != NULL);
   // must have at least one predecessor.
   Def* d = 0;
   for (LabelArgRange r(label, pos(def_)); !r.empty(); r.popFront()) {
@@ -123,7 +123,7 @@ Def* IdentityAnalyzer::do_label(LabelInstr* label) {
         return def_;
     }
   }
-  assert(d && "no external values reached this label");
+  AvmAssert(d && "no external values reached this label");
   return d;
 }
 
@@ -143,10 +143,21 @@ Def* IdentityAnalyzer::do_arm(ArmInstr* arm) {
 }
 
 Def* IdentityAnalyzer::do_speculate_number(BinaryExpr* instr) {
-  //assert (type(instr->lhs_in()) != type(instr->value_out()));
+  //AvmAssert (type(instr->lhs_in()) != type(instr->value_out()));
   Def* lhs_in = def(instr->lhs_in());
   if (isNumber(type(lhs_in)))
     return lhs_in;
+  return def_;
+}
+
+Def* IdentityAnalyzer::do_getlocal(GetlocalStmt* instr) {
+  // This fixes up any getlocals that reference other getlocal values.
+  // We only use the values (perhaps shouldn't!) for type computations
+  // But we don't want getlocals to keep other getlocals alive
+  while (kind(definer(instr->value_in())) == HR_getlocal) {
+    GetlocalStmt* stmt = cast<GetlocalStmt>(definer(instr->value_in()));
+    instr->value_in() = def(stmt->value_in());
+  }
   return def_;
 }
 

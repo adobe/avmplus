@@ -331,6 +331,13 @@ REALLY_INLINE LIns* LirHelper::ldf4(LIns* p, int32_t d, AccSet accSet)
 
 // address calc instruction
 REALLY_INLINE LIns* LirHelper::lea(int32_t disp, LIns* base) {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+#endif
     return lirout->ins2(LIR_addp, base, InsConstPtr((void*)disp));
-}    
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+}
 } // namespace

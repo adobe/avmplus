@@ -472,7 +472,7 @@ var FEATURES =
     <defines> VMCFG_GENERIC_FLOAT4 </defines>
     <build-flags type="boolean"> -config CONFIG::VMCFG_FLOAT </build-flags>
     <build-flags type="onoff"> -abcfuture </build-flags>
-    <precludes> AVMFEATURE_AOT </precludes> <!-- AOT + float doesn't work yet, byt that will change eventually -->
+    <precludes> AVMFEATURE_AOT </precludes> <!-- AOT + float doesn't work yet -->
   </feature>
 
   <feature>
@@ -500,8 +500,10 @@ var FEATURES =
     <defines> VMCFG_COMPILEPOLICY  </defines>
   </feature>
 
+  <!-- enable AOT. this is enabled when compiling all AOT runtime,
+	   but on its own sufficient only to build GO/AOT runtime libraries and/or bitcode. -->
   <feature>
-    <desc>Enables the ahead-of-time compiler.</desc>
+    <desc>Enables runtime libraries for the ahead-of-time sdk.</desc>
 
     <name> AVMFEATURE_AOT </name>
     <requires>
@@ -516,6 +518,35 @@ var FEATURES =
     <defines> VMCFG_CDECL </defines>
   </feature>
 
+  <feature>
+    <desc>Enables Halfmoon runtime libraries for the ahead-of-time sdk.</desc>
+    <name>     AVMFEATURE_HALFMOON_AOT_RUNTIME </name>
+    <requires> AVMFEATURE_AOT          </requires>  <!-- HM AOT requires AOT -->	
+    <defines>  VMCFG_HALFMOON_AOT_RUNTIME      </defines>
+  </feature>
+
+  <feature>
+    <desc> Enables Halfmoon-based ahead-of-time compiler. </desc>
+    <name>     AVMFEATURE_HALFMOON_AOT_COMPILER </name>
+    <requires> AVMFEATURE_HALFMOON     </requires>    <!-- eventually split HM IR from HM JIT -->
+    <requires> AVMFEATURE_JIT          </requires>
+    <defines>  VMCFG_HALFMOON_AOT_COMPILER      </defines>
+    <defines>  AVMPLUS_VERBOSE         </defines>
+  </feature>
+
+  <!-- we want to build the AOT compiler executable, or  AOT runtime libraries, but not both from the same configure -->
+
+  <at-most-one>
+    <name> AVMFEATURE_HALFMOON_AOT_COMPILER </name>
+    <name> AVMFEATURE_AOT </name>
+  </at-most-one>
+
+  <at-most-one>
+    <name> AVMFEATURE_HALFMOON_AOT_COMPILER </name>
+    <name> AVMFEATURE_HALFMOON_AOT_RUNTIME </name>
+  </at-most-one>
+
+  
   <feature>
     <desc>Enables the exception based caching code, right now this is used
            exclusively by AOT.</desc>

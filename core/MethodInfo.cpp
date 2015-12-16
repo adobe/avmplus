@@ -85,6 +85,9 @@ namespace avmplus
 #ifdef VMCFG_FLOAT
         ,_has128bitLocals(0)
 #endif // VMCFG_FLOAT
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+        ,_needArgsArrInMethodSig(0)
+#endif
     {
         AvmAssert(method_id >= 0);
 
@@ -115,6 +118,11 @@ namespace avmplus
     {
         AvmAssert(_activation.getTraits() == NULL);
         _activation.setTraits(pool()->core->GetGC(), this, t);
+    }
+    
+    Traits* MethodInfo::activationTraits() const
+    {
+        return _activation.getTraits();
     }
 
     void MethodInfo::init_activationScope(const ScopeTypeChain* scope)

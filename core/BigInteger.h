@@ -129,11 +129,23 @@ namespace avmplus
             }
 
             // Shorthand for multiplying this by a double valued factor (and storing result back in this).
-            inline void multBy(double factor)
+            inline bool multBy(double factor)
             {
                 BigInteger bigFactor;
                 bigFactor.setFromDouble(factor);
+				// https://watsonexp.corp.adobe.com/#bug=3841671
+				// The problem is with the fact that the buffer to hold the result of parseFloat - a double
+				// precision floating point number - is stack allocated and hence if the user supplied
+				// string which is the input argument to parseFloat(String) is large enough, there is a 
+				// possibility that buffer might overflow if the range estimated for the output does not fit
+				// in the stack allocated buffer's range. Investigations to make the buffer heap allocated 
+				// and expand based on the size required for the output didn't bear fruit. So we are now 
+				// returning early when we detect a potential overflow which eventually will have parseFloat
+				// return 'NaN' (Not a Number).
+				if (this->numWords + bigFactor.numWords > kMaxBigIntegerBufferSize + 2)
+					return false;
                 multBy(&bigFactor);
+				return true;
             }
 
             // Multiply by another BigInteger.  If optional arg result is not null, reuse it for

@@ -145,7 +145,7 @@ namespace nanojit
         X64_andrr   = 0xC023400000000003LL, // 32bit and r &= b
         X64_call    = 0x00000000E8000005LL, // near call
         X64_callrax = 0xD0FF000000000002LL, // indirect call to addr in rax (no REX)
-        X64_cmovqno = 0xC0410F4800000004LL, // 64bit conditional mov if (no overflow) r = b
+		X64_cmovqno = 0xC0410F4800000004LL, // 64bit conditional mov if (no overflow) r = b
         X64_cmovqnae= 0xC0420F4800000004LL, // 64bit conditional mov if (uint <)  r = b
         X64_cmovqnb = 0xC0430F4800000004LL, // 64bit conditional mov if (uint >=) r = b
         X64_cmovqne = 0xC0450F4800000004LL, // 64bit conditional mov if (c)       r = b
@@ -443,8 +443,9 @@ namespace nanojit
         void asm_cmpd(LIns*);\
         void asm_cmpf4(LIns*);\
         Branches asm_branch_helper(bool, LIns*, NIns*);\
-        Branches asm_branchi_helper(bool, LIns*, NIns*);\
         Branches asm_branchd_helper(bool, LIns*, NIns*);\
+		NIns* asm_branchi_S8(bool onFalse, LIns *cond, NIns *target);\
+		NIns* asm_branchi_S32(bool onFalse, LIns *cond, NIns *target);\
         void asm_div(LIns *ins);\
         void asm_div_mod(LIns *ins);\
         int max_stk_used;\
@@ -645,9 +646,10 @@ namespace nanojit
         void JNBE8(size_t n, NIns* t);\
         void JNA8(size_t n, NIns* t);\
         void JNAE8(size_t n, NIns* t);\
+        void JNP8(size_t n, NIns* t);\
         void CALL(size_t n, NIns* t);\
         void CALLRAX();\
-        void RET();\
+		void RET();\
         void MOVQSPR(int d, Register r);\
         void MOVQSPX(int d, Register r);\
         void XORPSA(Register r, int32_t i32);\
@@ -665,7 +667,7 @@ namespace nanojit
         void asm_immf(Register r, uint32_t v, bool canClobberCCs, bool blind); \
         void asm_immf4(Register r, float4_t v, bool canClobberCCs, bool blind);
 
-    const int LARGEST_UNDERRUN_PROT = 32;  // largest value passed to underrunProtect
+    const int LARGEST_UNDERRUN_PROT = 38;  // largest value passed to underrunProtect
 
     typedef uint8_t NIns;
 

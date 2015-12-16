@@ -113,6 +113,27 @@ namespace MMgc
     {
         GCAssertMsg(GCHeap::GetGCHeap()->IsStackEntered() || (opts&kCanFail) != 0, "MMGC_ENTER macro must exist on the stack");
 
+        if ((opts & kCanFail) && (elsize > 0))
+        {
+            // 04sep15 pgrandma@adobe.com : https://watsonexp.corp.adobe.com/#bug=4016752
+            //
+            // CL 590139 on 10/13/09 (old repository) broke kCanFail,
+            // as CheckForCallocSizeOverflow() will Abort() when (count*elsize)
+            // would overflow 32-bit math.
+            //
+            // So I'm adding an early return NULL for kCanFail
+            // when the allocation would exceed kMaxObjectSize.
+            size_t limit = isPrimitive
+                ? (MMgc::GCHeap::kMaxObjectSize)
+                : (MMgc::GCHeap::kMaxObjectSize - MMGC_ARRAYHEADER_SIZE);
+            
+            limit = limit / elsize; // (elsize != 0) due to previous check
+            
+            if (count > limit) {
+                return NULL;
+            }
+        }
+        
         size_t size = GCHeap::CheckForCallocSizeOverflow(count, elsize);
         if(!isPrimitive)
             size = GCHeap::CheckForAllocSizeOverflow(size, MMGC_ARRAYHEADER_SIZE);

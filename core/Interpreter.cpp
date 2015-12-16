@@ -260,7 +260,29 @@ namespace avmplus
 #   define OSR(i1)
 #endif
 
+/* [Pepper Linux x86 only] 
+ *
+ * GCC 4.4.3 generates wrong optimization code for the following 2 functions:
+ * 
+ * |interpBoxed()|
+ * |initMultiname()|
+ *
+ * The problem only happens on Pepper linux x86 build, and it consistently crashes
+ * when running testID=18467 in ATS10AS3, refer to bug# 3831468. Bug# 3831882 is
+ * also related to this issue.
+ *
+ * We found that GCC 4.4.2/4.4.3/4.4.4 all have this problem, while GCC 4.4.5 and
+ * later do not have this issue.
+ *
+ * We should remove this __attribute__ once we upgrade GCC compiler to GCC 4.4.5 and
+ * later.
+ */
+#if defined(PEPPER_PLUGIN) && defined(AVMPLUS_UNIX) && !defined(PEPPER_MAC) && \
+    !defined(OS_CHROMEOS) && defined(VMCFG_32BIT) && !defined(DEBUG)
+    Atom __attribute__((optimize("O1"))) interpBoxed(register MethodEnv* env, register int _argc, register Atom* _atomv)
+#else
     Atom interpBoxed(register MethodEnv* env, register int _argc, register Atom* _atomv)
+#endif
     {
 #ifdef VMCFG_DIRECT_THREADED
 
@@ -1784,7 +1806,7 @@ FLOAT_ONLY(\
             mod_two_values_and_next:
 #endif
                 if (IS_BOTH_INTEGER(a1, a2) && a2 != zeroIntAtom) {
-                    i1 = INT32_VALUE(a1) % INT32_VALUE(a2);
+                    i1 = atomGetIntptr(a1) % atomGetIntptr(a2);
                     if (atomIsValidIntptrValue(i1)) {
                         sp[0] = MAKE_INTEGER(i1);
                         NEXT;
@@ -3570,7 +3592,13 @@ FLOAT_ONLY(\
     // OPTIMIZEME - statically knowable if name isRtname or isRtns; exploit this somehow?
     // OPTIMIZEME - often knowable whether the TOS is an object or something simple; exploit this?
 
+    // Refer to comments for |interpBoxed()|
+#if defined(PEPPER_PLUGIN) && defined(AVMPLUS_UNIX) && !defined(PEPPER_MAC) && \
+    !defined(OS_CHROMEOS) && defined(VMCFG_32BIT) && !defined(DEBUG)
+    Atom* __attribute__((optimize("O1"))) initMultiname(MethodEnv* env, Multiname &name, Atom* sp)
+#else
     Atom* initMultiname(MethodEnv* env, Multiname &name, Atom* sp)
+#endif
     {
         if (name.isRtname())
         {
@@ -3700,7 +3728,7 @@ FLOAT_ONLY(\
         size_t stackDepth = (stackBase <= sp) ? sp - stackBase : 0;
         if (stackDepth > stackLimit) {
             stackStart = sp - stackLimit;
-            core->console << "..." << (stackStart-stackBase) << ": ";
+            core->console << "..." << (int)(stackStart-stackBase) << ": ";
         }
         for (ptrdiff_t i=stackStart, n=sp; i<=n; i++) {
             core->console << asAtom(framep[i]);

@@ -34,6 +34,8 @@ namespace avmshell {
         bool terminate();
 
 		bool get_isPrimordial ()	{ return isPrimordial(); }
+        avmplus::String* internalGetState();
+        void start();
 
         private:
         DECLARE_SLOTS_ShellWorkerObject;

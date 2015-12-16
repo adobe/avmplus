@@ -44,18 +44,22 @@ $(call RECURSE_DIRS,other-licenses/lzma)
 # Bug 668442: WinPortUtils.cpp VMPI_getDaylightSavingsTA issue
 # Revision buggy, original breaks gtest; disabling gtest until revision fixed.
 # $(call RECURSE_DIRS,gtest)
+# MTRIPLE_arch
+MTRIPLE_arch = i386
 
 $(call RECURSE_DIRS,VMPI)
 $(call RECURSE_DIRS,vmbase)
-
 $(call RECURSE_DIRS,AVMPI)
 $(call RECURSE_DIRS,MMgc)
 $(call RECURSE_DIRS,halfmoon)
 
+ifeq (1,$(ENABLE_HALFMOON_AOT_COMPILER))
+$(call RECURSE_DIRS,aot-compiler)
+endif
+
 ifdef ENABLE_TAMARIN
 $(call RECURSE_DIRS,core pcre vprof)
 ifeq (1,$(ENABLE_AOT))
-aot_INCLUDES += $(AVM_INCLUDES)
 $(call RECURSE_DIRS,aot)
 endif
 ifeq (sparc,$(TARGET_CPU))
@@ -66,6 +70,7 @@ $(call RECURSE_DIRS,nanojit)
 endif
 ifeq (x86_64,$(TARGET_CPU))
 $(call RECURSE_DIRS,nanojit)
+MTRIPLE_arch = x86_64
 endif
 ifeq (thumb2,$(TARGET_CPU))
 $(call RECURSE_DIRS,nanojit)
@@ -103,7 +108,10 @@ endif
 endif
 
 $(call RECURSE_DIRS,eval)
+
+ifeq (1,$(ENABLE_SHELL))
 $(call RECURSE_DIRS,shell)
+endif
 
 # Bug 632086: These definitions must come *after* the foo_CXXSRCS
 # variables have been completely populated.
@@ -155,3 +163,72 @@ echo:
 	@echo vmbase_NAME = $(vmbase_NAME)
 	@echo vmbase_BUILTINFLAGS = $(vmbase_BUILTINFLAGS)
 	@echo vmbase_PCH_OBJ = $(vmbase_PCH_OBJ)
+
+# hm-aot-sdk gathers the build results destined for the hm aot SDK into a staging area.
+# hm-aot-sdk target is NOT a dependency of "all", rather, the idea is to
+# run "make hm-aot-sdk" separately after make all has completed.
+# Rational is that the makefiles should gather their own build results into a staging area.
+
+PSEUDO_SDK=$(curdir)/../hm-aot-sdk
+
+# Mac host variables
+darwin_AVMSHELLOBJ=$(curdir)/shell/avmshellMac.o
+darwin_MTRIPLE=$(MTRIPLE_arch)-apple-darwin9
+darwin_EXE_WRAPPER=
+
+# Windows host variables
+windows_AVMSHELLOBJ=$(curdir)/shell/avmshellWin.obj
+windows_MTRIPLE=i686-pc-win32
+windows_EXE_WRAPPER=$(topsrcdir)/build/cygwin-wrapper.sh
+
+AVMSHELLOBJ=$($(HOST_OS)_AVMSHELLOBJ)
+MTRIPLE=$($(HOST_OS)_MTRIPLE)
+EXE_WRAPPER=$($(HOST_OS)_EXE_WRAPPER)
+
+ifeq (1,$(ENABLE_HALFMOON_AOT_RUNTIME))
+
+#these are build results
+SHELLFIELDS=$(curdir)/shell-fields.txt
+
+hm-aot-sdk: $(AVMSHELLOBJ)
+	mkdir -p $(PSEUDO_SDK)
+	mkdir -p $(PSEUDO_SDK)/lib
+	mkdir -p $(PSEUDO_SDK)/bin
+	cp -fp $(SHELLFIELDS) $(AVMSHELLOBJ) $(PSEUDO_SDK)
+	cp -fp $(curdir)/*.$(LIB_SUFFIX) $(PSEUDO_SDK)/lib
+
+endif #ENABLE_HALFMOON_AOT_RUNTIME
+
+
+ifeq (1,$(ENABLE_HALFMOON_AOT_COMPILER))
+
+#these are all in the source tree and need to be copied to the sdk
+COMPILE_ABC_WRAPPER  = $(topsrcdir)/aot-compiler/utils/compile-shell-abc.py
+SHELLABC             = $(topsrcdir)/generated/shell_toplevel.abc
+BUILTINABC           = $(topsrcdir)/generated/builtin.abc
+
+#these are build results
+COMPILE_ABC=$(curdir)/aot-compiler/compile-abc$(PROGRAM_SUFFIX)
+RUN_COMPILE_ABC=$(EXE_WRAPPER) $(COMPILE_ABC)
+
+# TODO:. this depends on being run AFTER hm-aot-sdk for runtime because want to use shell-fields.txt for runtime!
+#
+hm-aot-sdk: $(SHELLABC) $(BUILTINABC) $(COMPILE_ABC) $(COMPILE_ABC_WRAPPER)
+	if test ! -d $(PSEUDO_SDK); then \
+		echo no  $(PSEUDO_SDK) suggests you have not run hm-aot-sdk from runtime yet..; \
+		exit 2;\
+	fi
+	cp -fp $(COMPILE_ABC_WRAPPER) $(PSEUDO_SDK)/bin
+	cp -fp $(COMPILE_ABC) $(PSEUDO_SDK)/bin
+	cp -fp $(SHELLABC) $(PSEUDO_SDK)
+	rm -f builtin_abc.$(OBJ_SUFFIX)
+	$(RUN_COMPILE_ABC) -mtriple=$(MTRIPLE) -sdk $(SHELLABC) -fields $(PSEUDO_SDK)/shell-fields.txt -emit-sdk
+	cp -fp builtin_abc.$(OBJ_SUFFIX)  $(PSEUDO_SDK)
+
+#this requires the "staging area" (aka pseudo-sdk) to have been built. 
+hello_0.$(OBJ_SUFFIX): hm-aot-sdk $(curdir)/hello.abc
+	$(RUN_COMPILE_ABC) -mtriple=$(MTRIPLE) -sdk $(PSEUDO_SDK) -fields $(SHELLFIELDS) $(curdir)/hello.abc
+
+endif #ENABLE_HALFMOON_AOT_COMPILER
+
+

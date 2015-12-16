@@ -22,7 +22,6 @@ namespace avmplus
 {
     void AvmDebugMsg(bool debuggerBreak, const char* format, ...);
     void AvmDebugMsg(const char* msg, bool debuggerBreak);
-    void AvmDebugMsg(const wchar* msg, bool debuggerBreak);
 
 #if defined DEBUG || defined _DEBUG
 

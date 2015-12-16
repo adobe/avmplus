@@ -205,10 +205,18 @@ namespace nanojit
         void markAllExec();
 
         /** protect all mem in the block list */
-        void markExec(CodeList* &blocks);
+#if defined(NANOJIT_WIN_CFG)
+		void markExec(CodeList* &blocks, NIns *pFnc);
+#else
+		void markExec(CodeList* &blocks);
+#endif
 
         /** protect an entire chunk */
-        void markChunkExec(CodeList* term);
+#if defined(NANOJIT_WIN_CFG)
+		void markChunkExec(CodeList* term, NIns *pFnc);
+#else
+		void markChunkExec(CodeList* term);
+#endif
 
         /** unprotect the code chunk containing just this one block */
         void markBlockWrite(CodeList* b);

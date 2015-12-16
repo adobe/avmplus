@@ -91,7 +91,7 @@ public:
     return blockmap_.containsKey(pc);
   }
   AbcBlock* handler(int i) {
-    assert(handlers_[i] == blockmap_.get(code_pos_ + table_->exceptions[i].target));
+    AvmAssert(handlers_[i] == blockmap_.get(code_pos_ + table_->exceptions[i].target));
     return handlers_[i];
   }
   int handler_count() {
@@ -101,7 +101,7 @@ public:
     return code_pos_;
   }
   AbcInstr* abc_instr(const uint8_t* pc) {
-    assert(abc_instrs.containsKey(pc));
+    AvmAssert(abc_instrs.containsKey(pc));
     return abc_instrs.get(pc);
   }
 

@@ -12,7 +12,8 @@ REALLY_INLINE size_t VTable::getExtraSize() const
     return traits->getExtraSize();
 }
 
-#ifndef VMCFG_AOT  // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE MMgc::GC* VTable::gc() const
 {
     return traits->core->GetGC();

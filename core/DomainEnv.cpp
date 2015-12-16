@@ -104,6 +104,10 @@ namespace avmplus
     {
         AvmAssert(newBase != NULL); // real base address
         AvmAssert(newSize >= GLOBAL_MEMORY_MIN_SIZE); // big enough
+		if (newSize < GLOBAL_MEMORY_MIN_SIZE) {
+			newBase = m_globalMemoryScratch->scratch;
+			newSize = GLOBAL_MEMORY_MIN_SIZE;
+        }
 
         m_globalMemoryBase = newBase;
 

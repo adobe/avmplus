@@ -87,11 +87,59 @@ so this number is very generous.
 The same workspace is used during the second, actual compile phase for
 remembering forward references to groups so that they can be filled in at the
 end. Each entry in this list occupies LINK_SIZE bytes, so even when LINK_SIZE
-is 4 there is plenty of room. */
+ is 4 there is plenty of room for most patterns. However, the memory can get
+ filled up by repetitions of forward references, for example patterns like
+ /(?1){0,1999}(b)/, and one user did hit the limit. The code has been changed so
+ that the workspace is expanded using malloc() in this situation. The value
+ below is therefore a minimum, and we put a maximum on it for safety. The
+ minimum is now also defined in terms of LINK_SIZE so that the use of malloc()
+ kicks in at the same number of forward references in all cases. */
 
-//#define COMPILE_WORK_SIZE (4096)
-#define COMPILE_WORK_SIZE (2048) //tierney:  smaller size to avoid stack overflow when compiling patterns with many nested ()'s
+// pgrandma@adobe.com : Very fiddly.
+//
+// Our source is a copy of version 7.3 of pcre, with custom modifications.
+// We've explored updating to the latest, but pcre has changed the parsing of
+// regular expressions, so updating would be an actionscript visible change.
+//
+// https://watsonexp.corp.adobe.com/#bug=3684170 is a security bug whereby
+// cworkspace[COMPILE_WORK_SIZE] can be overwritten during the compile phase,
+// with a proven example of executing malicious code.
+//
+// Version 8.21 fixed this very bug, by replacing the stack buffer with larger
+// heap allocations when necessary (which in turn are replaced with larger blocks
+// when necessary, up to a limit).
+//
+// Based on this, I set COMPILE_WORK_SIZE to 1024, figuring the common case
+// would fit, and the uncommon cases would just grow into heap memory sooner.
+//
+// Bad idea -- while the compile phase uses a growing buffer, the pre-compile
+// phase still uses just the stack buffer, so tests such as pcre_could_be_empty_branch.as
+// started failing. This case, in particular, also fails when I restored
+// COMPILE_WORK_SIZE to 2048. The test nests a pattern 406 times (for instance,
+// ((((a)a)a)a)* is nesting the pattern 4 times) on the grounds that nesting 407
+// times causes the test to fail (because the buffer is exceeded).
+//
+// 7.3 tested for (ptr > (buffer + size)), 
+// our code tested for (ptr > (buffer + size - 10)) /* prevent overflow */
+// and the new code tests for (ptr > (buffer + size - WORK_SIZE_SAFETY_MARGIN))
+// for the same reason, but leaving less space.
+//
+// I don't want to trim WORK_SIZE_SAFETY_MARGIN, as that would be less safe,
+// and I don't want to change the test (to nest 388, which just fits into (2048-100)),
+// because it demonstrates public content might be close to the existing limit,
+// so I'm growing COMPILE_WORK_SIZE by the difference (90 bytes).
+//
+// NOTE: pcre_compile2() which contains the stack buffer is not recursive,
+// so this extra size should not be too significant (fingers crossed).
 
+//#define COMPILE_WORK_SIZE (2048*LINK_SIZE)
+#define COMPILE_WORK_SIZE (2048 + (100 - 10))
+#define COMPILE_WORK_SIZE_MAX (100*COMPILE_WORK_SIZE)
+
+/* The overrun tests check for a slightly smaller size so that they detect the
+ overrun before it actually does run off the end of the data block. */
+
+#define WORK_SIZE_SAFETY_MARGIN (100)
 
 /* Table for handling escaped characters in the range '0'-'z'. Positive returns
 are simple data values; negative values are for special things like \d and so
@@ -102,7 +150,7 @@ is invalid. */
 static const short int escapes[] = {
      0,      0,      0,      0,      0,      0,      0,      0,   /* 0 - 7 */
      0,      0,    ':',    ';',    '<',    '=',    '>',    '?',   /* 8 - ? */
-   '@', -ESC_A, -ESC_B, -ESC_C, -ESC_D, -ESC_E,      0, -ESC_G,   /* @ - G */
+   '@', -ESC_A, -ESC_B,      0, -ESC_D, -ESC_E,      0, -ESC_G,   /* @ - G */
 -ESC_H,      0,      0, -ESC_K,      0,      0,      0,      0,   /* H - O */
 -ESC_P, -ESC_Q, -ESC_R, -ESC_S,      0,      0, -ESC_V, -ESC_W,   /* P - W */
 -ESC_X,      0, -ESC_Z,    '[',   '\\',    ']',    '^',    '_',   /* X - _ */
@@ -129,7 +177,7 @@ static const short int escapes[] = {
 /*  A8 */     0,-ESC_z,      0,       0,      0,   '[',      0,      0,
 /*  B0 */     0,     0,      0,       0,      0,     0,      0,      0,
 /*  B8 */     0,     0,      0,       0,      0,   ']',    '=',    '-',
-/*  C0 */   '{',-ESC_A, -ESC_B,  -ESC_C, -ESC_D,-ESC_E,      0, -ESC_G,
+/*  C0 */   '{',-ESC_A, -ESC_B,       0, -ESC_D,-ESC_E,      0, -ESC_G,
 /*  C8 */-ESC_H,     0,      0,       0,      0,     0,      0,      0,
 /*  D0 */   '}',     0, -ESC_K,       0,      0,     0,      0, -ESC_P,
 /*  D8 */-ESC_Q,-ESC_R,      0,       0,      0,     0,      0,      0,
@@ -741,7 +789,8 @@ else
     break;
 
     /* For \c, a following letter is upper-cased; then the 0x40 bit is flipped.
-    This coding is ASCII-specific, but then the whole concept of \cx is
+    An error is given if the byte following \c is not an ASCII character. 
+	This coding is ASCII-specific, but then the whole concept of \cx is
     ASCII-specific. (However, an EBCDIC equivalent has now been added.) */
 
     case 'c':
@@ -753,6 +802,11 @@ else
       }
 
 #ifndef EBCDIC  /* ASCII coding */
+	if (c > 127)  /* Excludes all non-ASCII in either mode */
+      {
+      *errorcodeptr = ERR2;
+      break;
+      }
     if (c >= 'a' && c <= 'z') c -= 32;
     c ^= 0x40;
 #else           /* EBCDIC coding */
@@ -881,6 +935,42 @@ return -1;
 }
 #endif
 
+
+
+/*************************************************
+ *           Expand the workspace                 *
+ *************************************************/
+
+/* This function is called during the second compiling phase, if the number of
+ forward references fills the existing workspace, which is originally a block on
+ the stack. A larger block is obtained from malloc() unless the ultimate limit
+ has been reached or the increase will be rather small.
+ 
+ Argument: pointer to the compile data block
+ Returns:  0 if all went well, else an error number
+ */
+
+static int
+expand_workspace(compile_data *cd)
+{
+    uschar *newspace;
+    int newsize = cd->workspace_size * 2;
+    
+    if (newsize > COMPILE_WORK_SIZE_MAX) newsize = COMPILE_WORK_SIZE_MAX;
+    if (cd->workspace_size >= COMPILE_WORK_SIZE_MAX ||
+        newsize - cd->workspace_size < WORK_SIZE_SAFETY_MARGIN)
+        return ERR52;
+
+    newspace = (uschar *)(pcre_malloc)(newsize);
+    if (newspace == NULL) return ERR21;
+    memcpy(newspace, cd->start_workspace, cd->workspace_size * sizeof(uschar));
+    cd->hwm = (uschar *)newspace + (cd->hwm - cd->start_workspace);
+    if (cd->workspace_size > COMPILE_WORK_SIZE)
+        (pcre_free)((void *)cd->start_workspace);
+    cd->start_workspace = newspace;
+    cd->workspace_size = newsize;
+    return 0;
+}
 
 
 
@@ -2258,6 +2348,9 @@ if ((options & PCRE_EXTENDED) != 0)
       {
       while (*(++ptr) != 0)
         if (IS_NEWLINE(ptr)) { ptr += cd->nllen; break; }
+#ifdef SUPPORT_UTF8
+        if (utf8) FORWARDCHAR(ptr);
+#endif
       }
     else break;
     }
@@ -2303,6 +2396,9 @@ if ((options & PCRE_EXTENDED) != 0)
       {
       while (*(++ptr) != 0)
         if (IS_NEWLINE(ptr)) { ptr += cd->nllen; break; }
+#ifdef SUPPORT_UTF8
+        if (utf8) FORWARDCHAR(ptr);
+#endif
       }
     else break;
     }
@@ -2613,7 +2709,18 @@ const uschar *ptr = *ptrptr;
 const uschar *tempptr;
 uschar *previous = NULL;
 uschar *previous_callout = NULL;
-uschar *save_hwm = NULL;
+
+// https://watsonexp.corp.adobe.com/#bug=3808323
+// The original code used save_hwm, a pointer into cd->workspace,
+// but this function is recursive, so when an innermost frame 
+// reallocates cd->workspace, it can update it's stack copy of 
+// save_hwm, but the other frames are left with dangling pointers 
+// into the original buffer.
+//
+// This fix changes to save the offset into the buffer (save_offset) 
+// and update save_hwm at the appropriate locations.
+
+int save_offset = 0; // Offset to the hwm forward reference pointer at the start of the group (save_hwm)
 uschar classbits[32];
 
 #ifdef SUPPORT_UTF8
@@ -2689,7 +2796,8 @@ for (;; ptr++)
 #ifdef PCRE_DEBUG
     if (code > cd->hwm) cd->hwm = code;                 /* High water info */
 #endif
-    if (code > cd->start_workspace + (COMPILE_WORK_SIZE-10)) /* tierney: added -10, since actual overwriting corrupts the stack Check for overrun */
+    if (code > cd->start_workspace + cd->workspace_size -
+        WORK_SIZE_SAFETY_MARGIN)                       /* Check for overrun */
       {
       *errorcodeptr = ERR52;
       goto FAILED;
@@ -2738,7 +2846,8 @@ for (;; ptr++)
   /* In the real compile phase, just check the workspace used by the forward
   reference list. */
 
-  else if (cd->hwm > cd->start_workspace + (COMPILE_WORK_SIZE-10)) // tierney: added -10, since actual overwriting corrupts the stack 
+  else if (cd->hwm > cd->start_workspace + cd->workspace_size -
+           WORK_SIZE_SAFETY_MARGIN)
     {
     *errorcodeptr = ERR52;
     goto FAILED;
@@ -2803,6 +2912,9 @@ for (;; ptr++)
       while (*(++ptr) != 0)
         {
         if (IS_NEWLINE(ptr)) { ptr += cd->nllen - 1; break; }
+#ifdef SUPPORT_UTF8
+        if (utf8) FORWARDCHAR(ptr);
+#endif
         }
       if (*ptr != 0) continue;
 
@@ -3103,9 +3215,7 @@ for (;; ptr++)
           register const uschar *cbits = cd->cbits;
           class_charcount += 2;     /* Greater than 1 is what matters */
 
-          /* Save time by not doing this in the pre-compile phase. */
-
-          if (lengthptr == NULL) switch (-c)
+          switch (-c)
             {
             case ESC_d:
             for (c = 0; c < 32; c++) classbits[c] |= cbits[c+cbit_digit];
@@ -3137,22 +3247,9 @@ for (;; ptr++)
             continue;
 
             case ESC_E: /* Perl ignores an orphan \E */
-            continue;
-
-            default:    /* Not recognized; fall through */
-            break;      /* Need "default" setting to stop compiler warning. */
-            }
-
-          /* In the pre-compile phase, just do the recognition. */
-
-          else if (c == -ESC_d || c == -ESC_D || c == -ESC_w ||
-                   c == -ESC_W || c == -ESC_s || c == -ESC_S) continue;
-
-          /* We need to deal with \H, \h, \V, and \v in both phases because
-          they use extra memory. */
-
-          if (-c == ESC_h)
-            {
+            continue;            
+			
+			case ESC_h:
             SETBIT(classbits, 0x09); /* VT */
             SETBIT(classbits, 0x20); /* SPACE */
             SETBIT(classbits, 0xa0); /* NSBP */
@@ -3176,10 +3273,8 @@ for (;; ptr++)
               }
 #endif
             continue;
-            }
 
-          if (-c == ESC_H)
-            {
+			case ESC_H:
             for (c = 0; c < 32; c++)
               {
               int x = 0xff;
@@ -3221,10 +3316,8 @@ for (;; ptr++)
               }
 #endif
             continue;
-            }
 
-          if (-c == ESC_v)
-            {
+			case ESC_v:
             SETBIT(classbits, 0x0a); /* LF */
             SETBIT(classbits, 0x0b); /* VT */
             SETBIT(classbits, 0x0c); /* FF */
@@ -3240,10 +3333,8 @@ for (;; ptr++)
               }
 #endif
             continue;
-            }
 
-          if (-c == ESC_V)
-            {
+			case ESC_V:
             for (c = 0; c < 32; c++)
               {
               int x = 0xff;
@@ -3273,12 +3364,12 @@ for (;; ptr++)
               }
 #endif
             continue;
-            }
 
           /* We need to deal with \P and \p in both phases. */
 
 #ifdef SUPPORT_UCP
-          if (-c == ESC_p || -c == ESC_P)
+			case ESC_p: 
+			case ESC_P:
             {
             BOOL negated;
             int pdata;
@@ -3297,15 +3388,17 @@ for (;; ptr++)
           strict mode. By default, for compatibility with Perl, they are
           treated as literals. */
 
-          if ((options & PCRE_EXTRA) != 0)
+			default:
+			if ((options & PCRE_EXTRA) != 0)
             {
             *errorcodeptr = ERR7;
             goto FAILED;
             }
-
-          class_charcount -= 2;  /* Undo the default count from above */
-          c = *ptr;              /* Get the final character and fall through */
+			class_charcount -= 2;  /* Undo the default count from above */
+            c = *ptr;              /* Get the final character and fall through */
+			break;
           }
+		  }
 
         /* Fall through if we have a single character (c >= 0). This may be
         greater than 256 in UTF-8 mode. */
@@ -4086,6 +4179,7 @@ for (;; ptr++)
         if (repeat_max <= 1)
           {
           *code = OP_END;
+		  uschar *save_hwm = (uschar *)cd->start_workspace + save_offset;
           adjust_recurse(previous, 1, utf8, cd, save_hwm);
           VMPI_memmove(previous+1, previous, len);
           code++;
@@ -4104,6 +4198,7 @@ for (;; ptr++)
           {
           int offset;
           *code = OP_END;
+		  uschar *save_hwm = (uschar *)cd->start_workspace + save_offset; 
           adjust_recurse(previous, 2 + LINK_SIZE, utf8, cd, save_hwm);
           VMPI_memmove(previous + 2 + LINK_SIZE, previous, len);
           code += 2 + LINK_SIZE;
@@ -4159,12 +4254,24 @@ for (;; ptr++)
               uschar *hc;
               uschar *this_hwm = cd->hwm;
               VMPI_memcpy(code, previous, len);
+
+			  uschar *save_hwm = (uschar *)cd->start_workspace + save_offset; // Update the save_hwm
+              while (cd->hwm > cd->start_workspace + cd->workspace_size -
+                     WORK_SIZE_SAFETY_MARGIN - (this_hwm - save_hwm))
+                {
+				int this_offset = this_hwm - cd->start_workspace;
+                *errorcodeptr = expand_workspace(cd);
+                if (*errorcodeptr != 0) goto FAILED;
+                save_hwm = (uschar *)cd->start_workspace + save_offset;
+                this_hwm = (uschar *)cd->start_workspace + this_offset;
+                }
+                  
               for (hc = save_hwm; hc < this_hwm; hc += LINK_SIZE)
                 {
                 PUT(cd->hwm, 0, GET(hc, 0) + len);
                 cd->hwm += LINK_SIZE;
                 }
-              save_hwm = this_hwm;
+              save_offset = this_hwm - cd->start_workspace;
               code += len;
               }
             }
@@ -4225,12 +4332,28 @@ for (;; ptr++)
             }
 
           VMPI_memcpy(code, previous, len);
+              
+          /* Ensure there is enough workspace for forward references before
+           copying them. */
+
+		  uschar *save_hwm = (uschar *)cd->start_workspace + save_offset; // Update the save_hwm
+          while (cd->hwm > cd->start_workspace + cd->workspace_size -
+                 WORK_SIZE_SAFETY_MARGIN - (this_hwm - save_hwm))
+          {
+			  int this_offset = this_hwm - cd->start_workspace;
+              *errorcodeptr = expand_workspace(cd);
+              if (*errorcodeptr != 0) goto FAILED;
+              save_hwm = (uschar *)cd->start_workspace + save_offset;
+              this_hwm = (uschar *)cd->start_workspace + this_offset;
+          }
+              
+          
           for (hc = save_hwm; hc < this_hwm; hc += LINK_SIZE)
             {
             PUT(cd->hwm, 0, GET(hc, 0) + len + ((i != 0)? 2+LINK_SIZE : 1));
             cd->hwm += LINK_SIZE;
             }
-          save_hwm = this_hwm;
+          save_offset = this_hwm - cd->start_workspace;
           code += len;
           }
 
@@ -4329,6 +4452,24 @@ for (;; ptr++)
         case OP_NOTUPTO:  *tempcode = OP_NOTPOSUPTO; break;
 
         default:
+			// https://watsonexp.corp.adobe.com/#bug=3939313
+			// https://watsonexp.corp.adobe.com/#bug=3831741
+			// The issue with these bugs is in the handling of recursive calls 
+			// to possessively-repeated groups (Eg.:(A(?1))*+). We first insert 
+			// an OP_RECURSE opcode for a numbered sub-pattern, and then go back to 
+			// add the OP_BRAZERO and OP_ONCE for the possessive quantifier 
+			// (*+ in this case). But we have to adjust the offset of the OP_RECURSE
+			// because we add the two opcodes. But before this change this adjustment 
+			// was not being made correctly and from the definition of adjust_recurse
+			// we add OP_END to temporarily terminate the partially compiled regex.
+
+		//https://watsonexp.corp.adobe.com/#bug=4033489
+		//We may run into patterns which read off the OP code table and lead to AV
+		//adding OP_TABLE_LENGTH for checking the max size(PCRE-1518)
+		if (*tempcode >= OP_TABLE_LENGTH) break;
+		*code = OP_END;
+		uschar *save_hwm = (uschar *)cd->start_workspace + save_offset;
+        adjust_recurse(tempcode, 1 + LINK_SIZE, utf8, cd, save_hwm);
         VMPI_memmove(tempcode + 1+LINK_SIZE, tempcode, len);
         code += 1 + LINK_SIZE;
         len += 1 + LINK_SIZE;
@@ -4359,7 +4500,7 @@ for (;; ptr++)
     newoptions = options;
     skipbytes = 0;
     bravalue = OP_CBRA;
-    save_hwm = cd->hwm;
+	save_offset = cd->hwm - cd->start_workspace;
     reset_bracount = FALSE;
 
     /* First deal with various "verbs" that can be introduced by '*'. */
@@ -4952,6 +5093,14 @@ for (;; ptr++)
                 goto FAILED;
                 }
               called = cd->start_code + recno;
+                  
+              if (cd->hwm >= cd->start_workspace + cd->workspace_size -
+                  WORK_SIZE_SAFETY_MARGIN)
+              {
+                  *errorcodeptr = expand_workspace(cd);
+                  if (*errorcodeptr != 0) goto FAILED;
+              }
+                  
               PUTINC(cd->hwm, 0, code + 2 + LINK_SIZE - cd->start_code);
               }
 
@@ -5568,8 +5717,14 @@ for (;;)
 
   if ((options & PCRE_IMS) != oldims)
     {
+	// https://watsonexp.corp.adobe.com/#bug=3812876: 
+	// When we are at the start of the branch and encounter a change in ims options, 
+	// we were storing the old ims option (as *code++ = options & PCRE_IMS) but we were not propagating the change, 
+	// i.e. we were not updating 'oldims'. The change will now propagate the change 
+	// in options.
+	oldims = options & PCRE_IMS;  
     *code++ = OP_OPT;
-    *code++ = options & PCRE_IMS;
+    *code++ = oldims;
     length += 2;
     }
 
@@ -5701,6 +5856,7 @@ for (;;)
     *code = OP_KET;
     PUT(code, 1, code - start_bracket);
     code += 1 + LINK_SIZE;
+	length += 1 + LINK_SIZE;
 
     /* Reset options if needed */
 
@@ -6091,7 +6247,7 @@ while (!work_stack.isEmpty())
        }
        if(exit) break;
        wi_code += GET(wi_code, 1);
-       if(*wi_code == OP_KET) wi_code += GET(work_item.code, 1);
+	   if(*wi_code == OP_KET) wi_code -= GET(work_item.code, 1);
      }
   while (*wi_code == OP_ALT);
   } //while
@@ -6300,6 +6456,7 @@ cd->names_found = 0;
 cd->name_entry_size = 0;
 cd->name_table = NULL;
 cd->start_workspace = cworkspace;
+cd->workspace_size = COMPILE_WORK_SIZE;
 cd->start_code = cworkspace;
 cd->hwm = cworkspace;
 cd->start_pattern = (const uschar *)pattern;
@@ -6384,7 +6541,7 @@ cd->names_found = 0;
 cd->name_table = (uschar *)re + re->name_table_offset;
 codestart = cd->name_table + re->name_entry_size * re->name_count;
 cd->start_code = codestart;
-cd->hwm = cworkspace;
+cd->hwm = (uschar *)cd->start_workspace;
 cd->req_varyopt = 0;
 cd->nopartial = FALSE;
 cd->had_accept = FALSE;
@@ -6414,12 +6571,17 @@ if debugging, leave the test till after things are printed out. */
 *code++ = OP_END;
 
 #ifndef PCRE_DEBUG
-if (code - codestart > length) errorcode = ERR23;
+if (code - codestart > length) {
+	// errorcode = ERR23;
+	// We are already writing past the end of the heap buffer.
+    // So aborting as a security measure.
+    VMPI_abort();
+}
 #endif
 
 /* Fill in any forward references that are required. */
 
-while (errorcode == 0 && cd->hwm > cworkspace)
+while (errorcode == 0 && cd->hwm > cd->start_workspace)
   {
   int offset, recno;
   const uschar *groupptr;
@@ -6430,6 +6592,11 @@ while (errorcode == 0 && cd->hwm > cworkspace)
   if (groupptr == NULL) errorcode = ERR53;
     else PUT(((uschar *)codestart), offset, groupptr - codestart);
   }
+
+/* If the workspace had to be expanded, free the new memory. */
+
+if (cd->workspace_size > COMPILE_WORK_SIZE)
+    (pcre_free)((void *)cd->start_workspace);
 
 /* Give an error if there's back reference to a non-existent capturing
 subpattern. */

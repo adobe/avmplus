@@ -111,6 +111,11 @@ const Type** InstrFactory::buildInputSignature(InstrKind kind) {
     const Type* input_sig[] = { EFFECT, lattice_.scriptobject_type[kTypeNullable] };
     return copySig(2, input_sig);
   }
+  case HR_makenullrefexception: {
+    /* makenullrefexception: (Effect, Atom) -> (Effect, Atom~) */
+    const Type* input_sig[] = { EFFECT, lattice_.atom_type[kTypeNullable] };
+    return copySig(2, input_sig);
+  }
   case HR_cktimeout: {
     /* cktimeout: (Effect, Env) -> (Effect, Boolean) */
     const Type* input_sig[] = { EFFECT, ENV };
@@ -656,6 +661,11 @@ const Type** InstrFactory::buildInputSignature(InstrKind kind) {
     const Type* input_sig[] = { STATE, lattice_.atom_type[kTypeNullable] };
     return copySig(2, input_sig);
   }
+  case HR_getlocal: {
+    /* getlocal: (Effect, State, Atom) -> (Effect, Atom) */
+    const Type* input_sig[] = { EFFECT, STATE, lattice_.atom_type[kTypeNullable] };
+    return copySig(3, input_sig);
+  }
   case HR_newstate: {
     /* newstate: () -> State */
     return NULL;
@@ -683,6 +693,11 @@ const Type** InstrFactory::buildInputSignature(InstrKind kind) {
     /* debugfile: (Effect, String) -> Effect */
     const Type* input_sig[] = { EFFECT, lattice_.string_type[kTypeNullable] };
     return copySig(2, input_sig);
+  }
+  case HR_debug: {
+    /* debug: (Effect, String, Int) -> Effect */
+    const Type* input_sig[] = { EFFECT, lattice_.string_type[kTypeNullable], lattice_.int_type };
+    return copySig(3, input_sig);
   }
   case HR_string2atom: {
     /* string2atom: String -> Atom */
@@ -1613,6 +1628,11 @@ const Type** InstrFactory::buildInputSignature(InstrKind kind) {
     const Type* input_sig[] = { EFFECT, TOP, TOP, lattice_.atom_type[kTypeNullable] };
     return copySig(4, input_sig);
   }
+  case HR_callprop_int: {
+    /* callprop_int: (effect0:Effect, name:Top, integerclass:Top, value:Atom) -> (Effect, Int) */
+    const Type* input_sig[] = { EFFECT, TOP, TOP, lattice_.atom_type[kTypeNullable] };
+    return copySig(4, input_sig);
+  }
   case HR_coerce_any: {
     /* coerce_any: (effect0:Effect, traits:Top, value:Top) -> (Effect, Top) */
     const Type* input_sig[] = { EFFECT, TOP, TOP };
@@ -1790,6 +1810,11 @@ const Type** InstrFactory::buildOutputSignature(InstrKind kind) {
   case HR_cknullobject: {
     /* cknullobject: (Effect, ScriptObject) -> (Effect, ScriptObject~) */
     const Type* output_sig[] = { EFFECT, lattice_.scriptobject_type[kTypeNotNull] };
+    return copySig(2, output_sig);
+  }
+  case HR_makenullrefexception: {
+    /* makenullrefexception: (Effect, Atom) -> (Effect, Atom~) */
+    const Type* output_sig[] = { EFFECT, lattice_.atom_type[kTypeNotNull] };
     return copySig(2, output_sig);
   }
   case HR_cktimeout: {
@@ -2299,6 +2324,11 @@ const Type** InstrFactory::buildOutputSignature(InstrKind kind) {
     /* setlocal: (State, Atom) -> State */
     return copySig(STATE);
   }
+  case HR_getlocal: {
+    /* getlocal: (Effect, State, Atom) -> (Effect, Atom) */
+    const Type* output_sig[] = { EFFECT, lattice_.atom_type[kTypeNullable] };
+    return copySig(2, output_sig);
+  }
   case HR_newstate: {
     /* newstate: () -> State */
     return copySig(STATE);
@@ -2321,6 +2351,10 @@ const Type** InstrFactory::buildOutputSignature(InstrKind kind) {
   }
   case HR_debugfile: {
     /* debugfile: (Effect, String) -> Effect */
+    return copySig(EFFECT);
+  }
+  case HR_debug: {
+    /* debug: (Effect, String, Int) -> Effect */
     return copySig(EFFECT);
   }
   case HR_string2atom: {
@@ -3230,6 +3264,11 @@ const Type** InstrFactory::buildOutputSignature(InstrKind kind) {
   case HR_callprop_string: {
     /* callprop_string: (effect0:Effect, name:Top, stringclass:Top, value:Atom) -> (Effect, String~) */
     const Type* output_sig[] = { EFFECT, lattice_.string_type[kTypeNotNull] };
+    return copySig(2, output_sig);
+  }
+  case HR_callprop_int: {
+    /* callprop_int: (effect0:Effect, name:Top, integerclass:Top, value:Atom) -> (Effect, Int) */
+    const Type* output_sig[] = { EFFECT, lattice_.int_type };
     return copySig(2, output_sig);
   }
   case HR_coerce_any: {

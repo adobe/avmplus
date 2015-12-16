@@ -388,8 +388,8 @@ namespace avmplus
         if (m_vector == NULL)
             return (typename TLIST::TYPE*)NULL;
         if (align == 0)
-            return m_vector->m_list.m_data->entries;
-        return (typename TLIST::TYPE*)((uintptr_t(m_vector->m_list.m_data->entries) + (align-1)) & ~(align-1));
+            return m_vector->m_list.m_header.data->entries;
+        return (typename TLIST::TYPE*)((uintptr_t(m_vector->m_list.m_header.data->entries) + (align-1)) & ~(align-1));
     }
 
     template<class TLIST, uintptr_t align>

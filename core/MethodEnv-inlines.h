@@ -17,7 +17,8 @@ REALLY_INLINE AbcEnv* MethodEnv::abcEnv() const
     return _scope->abcEnv();
 }
 
-#ifndef VMCFG_AOT  // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE AvmCore* MethodEnv::core() const
 {
     return method->pool()->core;
@@ -34,7 +35,8 @@ REALLY_INLINE DomainEnv* MethodEnv::domainEnv() const
     return abcEnv()->domainEnv();
 }
 
-#ifndef VMCFG_AOT  // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE ScopeChain* MethodEnv::scope() const
 {
     return _scope;
@@ -47,7 +49,8 @@ REALLY_INLINE MethodEnv* MethodEnv::super_init() const
     return vtable()->base->init;
 }
 
-#ifndef VMCFG_AOT  // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE Toplevel* MethodEnv::toplevel() const
 {
     return vtable()->toplevel();
@@ -91,7 +94,8 @@ REALLY_INLINE void MethodEnv::setActivationOrMCTable(void *ptr, int32_t type)
     WB(core()->GetGC(), this, &activationOrMCTable, (uintptr_t)ptr | type);
 }
 
-#ifndef VMCFG_AOT  // Avoid premature inlining for AOT; it prevents CSE
+#if !defined(VMCFG_AOT) || defined(VMCFG_HALFMOON_AOT_RUNTIME)
+// Avoid premature inlining for GO AOT; it prevents LLVM constant subexpression elimination
 REALLY_INLINE VTable* MethodEnv::vtable() const
 {
     return _scope->vtable();

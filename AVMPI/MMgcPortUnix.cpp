@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "MMgc.h"
+#include "../other-licenses/wtf/AddressSpaceRandomization.h"
 
 #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
     #define MAP_ANONYMOUS MAP_ANON
@@ -45,7 +46,7 @@
     #define FLUSHWIN()
 #endif
 
-#if defined linux && !defined VMCFG_MIPS && !defined VMCFG_ARM
+#if defined linux && !defined VMCFG_MIPS && !defined VMCFG_ARM && !defined ANDROID
 #include <execinfo.h>
 #define HAVE_BACKTRACE
 #endif
@@ -76,6 +77,24 @@ bool AVMPI_areNewPagesDirty()
 
 void* AVMPI_reserveMemoryRegion(void* address, size_t size)
 {
+	// We are introducing randomisation of address if the passed-in address in NULL. 
+	// In this case the address obtained from the randomisation is passed as the hint
+	// to the mmap. But the result of mmap is dependent on availability (for mapping) 
+	// of that specific part of virtual memory starting at that address. Non-availability 
+	// means that the nearest available memory to the hint is returned. Prev code ensured 
+	// that the hint and the result of mmap were the same. And becasue we pass in a random
+	// value the two are very often not the same and we release the reserved memory region 
+	// and early return. This boolean basically prevents the early return in such cases 
+	// when we randomise the hint passed to mmap.
+
+	bool isRandomised = false;
+#ifdef AVMPLUS_64BIT
+	if (!address) {
+		address = WTF::getRandomPageBase();
+		isRandomised = true;
+    }
+#endif // AVMPLUS_64BIT
+
     char *addr = (char*)mmap((maddr_ptr)address,
                              size,
                              PROT_NONE,
@@ -84,7 +103,7 @@ void* AVMPI_reserveMemoryRegion(void* address, size_t size)
     if (addr == MAP_FAILED) {
         return NULL;
     }
-    if(address && address != addr) {
+    if(address && !isRandomised && address != addr) {
         // behave like windows and fail if we didn't get the right address
         AVMPI_releaseMemoryRegion(addr, size);
         return NULL;

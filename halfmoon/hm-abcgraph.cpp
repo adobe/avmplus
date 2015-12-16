@@ -66,7 +66,7 @@ void AbcGraph::createTryCatchBlocks() {
 }
 
 void AbcGraph::analyzeExceptions(AbcBlock* fm) {
-  assert(!fm->catch_blocks && !fm->max_catch_blocks);
+  AvmAssert(!fm->catch_blocks && !fm->max_catch_blocks);
   if (!table_)
     return;
   int n = table_->exception_count;
@@ -85,7 +85,7 @@ void AbcGraph::analyzeExceptions(AbcBlock* fm) {
 
 void AbcGraph::analyzeBranch(AbcBlock* blk, AbcOpcode abcop, 
                              const uint8_t* nextpc, int32_t offset) {
-  assert(isBranchOpcode(abcop) && abcop != OP_jump); (void)abcop;
+  AvmAssert(isBranchOpcode(abcop) && abcop != OP_jump); (void)abcop;
 
   newSuccEdges(blk, 2);
   addAbcEdge(blk, nextpc, 0);
@@ -109,7 +109,7 @@ void AbcGraph::analyzeEnd(AbcBlock* blk, const uint8_t* nextpc) {
 }
 
 void AbcGraph::newSuccEdges(AbcBlock* block, int count) {
-  assert(!block->succ_blocks && !block->num_succ_blocks);
+  AvmAssert(!block->succ_blocks && !block->num_succ_blocks);
   block->succ_blocks = new (alloc_) AbcBlock*[count];
   block->num_succ_blocks = count;
 }

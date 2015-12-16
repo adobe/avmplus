@@ -49,7 +49,6 @@
  */
 
 #include "AVMPI.h"
-#include "avmbuild.h"       // old-style configuration, may disappear, handles a few things not yet handled by the feature system
 
 #include "vmbase.h"
 
@@ -200,6 +199,7 @@ namespace avmplus
     class ObjectInputObject;
     class DynamicPropertyOutputClass;
     class DynamicPropertyOutputObject;
+    class va_list_wrapper;
 
     template<class TLIST, uintptr_t align> class VectorAccessor;
 

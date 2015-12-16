@@ -273,6 +273,14 @@ namespace avmplus
     {
         set_length(length);
     }
+	
+#ifdef VMCFG_VECTOR_SMASH_PROTECTION
+    template<class TLIST>
+    /*virtual*/ void TypedVectorObject<TLIST>::setLengthUnchecked(uint32_t length)
+    {
+        m_list.set_length_unchecked(length);
+    }
+#endif
 
     template<class TLIST>
     void TypedVectorObject<TLIST>::set_length(uint32_t newLength)
@@ -394,6 +402,109 @@ namespace avmplus
             atomToValue(argv[i], value);
             m_list.set(insertPoint+i, (typename TLIST::TYPE)value);
         }
+    }
+
+    template<class TLIST>
+    void TypedVectorObject<TLIST>::AS3_insertAt(int32_t index, typename TLIST::TYPE element)
+    {
+        // Throw exception for fixed Vector.  Note that splice() fails to do so, contrary to documentation.
+        // This is a bug, which we choose not to propagate here.  Fixing splice() will require versioning.
+        checkFixed();
+        // Convert index argument to unsigned index into the underlying list.  Negative values count
+        // backwards from last element. Resulting list index is clamped to interval (0, length), so it
+        // can never be out-of-bounds.
+        uint32_t insertPoint;
+        if (index < 0)
+        {
+            uint32_t length = m_list.length();
+            if (int32_t(length) + index < 0)
+			{
+                insertPoint = 0;
+			}
+            else
+			{
+                insertPoint = length + index;
+			}
+        }
+        else
+        {
+            insertPoint = uint32_t(index);
+        }
+        // TLIST::insert() will further clamp index to length.
+        m_list.insert(insertPoint, element);
+    }
+	
+	// Template specialization.
+    template<>
+    void TypedVectorObject<AtomList>::AS3_insertAt(int32_t index, Atom element)
+    {
+		// Vector$Object is used for Vector.<T> for any reference type T,
+		// i.e., a subclass of Object, not just Object itself.  We must perform
+		// an explicit coercion/typecheck here to enforce the expected element type.
+		// The coercion notionally takes place at the call site, so do it first.
+        AvmAssert(m_vecClass != NULL);
+        Atom value = avmplus::coerce(toplevel(), element, m_vecClass->getTypeTraits());
+
+        // Throw exception for fixed Vector.  Note that splice() fails to do so, contrary to documentation.
+        // This is a bug, which we choose not to propagate here.  Fixing splice() will require versioning.
+        checkFixed();
+        // Convert index argument to unsigned index into the underlying list.  Negative values count
+        // backwards from last element. Resulting list index is clamped to interval (0, length), so it
+        // can never be out-of-bounds.
+        uint32_t insertPoint;
+        if (index < 0)
+        {
+            uint32_t length = m_list.length();
+            if (int32_t(length) + index < 0)
+			{
+                insertPoint = 0;
+			}
+            else
+			{
+                insertPoint = length + index;
+			}
+        }
+        else
+        {
+            insertPoint = uint32_t(index);
+        }
+        // TLIST::insert() will further clamp index to length.
+        m_list.insert(insertPoint, value);
+    }
+	
+    template<class TLIST>
+    typename TLIST::TYPE TypedVectorObject<TLIST>::AS3_removeAt(int32_t index)
+    {
+        // Throw exception for fixed Vector.  Note that splice() fails to do so, contrary to documentation.
+        // This is a bug, which we choose not to propagate here.  Fixing splice() will require versioning.
+        checkFixed();
+        // Convert index argument to unsigned index into the underlying list.  Negative values count
+        // backwards from last element. Resulting list index must point to valid element, otherwise out-of-bounds.
+        uint32_t removePoint;
+        uint32_t length = m_list.length();
+        if (index < 0)
+        {
+            if (int32_t(length) + index < 0)
+            {
+                removePoint = 0;
+            }
+            else
+			{
+                removePoint = length + index;
+			}
+        }
+        else
+        {
+            removePoint = uint32_t(index);
+        }
+        // Curiously, vec.splice(n, 1) for empty vector v does not throw, instead returning an empty vector,
+        // but vec.removeAt(n) is defined to be equal to vec.splice(n, 1)[0], so we will throw in this case
+        // as well.  The diagnostic message, however, will reflect the actual index, however, rather than 0.
+        if (removePoint >= length)
+        {
+            throwRangeError_u(removePoint);
+        }
+        return m_list.removeAt(removePoint);
     }
 
     template<class TLIST>

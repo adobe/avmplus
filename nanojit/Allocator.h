@@ -72,12 +72,16 @@ namespace nanojit
     };
 }
 
+#if _MSC_VER >= 1900
+	// _MSC_VER >= 1900 supports C++11 where "alignof" is defined
+#else
 // function for computing type alignment
 template <typename T>
-inline size_t alignof() {
+inline size_t alignof1() {
     struct Wrapper { char c; T t; private: Wrapper() {} };
     return sizeof(Wrapper) - sizeof(T);
 }
+#endif
 
 /** global new overload enabling this pattern:  new (allocator, align) T(...) */
 inline void* operator new(size_t size, nanojit::Allocator &a, size_t align) {

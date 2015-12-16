@@ -9,7 +9,7 @@
 
 namespace MMgc
 {    
-#ifdef DEBUG
+#ifdef GCDEBUG
 #ifdef WIN8_IAOS_WORKAROUND
     // On VS2011 on Win8 inlining this causes some compiler optimizations to
     // happen and in some cases this ends up erronously reporting that things
@@ -48,7 +48,7 @@ namespace MMgc
     REALLY_INLINE GCMemberBase<T>::GCMemberBase() 
         : GCRef<T>()
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GCAssert(!IsAddressOnStack(this));
         GC::TracePointerCheck(&(this->t));
 #endif
@@ -59,7 +59,7 @@ namespace MMgc
     REALLY_INLINE GCMemberBase<T>::GCMemberBase(const GCRef<T2>& other) 
         : GCRef<T>()
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GCAssert(!IsAddressOnStack(this));
         GC::TracePointerCheck(&(this->t));
 #endif
@@ -71,7 +71,7 @@ namespace MMgc
     REALLY_INLINE GCMemberBase<T>::GCMemberBase(const GCMemberBase<T>& other) 
         : GCRef<T>()
     {
-#ifdef DEBUG
+#ifdef GCDEBUG
         GCAssert(!IsAddressOnStack(this));
         GC::TracePointerCheck(&(this->t));
 #endif

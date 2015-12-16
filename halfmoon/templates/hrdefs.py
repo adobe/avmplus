@@ -83,6 +83,7 @@ hrdefs = '''
 
 (cknull (Effect Atom -> Effect Atom~))
 (cknullobject (Effect ScriptObject -> Effect ScriptObject~))
+(makenullrefexception (Effect Atom -> Effect Atom~))
 
 (cktimeout (Effect Env -> Effect Boolean))             
 
@@ -237,6 +238,7 @@ hrdefs = '''
 (safepoint (Effect [State] -> Effect State))
 
 (setlocal (State Atom -> State))  ; setlocal is only used to store state for exception edges, which require Atom
+(getlocal (Effect State Atom -> Effect Atom)) ; used for debugging, to ensure any debugger-changed values are loaded
 
 (newstate (-> State))                   ; create abstract VM state value
 
@@ -248,6 +250,7 @@ hrdefs = '''
 ; debug
 (debugline (Effect Int -> Effect))
 (debugfile (Effect String -> Effect))
+(debug (Effect String Int -> Effect))
 
 ; conversions to atom
 (string2atom (String -> Atom))
@@ -527,6 +530,7 @@ hrdefs = '''
 ; Used for builtin constructors, effect is implicit in abc_convert_s
 ; effect is implicit in abc_convert_s
 (callprop_string (name stringclass value) (abc_convert_s value))
+(callprop_int (name integerclass value) (toint value))
 
 ; specializations of coerce for different traits
 (coerce_any     (traits value) value)

@@ -323,6 +323,7 @@ hasnext2stmt = RepInfo("Hasnext2Stmt", shape(1, 2, 1, 3, NONE))
 voidstmt = RepInfo("VoidStmt", shape(1, 0, 1, 0, NONE))
 constantexpr = RepInfo("ConstantExpr", shape(0, 0, 0, 1, NONE))
 debuginstr = RepInfo("DebugInstr", shape(1, 1, 1, 0, NONE))
+debuginstr2 = RepInfo("DebugInstr2", shape(1, 2, 1, 0, NONE))
 
 # this list is used to populate reps, a map of shapes to reps
 # used to choose representations for instrs. Not all shapes
@@ -343,7 +344,8 @@ replist = [
   hasnext2stmt,
   voidstmt,
   constantexpr,
-  debuginstr
+  debuginstr,
+  debuginstr2
 ]
 
 # shape -> rep, used to pick reps for instrs
@@ -372,6 +374,7 @@ instr_rep_overrides = {
   #
   "safepoint": RepInfo("SafepointInstr", shape(1, 0, 2, 0, DATA_IN)),
   "setlocal": RepInfo("SetlocalInstr", shape(0, 2, 0, 1, NONE)),
+  "getlocal": RepInfo("GetlocalStmt", shape(1, 2, 1, 1, NONE)),
   # DEOPT: I think I need this because deopt_safepoint has
   # extra fields for vpc, scopep, sp, etc.
   "deopt_safepoint": RepInfo("DeoptSafepointInstr", shape(1, 0, 1, 0, DATA_IN)),

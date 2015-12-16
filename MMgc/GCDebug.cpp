@@ -11,7 +11,7 @@ namespace MMgc
 {
     void GCDebugIndent(size_t count)
     {
-#ifdef _DEBUG
+	#ifdef GCDEBUG
         while (count > 10) {
             VMPI_debugLog("          ");
             count -= 10;
@@ -20,8 +20,38 @@ namespace MMgc
             VMPI_debugLog(" ");
             count--;
         }
-#else
+	#else
         (void)count;
-#endif
+	#endif
     }
+
+#if defined(GCDEBUG) && !defined(DEBUG) && !defined(_DEBUG)
+
+    // If debug checks are enabled only in MMgc via GCDEBUG,
+    // we need our own reporting infrastructure.  Otherwise,
+    // we define macros that redirect to AvmAssert functionality.
+
+    void GCDebugMsg(bool debugBreak, const char* format, ...)
+    {
+        char buf[1024];
+        va_list args;
+        va_start(args, format);
+
+        VMPI_vsnprintf(buf, sizeof(buf), format, args);
+        // Belt and suspenders, remove when we're sure VMPI_vsnprintf is completely reliable
+        buf[sizeof(buf)-2] = '\n';
+        buf[sizeof(buf)-1] = '\0';
+        va_end(args);
+        GCDebugMsg(buf, debugBreak);
+    }
+
+    void GCDebugMsg(const char* p, bool debugBreak)
+    {
+        VMPI_debugLog(p);
+        if(debugBreak)
+            VMPI_debugBreak();
+    }
+
+#endif
+
 }

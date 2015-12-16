@@ -123,7 +123,7 @@ void BaseExecMgr::verifyEarly(Toplevel* toplevel, AbcEnv* abc_env)
                     continue;
                 }
                 verified++;
-                //console << "pre verify " << f << "\n";
+                // core->console << "pre verify " << f << "\n";
                 verifyMethod(f, toplevel, abc_env);
                 setVerified(f);
                 if (config.verifyonly)

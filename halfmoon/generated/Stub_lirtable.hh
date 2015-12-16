@@ -27,6 +27,7 @@ const nanojit::CallInfo LirEmitter::lir_table[] = {
   { (uintptr_t)&Stubs::do_castns, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "castns")},
   { (uintptr_t)&Stubs::do_cknull, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "cknull")},
   { (uintptr_t)&Stubs::do_cknullobject, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "cknullobject")},
+  { (uintptr_t)&Stubs::do_makenullrefexception, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "makenullrefexception")},
   { (uintptr_t)&Stubs::do_cktimeout, CallInfo::typeSig2(ARGTYPE_I, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "cktimeout")},
   { (uintptr_t)&Stubs::do_abc_hasnext, CallInfo::typeSig3(ARGTYPE_I, ARGTYPE_P, ARGTYPE_P, ARGTYPE_I), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "abc_hasnext")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "abc_hasnext2")},
@@ -138,12 +139,14 @@ const nanojit::CallInfo LirEmitter::lir_table[] = {
   { (uintptr_t)&Stubs::do_getouterscope, CallInfo::typeSig3(ARGTYPE_P, ARGTYPE_P, ARGTYPE_I, ARGTYPE_P), ABI_CDECL, 1, ACCSET_NONE verbose_only(, "getouterscope")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "safepoint")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "setlocal")},
+  { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "getlocal")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "newstate")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "deopt_safepoint")},
   { (uintptr_t)&Stubs::do_deopt_finish, CallInfo::typeSig1(ARGTYPE_V, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "deopt_finish")},
   { 0, 0, ABI_CDECL, 0, ACCSET_NONE verbose_only(, "deopt_finishcall")},
   { (uintptr_t)&Stubs::do_debugline, CallInfo::typeSig2(ARGTYPE_V, ARGTYPE_P, ARGTYPE_I), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "debugline")},
   { (uintptr_t)&Stubs::do_debugfile, CallInfo::typeSig2(ARGTYPE_V, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "debugfile")},
+  { (uintptr_t)&Stubs::do_debug, CallInfo::typeSig3(ARGTYPE_V, ARGTYPE_P, ARGTYPE_P, ARGTYPE_I), ABI_CDECL, 0, ACCSET_ALL verbose_only(, "debug")},
   { (uintptr_t)&Stubs::do_string2atom, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_P), ABI_CDECL, 1, ACCSET_NONE verbose_only(, "string2atom")},
   { (uintptr_t)&Stubs::do_double2atom, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_D), ABI_CDECL, 1, ACCSET_NONE verbose_only(, "double2atom")},
   { (uintptr_t)&Stubs::do_int2atom, CallInfo::typeSig2(ARGTYPE_P, ARGTYPE_P, ARGTYPE_I), ABI_CDECL, 1, ACCSET_NONE verbose_only(, "int2atom")},
@@ -275,6 +278,7 @@ const int LirEmitter::stub_fixc[] = {
   -1, // castns
   -1, // cknull
   -1, // cknullobject
+  -1, // makenullrefexception
   -1, // cktimeout
   -1, // abc_hasnext
   -1, // abc_hasnext2
@@ -386,12 +390,14 @@ const int LirEmitter::stub_fixc[] = {
   -1, // getouterscope
   0, // safepoint
   -1, // setlocal
+  -1, // getlocal
   -1, // newstate
   0, // deopt_safepoint
   -1, // deopt_finish
   -1, // deopt_finishcall
   -1, // debugline
   -1, // debugfile
+  -1, // debug
   -1, // string2atom
   -1, // double2atom
   -1, // int2atom

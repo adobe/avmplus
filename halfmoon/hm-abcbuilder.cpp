@@ -36,10 +36,10 @@ static const AbcOpcode OP_end = AbcOpcode(-1);
 , scope_base_(sig_->local_count())
 , stack_base_(scope_base_ + sig_->max_scope())
 , framesize_(stack_base_ + sig_->max_stack())
-, num_vars_(framesize_ + 2 + (has_reachable_exceptions ? framesize_ : 0))
+, num_vars_(2*framesize_ + 2) // locals, scopes, stack, effect, state, setlocal-vars, setlocal-scopes, setlocal-stack
 , effect_pos_(framesize_)
 , state_pos_(framesize_ + 1)
-, setlocal_pos_(has_reachable_exceptions ? (framesize_ + 2) : 0)
+, setlocal_pos_(framesize_ + 2)
 , frame_(new (alloc0_) Def*[num_vars_])
 , code_pos_(sig_->abc_code_start())
 , pc_(NULL)
@@ -162,7 +162,7 @@ InstrGraph* AbcBuilder::visitBlocks(Seq<AbcBlock*> *list) {
   if (enable_printir)
     listCfg(console_, ir_);
 
-  assert(checkPruned(ir_) && checkSSA(ir_));
+  AvmAssert(checkPruned(ir_) && checkSSA(ir_));
   Context cxt(method_);
   propagateTypes(ir_);
   removeDeadCode(&cxt, ir_);
@@ -199,18 +199,25 @@ void AbcBuilder::visitBlock(AbcBlock* abc_block) {
     // TODO: could we restrict to just this:
     //       (abc_block->in_try && opcodeInfo[abcop].canThrow)
     // if (needAbcState())
-    if (in_try && opcodeInfo[abcop].canThrow)
+    if (ir_->debugging() || (in_try && opcodeInfo[abcop].canThrow))
       safepointStmt(pc);
     // TODO: This is preposterous without a filter for catchable
     // canThrow instructions.  We must also safepoint targets of
     // backward branches.  Avoid safepointing calls.
     //emitThrowSafepoint(pc);
     visitInstr(pc, abcop, imm30, imm30b, imm8);
-    assert(checkFrame(frame_, stackp_, scopep_));
+    //Govindag: Bug # 3693266 : [HMAOT] Applications compilation fails when packaged with ipa-debug target.
+    // Reason - lots of getlocals are confusing type analysis and there are lots of int/uint to double and vice-versa conversions;
+    // Commenting getlocals for now, as halfmoon debugging support is in beta.
+    // TODO: Fix type inferencing and uncomment following lines (Bug # 3727254). 
+    //if (ir_->debugging() && opcodeInfo[abcop].canThrow && !ir_->hasBlockEnd(abc_block->label))
+    //  addGetlocals();
+    AvmAssert(checkFrame(frame_, stackp_, scopep_));
     if (isBlockEnd(abcop))
       break;
     pc_ = pc = nextpc;
   }
+  AvmAssert(ir_->hasBlockEnd(abc_block->label));
   pc_ = NULL;
 }
 
@@ -222,8 +229,8 @@ bool AbcBuilder::shouldSpeculate() {
   // We may deopt, so we should stop speculating
   speculate &= (state == profiler::GATHERED);
   if (enable_profiler) {
-    assert (state != profiler::NONE);
-    assert (state != profiler::PROFILING);
+    AvmAssert (state != profiler::NONE);
+    AvmAssert (state != profiler::PROFILING);
   }
   return speculate;
 }
@@ -245,7 +252,7 @@ Def* AbcBuilder::getTypedDef(const uint8_t* pc, Def* current_def,
 }
 
 void AbcBuilder::speculateParameters(StartInstr* start) {
-  assert (shouldSpeculate());
+  AvmAssert (shouldSpeculate());
   saveState(code_pos_, 0, 0);
 
   int local_id = 0;
@@ -290,7 +297,7 @@ void AbcBuilder::InitVisitor::defaultVal(Atom val, uint32_t slot,
         const Type* val_type = lattice->makeType(val_traits);
         const Type* slot_type = lattice->makeType(slot_traits);
         if (!subtypeof(val_type, slot_type))
-          assert(false && "default value type is not a subtype of slot type");
+          AvmAssert(false && "default value type is not a subtype of slot type");
         default_val = builder->addConst(lattice->makeAtomConst(val_traits,
                                                                val));
       }
@@ -362,8 +369,13 @@ void AbcBuilder::finish() {
 }
 
 void AbcBuilder::safepointStmt(const uint8_t* pc) {
-  // assert (needAbcState());
-  Def** vars = new (alloc0_) Def*[num_vars_];
+  // AvmAssert (needAbcState());
+  //Bug # 3807616: dapiCubicAccuracy app has a very large function having lots of
+  // big vectors and local variables. with ir's allocator, it goes OOM. So recycling
+  // memory here using local allocator.
+  Allocator scratch;
+  Allocator0 scratch0(scratch);
+  Def** vars = new (scratch0) Def*[num_vars_];
   int argc = 0;
 
   for (int i = 0, n = scope_base_; i < n; i++) {
@@ -379,7 +391,7 @@ void AbcBuilder::safepointStmt(const uint8_t* pc) {
   for (int i = stack_base_; i <= stackp_; i++) {
     vars[argc++] = frame_[setlocal_pos_ + i];
   }
-  assert(argc < num_vars_);
+  AvmAssert(argc < num_vars_);
 
   Def* effect = this->effect();
   SafepointInstr* instr = factory_.newSafepointInstr(effect, argc, vars);
@@ -533,8 +545,8 @@ void AbcBuilder::emitFinishCall(DeoptSafepointInstr* sfp, Def* arg) {
 
 void AbcBuilder::set_effect(Def* effect) {
   // Def* new_effect = peephole(effect);
-  // assert(effect == new_effect);
-  assert(kind(type(effect)) == kTypeEffect);
+  // AvmAssert(effect == new_effect);
+  AvmAssert(kind(type(effect)) == kTypeEffect || kind(type(effect)) == kTypeBottom);
   frame_[effect_pos_] = effect;
 }
 
@@ -796,15 +808,15 @@ bool AbcBuilder::isType(Def* val, RecordedType recorded_type) {
     return true;
   }
 
-  case profiler::kVECTOR: assert (false);
+  case profiler::kVECTOR: AvmAssert (false);
   case profiler::kNUMERIC: return false;  // represents multiple types
   default:
     printf("Unknown type rep %d\n", (int) recorded_type);
-    assert (false && "Unknown type");
+    AvmAssert (false && "Unknown type");
     break;
   }
 
-  assert (false);
+  AvmAssert (false);
   return false;
 }
 
@@ -816,7 +828,7 @@ bool AbcBuilder::isType(Def* val, RecordedType recorded_type) {
 /// been popped / pushed prior to calling savestate.
 void AbcBuilder::saveState(const uint8_t*,
                           int, int) {
-  assert(false);
+  AvmAssert(false);
 }
 
 bool AbcBuilder::hasType(Def* val, RecordedType recorded_type) {
@@ -834,10 +846,10 @@ InstrKind AbcBuilder::getSpeculativeKind(RecordedType recorded_type) {
   case profiler::kBOOLEAN: return HR_speculate_bool;
   default:
     printf("Unknown type in getSpeculativeKind: %d\n", (int) recorded_type);
-    assert (false);
+    AvmAssert (false);
   }
 
-  assert (false);
+  AvmAssert (false);
   return HR_speculate_number;
 }
 
@@ -854,7 +866,7 @@ Def* AbcBuilder::toSpeculativeType(Def* val, RecordedType recorded_type) {
 
 Def* AbcBuilder::typeSpecializedBinary(AbcOpcode abcop, const uint8_t* pc,
                                        Def* lhs, Def* rhs) {
-  assert(shouldSpeculate());
+  AvmAssert(shouldSpeculate());
   int left_input = 0;
   int right_input = 1;
 
@@ -880,7 +892,7 @@ Def* AbcBuilder::typeSpecializedBinary(AbcOpcode abcop, const uint8_t* pc,
 
 /// visit an abc instruction
 ///
-void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
+inline void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
                             uint32_t imm30b, int32_t imm8) {
   (void) pc;
   Def* temp1, *temp2, *temp3;
@@ -888,13 +900,12 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
   DeoptSafepointInstr* sfp;
   switch (abcop) {
     default:
-      assert(false && "Unsupported opcode");
+      AvmAssert(false && "Unsupported opcode");
 
     case OP_istype:
       pushDef(binaryStmt(HR_abc_istype, traitsConst(imm30), popDef()));
       break;
 
-    case OP_debug:
     case OP_bkpt:
     case OP_bkptline:
     case OP_label:
@@ -902,17 +913,29 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
     case OP_timestamp:
       break;
 
+    case OP_debug:
+#ifdef VMCFG_HALFMOON_AOT_COMPILER
+      if (ir_->debugging() && imm8 == DI_LOCAL) {
+        Def* varname = createConst(lattice_.makeStringConst(pool_, imm30));
+        Def* reg = createConst(lattice_.makeIntConst(imm30b));
+        DebugInstr2* stmt = factory_.newDebugInstr2(HR_debug, effect(), varname, reg);
+            builder_.addInstr(stmt);
+        set_effect(stmt->effect_out());
+      }
+#endif
+      break;
+          
     case OP_debugfile: {
-      // Steal code from CodegenLIR and put it into the stubs for this
-      if (enable_trace) {
+      if (enable_trace || ir_->debugging()) {
         Def* filename = createConst(lattice_.makeStringConst(pool_, imm30));
         debugInstr(HR_debugfile, filename);
       }
       break;
     }
     case OP_debugline: {
-      // Steal code from CodegenLIR and put it into the stubs for this
-      if (enable_trace) {
+      // be sure that the operation has safepoints before and getlocals after.
+      AvmAssert(opcodeInfo[OP_debugline].canThrow);
+      if (enable_trace || ir_->debugging()) {
         Def* lineno = createConst(lattice_.makeIntConst(imm30));
         debugInstr(HR_debugline, lineno);
       }
@@ -1009,6 +1032,8 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
 
     case OP_pushwith:
       temp1 = nullCheck(popDef());
+      if (!temp1)
+        break;
       setLocal(++scopep_, temp1);
       if (withbase_ == -1)
         withbase_ = scopep_;
@@ -1016,6 +1041,8 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
 
     case OP_pushscope:
       temp1 = nullCheck(popDef());
+      if (!temp1)
+        break;
       setLocal(++scopep_, temp1);
       break;
 
@@ -1114,6 +1141,8 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
     case OP_astypelate:
     case OP_in:
       temp2 = nullCheck(popDef()); // RHS object cannot be null.
+      if (!temp2)
+        break;
       temp1 = popDef();
       pushDef(binaryStmt(kind_map_[abcop], temp1, temp2));
       break;
@@ -1364,10 +1393,12 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
       sfp = emitCallSafepoint(pc, imm30b);
       args = popArgs(imm30b);
       MethodInfo* callee = pool_->getMethodInfo(imm30);
-      assert(callee->method_id() == (int)imm30);
+      AvmAssert(callee->method_id() == (int)imm30);
       temp1 = popDef();
       temp1 = coerceArgs(temp1, args, imm30b, callee);
       temp1 = nullCheck(temp1); // obj
+      if (!temp1)
+        break;
       temp2 = ordinalConst(imm30);
       temp2 = binaryExpr(HR_loadenv_env, temp2, env_param());
       temp3 = callStmt2(HR_callstatic, temp2, temp1, args, imm30b);
@@ -1429,7 +1460,7 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
 
     case OP_hasnext2:
       pushDef(hasnext2Stmt(&frame_[imm30], &frame_[imm30b]));
-      if (has_reachable_exceptions_) {
+      if (has_reachable_exceptions_ || ir_->debugging()) {
         // Make sure to update the state of the locals
         setLocal(imm30, getLocal(imm30));
         setLocal(imm30b, getLocal(imm30b));
@@ -1453,7 +1484,7 @@ void AbcBuilder::visitInstr(const uint8_t* pc, AbcOpcode abcop, uint32_t imm30,
     case OP_applytype:
       // FIXME: abc format allows N type parameters as args, but Vector
       // is the only class works, and it only allows 1 arg.  There is a
-      // misplaced assert() in VectorClass::applyTypeArgs().
+      // misplaced AvmAssert() in VectorClass::applyTypeArgs().
       pushDef(naryStmt(HR_applytype, imm30 + 1));
       break;
   }
@@ -1482,16 +1513,16 @@ Def* AbcBuilder::findStmt(const InstrKind* kinds, uint32_t name_index,
   int scope_count = this->scope_count();
   NameArity arity = nameArity(name);
   switch (arity) {
-    default: assert(false && "bad arity");
+    default: AvmAssert(false && "bad arity");
     case kNameKnown: {
       switch (abc_instr->abc_op) {
-        default: assert(false && "bad AbcOpcode");
+        default: AvmAssert(false && "bad AbcOpcode");
         case OP_getscopeobject:
           return scopes[abc_instr->index];
         case OP_getouterscope:
           return getouterscopeStmt(abc_instr->index);
         case OP_finddef:
-          assert(abc_instr->index == name_index);
+          AvmAssert(abc_instr->index == name_index);
           return finddefStmt(name);
         case OP_findpropglobal:
         case OP_findpropglobalstrict:
@@ -1521,6 +1552,15 @@ Def* AbcBuilder::finddefStmt(Def *name) {
 Def* AbcBuilder::coerceExpr(Traits* traits, Def *val) {
   if (coerceIsNop(&lattice_, val, traits))
       return val;
+  
+  if(builtinType(traits) ==  BUILTIN_void)
+  {
+     // The effect of the instruction defining this def must be
+     // used or else the code will be dead. But it will be in the effect chain already, so
+     // just leave the effect alone.
+     return createConst(lattice_.void_type);
+  }
+    
   Def* traits_in = traitsConst(traits);
   BinaryStmt* coerce = factory_.newBinaryStmt(coerceKind(traits), effect(),
                                               traits_in, val);
@@ -1537,7 +1577,7 @@ Def* AbcBuilder::toNumber(Def* val) {
 }
 
 Def* AbcBuilder::toInt(Def* val) {
-  assert (false && "Not quite supported");
+  AvmAssert (false && "Not quite supported");
   if (isInt(type(val)))
     return val;
   // toint is a statement because it can call Object.valueOf()
@@ -1586,14 +1626,34 @@ void AbcBuilder::createSetLocalInstr(int i, Def* val) {
 }
 
 void AbcBuilder::setLocal(int i, Def* val) {
+  AvmAssert(!isVMType(kind(type(val))));
   frame_[i] = val;
   // We have to save all assignments because setlocal and safepoints
   // are used for deopt in addition to exceptions.
-  if (!has_reachable_exceptions_) {
+  if (!has_reachable_exceptions_ && !ir_->debugging()) {
     return;
   }
 
   createSetLocalInstr(i, val);
+}
+    
+void AbcBuilder::addGetlocals()
+{
+  // generate a getlocal instruction for each frame variable and replace that var.
+  for (int i = 0, nvars = sig_->local_count(); i < nvars; ++i) {
+    // Find the original value for a getlocal instr:
+    // we dont want getlocal instrs to be keeping other getlocal instrs alive.
+    // The value is only for type computations anyway.
+    Def* val = frame_[i];
+    while (kind(definer(val)) == HR_getlocal) {
+        GetlocalStmt* stmt = cast<GetlocalStmt>(definer(val));
+        val = def(stmt->value_in());
+    }
+    GetlocalStmt* stmt = factory_.newGetlocalStmt(i, effect(), frame_[setlocal_pos_+i], val);
+    builder_.addInstr(stmt);
+    // Do not set the effect: if this load isn't used, let it be DCE'ed!
+    frame_[i] = stmt->value_out();
+  }
 }
 
 Traits* AbcBuilder::getNamedTraits(uint32_t type_name_index) {
@@ -1601,8 +1661,8 @@ Traits* AbcBuilder::getNamedTraits(uint32_t type_name_index) {
   const Multiname* name = pool_->precomputedMultiname(type_name_index);
   Traits* traits = domainMgr->findTraitsInPoolByMultiname(pool_, *name);
 
-  assert (traits != NULL);
-  assert (traits != (Traits*)BIND_AMBIGUOUS);
+  AvmAssert (traits != NULL);
+  AvmAssert (traits != (Traits*)BIND_AMBIGUOUS);
 
   if (name->isParameterizedType()) {
     Traits* param_traits = name->getTypeParameter() ?
@@ -1634,7 +1694,7 @@ void AbcBuilder::pushConst(const Type* type) {
 }
 
 void AbcBuilder::pushDef(Def *val) {
-  assert(stackp_ >= stack_base_ - 1 && stackp_ + 1 < framesize_);
+  AvmAssert(stackp_ >= stack_base_ - 1 && stackp_ + 1 < framesize_);
   setLocal(++stackp_, val);
 }
 
@@ -1713,25 +1773,33 @@ Def* AbcBuilder::callStmt(const InstrKind* kinds, uint32_t index, int argc) {
   Def** args = popArgs(argc);
   switch (nameArity(name)) {
     default:
-      assert(false && "illegal arity");
+      AvmAssert(false && "illegal arity");
     case kNameKnown: {
       Def* object = nullCheck(popDef()); // fixme: move to templates.
+      if (!object)
+        return 0;
       return callStmt2(kinds[kNameKnown], name, object, args, argc);
     }
     case kNameIndex: {
       Def* index = popDef();
       Def* object = nullCheck(popDef()); // fixme: move to templates.
+      if (!object)
+        return 0;
       return callStmt3(kinds[kNameIndex], name, index, object, args, argc);
     }
     case kNameNs: {
       Def* ns = popDef();
       Def* object = nullCheck(popDef()); // fixme: move to templates.
+      if (!object)
+        return 0;
       return callStmt3(kinds[kNameNs], name, ns, object, args, argc);
     }
     case kNameNsIndex: {
       Def* index = popDef();
       Def* ns = popDef();
       Def* object = nullCheck(popDef()); // fixme: move to templates.
+      if (!object)
+        return 0;
       return callStmt4(kinds[kNameNsIndex], name, ns, index, object, args, argc);
     }
   }
@@ -1747,7 +1815,33 @@ Def* AbcBuilder::initStmt(uint32_t index) {
       const TraitsBindings* tb = object_traits->getTraitsBindings();
       Traits* declarer;
       Binding b = tb->findBindingAndDeclarer(*nameVal(name), declarer);
-      if (isVarSlot(b) || (isConstSlot(b) && declarer->init == method_)) {
+        
+        /*Details for fix Bug# 3936578.
+         In the if condition below we are turning initProperty into a setProperty in case we have a const and method_ == declarer->init. A sample shell test that was triggering this scenario is given below.
+         In the same scenario we are throwing a reference error from TopLevel.cpp
+            case BKIND_CONST:
+            {
+            // OP_setproperty can never set a const.  initproperty must be used
+                throwReferenceError(kConstWriteError, multiname, vtable->traits);
+                return;
+            }
+         The two are contradictory, so whenever we end up in this scenario a reference error will be thrown. Hence removing the optimization for const case below.
+         
+         ****Sample shell test Start****
+         class ClassSample
+         {
+         static public const staticConst: Class = ClassSample;
+         public function ClassSample()
+         {
+         
+         }
+         }
+         
+         var abcd:ClassSample = new ClassSample();
+         ****Sample shell test End*****
+         
+         */
+      if (isVarSlot(b) /*|| (isConstSlot(b) && declarer->init == method_)*/) {
         // turn initproperty into setproperty if we found a var or legal const slot.
         return callStmt(setproperty_kinds, index, 1);
       }
@@ -1764,7 +1858,7 @@ Def* AbcBuilder::newclassStmt(int scope_count, Def *base, Def* scopes[],
 }
 
 Def** AbcBuilder::popArgs(int argc) {
-  assert(stackp_ - argc >= stack_base_-1 && stackp_ - argc < framesize_);
+  AvmAssert(stackp_ - argc >= stack_base_-1 && stackp_ - argc < framesize_);
   stackp_ -= argc;
   return &frame_[stackp_ + 1];
 }
@@ -1774,7 +1868,7 @@ Def *AbcBuilder::popDef() {
 }
 
 Def* AbcBuilder::peekDef() {
-  assert(stackp_ - 1 >= stack_base_-1 && stackp_ - 1 < framesize_);
+  AvmAssert(stackp_ - 1 >= stack_base_-1 && stackp_ - 1 < framesize_);
   return frame_[stackp_];
 }
 
@@ -1790,6 +1884,8 @@ void AbcBuilder::constructsuperStmt(int argc) {
   Def* object = coerceExpr(base_traits, popDef());
   object = coerceArgs(object, args, argc, base_traits->init);
   object = nullCheck(object);
+  if (!object)
+    return;
   callStmt2(HR_constructsuper, env_param(), object, args, argc);
 }
 
@@ -1884,6 +1980,7 @@ Def * AbcBuilder::nullCheck(Def* ptr) {
     return ptr;
 
   //ir_->addNullcheck(&effect_, &ptr_out);
+  
   UnaryStmt* stmt = factory_.newUnaryStmt(HR_cknull, effect(), ptr);
   builder_.addInstr(stmt);
   Def* ptr_out = stmt->value_out();
@@ -1938,7 +2035,7 @@ void AbcBuilder::addIf(bool sense, Def* cond) {
 ///
 void AbcBuilder::setFrameArgs(BlockEndInstr* instr) {
   Use* args = getArgs(instr);
-  assert(numArgs(instr) == num_vars_ && "arg count not sync'd to frame");
+  AvmAssert(numArgs(instr) == num_vars_ && "arg count not sync'd to frame");
 
   FrameRange<Use> arg_range = frameRange(args);
   FrameRange<Def*> from_def = frameRange(frame_);
@@ -1948,7 +2045,7 @@ void AbcBuilder::setFrameArgs(BlockEndInstr* instr) {
   args[effect_pos_] = effect();
   args[state_pos_] = state();
 
-  if (has_reachable_exceptions_) {
+  if (has_reachable_exceptions_ || ir_->debugging()) {
     // bring down the state of the locals from the label too
     FrameIndexRange fir(stackp_, scopep_, stack_base_);
     for (; !fir.empty(); fir.popFront()) {
@@ -1983,11 +2080,29 @@ void AbcBuilder::addArm(int i, ArmInstr* arm, bool switch_arm) {
     addGoto(to_block);
   } else {
     // Target block's only predecessor is the CondInstr that owns this arm.
-    assert(!to_block->label);
-    ir_->addBlock(arm);
-    to_block->label = arm;
-    to_block->start_sp = stackp_;
-    to_block->start_scopep = scopep_;
+    AvmAssert(!to_block->label);
+    if(to_block->label)
+    {
+        //This is not a common case. Generally to_block->label == NULL, as the node is visited the first time. Thus not
+        // removing the AvmAssert above.
+        //abc_block successor was pre visted and already had a label. This happens when a successor of a node in the
+        //abcGraph =  a predecessor above in the graph. here to_block == one of the predessor's of abc_block...which means a
+        //dfs_loop in the graph.
+        // Target block has a label, so create an empty
+        // block for this arm, ending in a goto.
+
+        builder_.addInstr(arm);
+        set_effect(&arm->params[effect_pos_]);
+        addGoto(to_block);
+    }
+    else
+    {
+        ir_->addBlock(arm);
+        to_block->label = arm;
+        to_block->start_sp = stackp_;
+        to_block->start_scopep = scopep_;
+    }
+    
   }
 }
 
@@ -2037,7 +2152,7 @@ CatchBlockInstr* AbcBuilder::ensureCatchBlockLabel(AbcBlock* abc_block) {
   stackp_ = abc_block->start_sp = stack_base_;
   scopep_ = abc_block->start_scopep = scope_base_ - 1;
   withbase_ = abc_block->start_withbase;
-  assert(withbase_ == -1 || withbase_ > 0);
+  AvmAssert(withbase_ == -1 || withbase_ > 0);
   if (withbase_ != -1) {
     withbase_ += scope_base_;
   }
@@ -2067,7 +2182,7 @@ CatchBlockInstr* AbcBuilder::ensureCatchBlockLabel(AbcBlock* abc_block) {
     }
   }
   
-  if (has_reachable_exceptions_) {
+  if (has_reachable_exceptions_ || ir_->debugging()) {
     // these start out simply as state
     FrameIndexRange fir(stackp_, scopep_, stack_base_);
     for (; !fir.empty(); fir.popFront()) {
@@ -2116,9 +2231,9 @@ LabelInstr* AbcBuilder::ensureBlockLabel(AbcBlock* abc_block) {
     return label;
   }
   // sanity check abcbuilder state vs. label state
-  assert(stackp_ == abc_block->start_sp);
-  assert(scopep_ == abc_block->start_scopep);
-  assert(withbase_ == abc_block->start_withbase || 
+  AvmAssert(stackp_ == abc_block->start_sp);
+  AvmAssert(scopep_ == abc_block->start_scopep);
+  AvmAssert(withbase_ == abc_block->start_withbase || 
          withbase_ == abc_block->start_withbase + scope_base_);
   return cast<LabelInstr>(block_start);
 }
@@ -2190,12 +2305,12 @@ void AbcBuilder::startBlock(AbcBlock* abc_block) {
   stackp_ = abc_block->start_sp;
   scopep_ = abc_block->start_scopep;
   withbase_ = abc_block->start_withbase;
-  assert(withbase_ == -1 || withbase_ > 0);
+  AvmAssert(withbase_ == -1 || withbase_ > 0);
   if (withbase_ != -1) {
     withbase_ += scope_base_;
   }
   BlockStartInstr* label = abc_block->label;
-  assert(label);
+  AvmAssert(label != NULL);
 
   if (abc_block->dfs_loop) {
     // Set label params to pessimistic types from CodegenDriver
@@ -2207,7 +2322,7 @@ void AbcBuilder::startBlock(AbcBlock* abc_block) {
     setType(&label->params[effect_pos_], EFFECT);
     setType(&label->params[state_pos_], STATE);
 
-    if (has_reachable_exceptions_) {
+    if (has_reachable_exceptions_ || ir_->debugging()) {
       // these start out simply as state
       FrameIndexRange fir(stackp_, scopep_, stack_base_);
       for (; !fir.empty(); fir.popFront()) {
@@ -2228,7 +2343,7 @@ void AbcBuilder::startBlock(AbcBlock* abc_block) {
   for (; !from.empty(); from.popFront(), to.popFront())
     to.front() = &from.front();
 
-  if (has_reachable_exceptions_) {
+  if (has_reachable_exceptions_ || ir_->debugging()) {
     // bring down the state of the locals from the label too
     FrameIndexRange fir(stackp_, scopep_, stack_base_);
     for (; !fir.empty(); fir.popFront()) {
@@ -2240,7 +2355,7 @@ void AbcBuilder::startBlock(AbcBlock* abc_block) {
   if (enable_verbose)
     printStartState(abc_block);
 
-  assert(checkFrame(frame_, stackp_, scopep_));
+  AvmAssert(checkFrame(frame_, stackp_, scopep_));
 
   // Ignore the global configuration flag for timeouts because it can lead to
   // IR graphs with no ends, if the graph has an infinite loop.  We require

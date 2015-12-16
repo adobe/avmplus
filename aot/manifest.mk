@@ -2,19 +2,23 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+ifdef ENABLE_AOT
+# HM AOT doesn't use template-generated stubs
+ifneq ($(ENABLE_HALFMOON_AOT_RUNTIME),1)
+
 STATIC_LIBRARIES += aot
 aot_BUILD_ALL = 1
+aot_INCLUDES += $(AVM_INCLUDES)
+
 aot_CXXSRCS := \
     $(curdir)/AOTCompiler.cpp \
-    $(curdir)/AOTStubs.cpp \
     $(NULL)
 
-ifdef ENABLE_SHELL
 shell_STATIC_LIBRARIES += aot
-endif
 
 numstubs = 1000
 stubcpps := $(curdir)/AOTStubs-00000.cpp \
+    $(curdir)/AOTStubs.cpp \
     $(curdir)/AOTStubs-00001.cpp \
     $(curdir)/AOTStubs-00002.cpp \
     $(curdir)/AOTStubs-00003.cpp \
@@ -1029,3 +1033,6 @@ $(curdir)/dummy.cpp: $(topsrcdir)/aot/AOTStubs.py $(topsrcdir)/aot/aotstubs.pick
 	@touch $(curdir)/aot/dummy.cpp
 
 $(stubcpps): $(curdir)/dummy.cpp
+
+endif #!ENABLE_HALFMOON_AOT_RUNTIME
+endif #ENABLE_AOT

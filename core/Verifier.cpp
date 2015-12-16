@@ -191,6 +191,9 @@ namespace avmplus
                     if (!baseCTraits || baseCTraits->itraits != itraits->base)
                         verifier->verifyFailed(kCorruptABCError);
                 }
+				else {
+                    verifier->verifyFailed(kCorruptABCError);
+				}
 
                 // add a type constraint for the "this" scope of instance methods
                 const ScopeTypeChain* iscope = ScopeTypeChain::create(core->GetGC(), itraits, cscope, NULL, ctraits, itraits);
@@ -985,7 +988,14 @@ namespace avmplus
                         FrameValue stackEntryZero = saveStackDepth > 0 ? state->stackValue(0) : state->value(0);
                         state->stackDepth = 0;
                         state->scopeDepth = 0;
-
+                        
+						// PSIRT 3037: For checkTarget() to succeed, we need push something onto the stack,
+						// so also check there is room for a push. Add checkStack(0,1) to do the check.
+						// 
+						// The security report of PSIRT 3037 shows it is valid to have a method with a 0-sized
+						// stack (max_stack is 0), but it is not valid to have 0-sized stack method that can 
+						// throw, this will cause heap overflow.
+						checkStack(0,1);
                         // add edge from try statement to catch block
                         const uint8_t* target = code_pos + handler->target;
                         // The thrown value is received as an atom but we will coerce it to
@@ -3279,7 +3289,10 @@ namespace avmplus
 
     void Verifier::verifyFailed(int errorID, Stringp arg1, Stringp arg2, Stringp arg3) const
     {
-        #ifdef AVMPLUS_VERBOSE
+        //Disabling the dump part for halfmoon compiler.
+        // Some apps throws lots of verification errors and then following code
+        // throws lots of output. Which eventually crashes the compiler on windows.
+        #if (defined(AVMPLUS_VERBOSE) && !defined (VMCFG_HALFMOON_AOT_COMPILER))
         if (!secondTry && !verbose) {
             // capture the verify trace even if verbose is false.
             Verifier v2(info, ms, toplevel, abc_env, true);
@@ -3639,6 +3652,37 @@ namespace avmplus
     void Verifier::parseExceptionHandlers()
     {
         if (info->abc_exceptions()) {
+            
+#ifdef VMCFG_HALFMOON
+            // In halfmoon, Analyze mode, Verifier is run twice. 
+            // Execption parsing was happening twice and duplicate scope traits were generated.
+            // Which led to verify error for follwing sample action script code
+            //    function f1:void {
+            //        try {
+            //            //<code inside try>
+            //        } catch(e) {
+            //            function f2():void{
+            //                //<function - body>
+            //            }
+            //            f2();
+            //        }
+            //    }
+            // The fix for above scenario is to stop recomputing exception information
+            // and fill tryFrom and tryTo with existing exception handler table information.
+            if(!tryFrom || !tryTo) {
+                ExceptionHandlerTable* table = info->abc_exceptions();
+                int exception_count = table->exception_count;
+                ExceptionHandler *handler = table->exceptions;
+                for (int i=0; i < exception_count; i++, handler++)
+                {
+                    // save maximum try range
+                    if (!tryFrom || (code_pos + handler->from) < tryFrom)
+                        tryFrom = code_pos + handler->from;
+                    if (code_pos + handler->to > tryTo)
+                        tryTo = code_pos + handler->to;
+                }
+            }
+#endif
             AvmAssert(tryFrom && tryTo);
             return;
         }

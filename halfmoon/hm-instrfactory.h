@@ -128,8 +128,14 @@ public:
   // debugfile and debugline
   DebugInstr* newDebugInstr(InstrKind kind, Def* effect, Def* val);
 
+  // debug
+  DebugInstr2* newDebugInstr2(InstrKind kind, Def* effect, Def* val1, Def* val2);
+
   // setlocal instr
   SetlocalInstr* newSetlocalInstr(int index, Def* state, Def* val);
+
+  // getlocal statement
+  GetlocalStmt* newGetlocalStmt(int index, Def* effect, Def* state, Def* val);
 
   // create a new InstrGraph over our infos and lattice
   InstrGraph* createGraph();
@@ -178,6 +184,10 @@ public:
 
   Lattice& lattice() {
     return lattice_;
+  }
+
+  InfoManager& infoManager() {
+    return infos_;
   }
 
 private:

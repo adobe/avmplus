@@ -88,6 +88,12 @@ namespace MMgc
 // things in the system headers/plugin interface/platform globals are allocated with these, it will
 // result most likely in a crash. By using the GCAllocObject you can try to go around some of these
 // issues, but atleast to system headers may pose a problem.
+#ifdef __clang__
+#pragma clang diagnostic push
+#if (__clang_major__ > 5) || ((__clang_major__ == 5) && (__clang_minor__ >= 1))
+#pragma clang diagnostic ignored "-Winline-new-delete"
+#endif
+#endif
 
 // User-defined operator new.
 REALLY_INLINE void *operator new(size_t size) MMGC_NEW_THROWS_CLAUSE
@@ -120,6 +126,10 @@ REALLY_INLINE void operator delete[]( void *p ) MMGC_DELETE_THROWS_CLAUSE
 {
     MMgc::DeleteCallInline(p);
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 // map these to nothingness
 #define MMGC_DECLARE_OPERATOR_DELETES_FOR_CLASS

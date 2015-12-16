@@ -29,11 +29,10 @@ namespace avmplus
 #endif
 
 #ifdef VMCFG_AOT
-        AvmAssert(_pool->aotInfo != NULL);
-        AvmAssert(_pool->aotInfo->abcEnv != NULL);
-        if(*(_pool->aotInfo->abcEnv) == NULL)
-        {
-            *(_pool->aotInfo->abcEnv) = this;
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+            // Halfmoon AOT accesses precomputed multinames directly
+            _pool->initPrecomputedMultinames();
+#else
             Multiname **multiname = _pool->aotInfo->multinames;
             const int32_t *multinameIndex = _pool->aotInfo->multinameIndices;
             while(*multiname)
@@ -42,8 +41,13 @@ namespace avmplus
                 multiname++;
                 multinameIndex++;
             }
-        }
 #endif
+#endif
+
+#ifdef VMCFG_AOT
+        AvmAssert(_pool->aotInfo != NULL);
+#endif
+        
     }
 
     AbcEnv::~AbcEnv()

@@ -24,7 +24,7 @@ namespace avmshell {
         
         public:
         ShellWorkerDomainObject(avmplus::VTable* vtable, avmplus::ScriptObject* prototype); 
-        virtual ShellWorkerObject* createWorkerFromByteArrayInternal(avmplus::ByteArrayObject* byteArray);
+        ShellWorkerObject* createWorkerFromByteArrayInternal(avmplus::ByteArrayObject* byteArray);
 
         avmplus::ObjectVectorObject* listWorkers();
 

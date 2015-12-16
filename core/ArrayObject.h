@@ -28,7 +28,7 @@ namespace avmplus
         ArrayObject(VTable* ivtable, ScriptObject *delegate, uint32_t capacity=0, bool simple=false);
         ArrayObject(VTable* ivtable, ScriptObject *delegate, Atom *argv, int argc, bool simple=false);
 #ifdef VMCFG_AOT
-        template <typename ADT> ArrayObject(VTable* ivtable, ScriptObject *delegate, MethodEnv *env, ADT argDesc, uint32_t argc, va_list ap, bool simple=false);
+        template <typename ADT> ArrayObject(VTable* ivtable, ScriptObject *delegate, MethodEnv *env, ADT argDesc, uint32_t argc, va_list_wrapper ap, bool simple=false);
 #endif
 
     public:
@@ -54,7 +54,7 @@ namespace avmplus
         }
 
 #ifdef VMCFG_AOT
-        template <typename ADT> static ArrayObject* createSimple(MMgc::GC* gc, VTable* ivtable, ScriptObject *delegate, MethodEnv *env, ADT argDesc, uint32_t argc, va_list ap)
+        template <typename ADT> static ArrayObject* createSimple(MMgc::GC* gc, VTable* ivtable, ScriptObject *delegate, MethodEnv *env, ADT argDesc, uint32_t argc, va_list_wrapper ap)
         {
             return new (gc, MMgc::kExact, ivtable->getExtraSize()) ArrayObject(ivtable, delegate, env, argDesc, argc, ap, true);
         }
@@ -117,6 +117,8 @@ namespace avmplus
         Atom AS3_pop(); // pop(...rest)
         uint32_t AS3_push(Atom* args, int argc); // push(...args):uint
         uint32_t AS3_unshift(Atom* args, int argc); // unshift(...args):
+		void AS3_insertAt(int32_t index, Atom element);
+		Atom AS3_removeAt(int32_t index);
 
         Atom pop();
         uint32_t push(Atom *args, int argc);

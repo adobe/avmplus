@@ -73,7 +73,7 @@ const Type* VMType<SELF_CLASS, TYPE_KIND, VALUE_REP>::copy(Lattice& lat) const {
   if (!is_const)
     return &SELF_CLASS::BASE;
   Type* t = new (lat.alloc) SELF_CLASS(const_value);
-  assert(t->name == NULL);
+  AvmAssert(t->name == NULL);
   t->name = buildName(lat);
   return t;
 }
@@ -88,7 +88,7 @@ const Type* EnvType::copy(Lattice& lat) const {
   if (method == NULL)
     return &BASE;
   EnvType* t = new (lat.alloc) EnvType(method);
-  assert(t->name == NULL);
+  AvmAssert(t->name == NULL);
   t->name = buildName(lat);
   return t;
 }
@@ -148,7 +148,7 @@ template<class SELF_CLASS, TypeKind TYPE_KIND, ModelKind MODEL_KIND, typename VA
 const Type* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
             ::copy(Lattice& lat) const {
   Type *t = new (lat.alloc) SELF_CLASS(model, traits, is_nullable, is_const, const_value);
-  assert(t->name == NULL);
+  AvmAssert(t->name == NULL);
   t->name = buildName(lat);
   return t;
 }
@@ -169,11 +169,11 @@ const DataType* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
     case kModelScriptObject:
       return lat.null_type;
     default:
-      assert(false && "non-nullable model");
+      AvmAssert(false && "non-nullable model");
       return this; // fail
     }
   } else {
-    assert(false && "incompatible model");
+    AvmAssert(false && "incompatible model");
     return this; // fail
   }
 }
@@ -185,7 +185,7 @@ const Type* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
     return this;
   if (is_const && AvmCore::isNullOrUndefined(atomVal(this, 0)))
     return BOT; // once you take null out of the set {null}, you have {}
-  assert(!is_const);  // is_const && !isNull should imply !is_nullable
+  AvmAssert(!is_const);  // is_const && !isNull should imply !is_nullable
   return lat.makeType(
     SELF_CLASS(model, traits, false, is_const, const_value));
 }
@@ -221,6 +221,10 @@ const Type* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
     return makeUnion((SELF_CLASS&)t, lat);
 
   if (isDataType(t)) {
+    // Two incommensurate nulls union to "undefined"
+      if (isNull() && t.isNull()) {
+          return lat.void_type;
+      }
     // if we're null, reverse the test so we only need to handle the other-is-null case
     if (isNull() && halfmoon::kind(this) != kTypeVoid) {
       return t.makeUnion(*this, lat);
@@ -241,10 +245,10 @@ const Type* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
       return lat.makeType(ObjectType(union_traits, union_nullable));
     default:
       if (union_traits == traits) {
-        assert(builtinType(getTraits(&t)) == BUILTIN_null);
+        AvmAssert(builtinType(getTraits(&t)) == BUILTIN_null);
         return lat.makeType(SELF_CLASS(model, traits, true, false, (VALUE_REP)0));
       } else {
-        assert(halfmoon::defaultModelKind(union_traits) == kModelScriptObject);
+        AvmAssert(halfmoon::defaultModelKind(union_traits) == kModelScriptObject);
         return lat.makeType(ScriptObjectType(kModelScriptObject, union_traits, union_nullable));
       }
     }
@@ -260,7 +264,7 @@ const Type* SimpleDataType<SELF_CLASS, TYPE_KIND, MODEL_KIND, VALUE_REP>
 AnyType::AnyType(Traits* traits, bool is_nullable) :
   SimpleDataType<AnyType, kTypeAny, kModelAtom, Atom>
     (traits, kModelAtom, is_nullable, false, Atom(0)) {
-  assert(builtinType(traits) == BUILTIN_any);
+  AvmAssert(builtinType(traits) == BUILTIN_any);
 }
 
 // --------------------------------------------------------------------
@@ -270,7 +274,7 @@ AnyType::AnyType(Traits* traits, bool is_nullable) :
 ObjectType::ObjectType(Traits* traits, bool is_nullable) :
   SimpleDataType<ObjectType, kTypeObject, kModelAtom, Atom>
     (traits, kModelAtom, is_nullable, false, Atom(0)) {
-  assert(builtinType(traits) == BUILTIN_object);
+  AvmAssert(builtinType(traits) == BUILTIN_object);
 }
 
 // --------------------------------------------------------------------
@@ -280,7 +284,7 @@ ObjectType::ObjectType(Traits* traits, bool is_nullable) :
 VoidType::VoidType(Traits* traits) :
   SimpleDataType<VoidType, kTypeVoid, kModelAtom, Atom>
     (traits, kModelAtom, true, true, undefinedAtom) {
-  assert(builtinType(traits) == BUILTIN_void);
+  AvmAssert(builtinType(traits) == BUILTIN_void);
 }
 
 // --------------------------------------------------------------------
@@ -291,14 +295,14 @@ ScriptObjectType::ScriptObjectType(ModelKind model, Traits* traits,
                                    bool is_nullable) :
   SimpleDataType<ScriptObjectType, kTypeScriptObject, kModelScriptObject, ScriptObject*>
     (traits, model, is_nullable, false, NULL) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 ScriptObjectType::ScriptObjectType(ModelKind model, Traits* traits,
                                    ScriptObject* const_value) :
   SimpleDataType<ScriptObjectType, kTypeScriptObject, kModelScriptObject, ScriptObject*>
     (traits, model, const_value == NULL, true, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 ScriptObjectType::ScriptObjectType(ModelKind model, Traits* traits,
@@ -306,7 +310,7 @@ ScriptObjectType::ScriptObjectType(ModelKind model, Traits* traits,
                                    ScriptObject* const_value) :
   SimpleDataType<ScriptObjectType, kTypeScriptObject, kModelScriptObject, ScriptObject*>
     (traits, model, is_nullable, is_const, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 PrintWriter& ScriptObjectType::printName(PrintWriter& console, AvmCore* core) const {
@@ -338,20 +342,20 @@ PrintWriter& ScriptObjectType::printName(PrintWriter& console, AvmCore* core) co
 NamespaceType::NamespaceType(Lattice& lat, ModelKind model, bool is_nullable) :
   SimpleDataType<NamespaceType, kTypeNamespace, kModelNamespace, Namespace*>
     (lat.namespace_traits, model, is_nullable, false, NULL) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 NamespaceType::NamespaceType(Lattice& lat, ModelKind model, Namespace* const_value) :
   SimpleDataType<NamespaceType, kTypeNamespace, kModelNamespace, Namespace*>
     (lat.namespace_traits, model, const_value == NULL, true, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 NamespaceType::NamespaceType(ModelKind model, Traits* traits, bool is_nullable,
                              bool is_const, Namespace* const_value) :
   SimpleDataType<NamespaceType, kTypeNamespace, kModelNamespace, Namespace*>
     (traits, model, is_nullable, is_const, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 // --------------------------------------------------------------------
@@ -361,20 +365,20 @@ NamespaceType::NamespaceType(ModelKind model, Traits* traits, bool is_nullable,
 StringType::StringType(Lattice& lat, ModelKind model, bool is_nullable) :
   SimpleDataType<StringType, kTypeString, kModelString, String*>
     (lat.string_traits, model, is_nullable, false, NULL) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 StringType::StringType(Lattice& lat, ModelKind model, String* const_value) :
   SimpleDataType<StringType, kTypeString, kModelString, String*>
     (lat.string_traits, model, const_value == NULL, true, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 StringType::StringType(ModelKind model, Traits* traits, bool is_nullable,
                        bool is_const, String* const_value) :
   SimpleDataType<StringType, kTypeString, kModelString, String*>
     (traits, model, is_nullable, is_const, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 // --------------------------------------------------------------------
@@ -384,20 +388,20 @@ StringType::StringType(ModelKind model, Traits* traits, bool is_nullable,
 BooleanType::BooleanType(Lattice& lat, ModelKind model) :
   SimpleDataType<BooleanType, kTypeBoolean, kModelInt, bool>
     (lat.boolean_traits, model, false, false, false) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 BooleanType::BooleanType(Lattice& lat, bool const_value, ModelKind model) :
   SimpleDataType<BooleanType, kTypeBoolean, kModelInt, bool>
     (lat.boolean_traits, model, false, true, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 BooleanType::BooleanType(ModelKind model, Traits* traits, bool is_nullable,
                          bool is_const, bool const_value) :
   SimpleDataType<BooleanType, kTypeBoolean, kModelInt, bool>
     (traits, model, is_nullable, is_const, const_value) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 // --------------------------------------------------------------------
@@ -409,36 +413,36 @@ const NumberConstraint NumberType::TRIV;
 NumberType::NumberType(Lattice& lat, ModelKind model) :
   DataType(kTypeNumber, model, lat.number_traits, false, false),
   constraint(TRIV) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 NumberType::NumberType(Lattice& lat, ModelKind model, bool is_int, bool is_uint) :
   DataType(kTypeNumber, model, lat.number_traits, false, false),
   constraint(is_int, is_uint) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 NumberType::NumberType(Lattice& lat, double d, ModelKind model) :
   DataType(kTypeNumber, model, lat.number_traits, false, true),
   constraint(d) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 NumberType::NumberType(ModelKind model, Traits* traits, NumberConstraint constraint) :
   DataType(kTypeNumber, model, traits, false, constraint.isConst()),
   constraint(constraint) {
-  assert(isCompatibleModel(model));
+  AvmAssert(isCompatibleModel(model));
 }
 
 const Type* NumberType::copy(Lattice& lat) const {
   Type *t = new (lat.alloc) NumberType(model, traits, constraint);
-  assert(t->name == NULL);
+  AvmAssert(t->name == NULL);
   t->name = buildName(lat);
   return t;
 }
 
 const NumberType* NumberType::changeModel(Lattice &lat, ModelKind m) const {
-  assert(isCompatibleModel(m));
+  AvmAssert(isCompatibleModel(m));
   return model == m ? this :
     (NumberType*)lat.makeType(NumberType(m, traits, constraint));
 }
@@ -468,7 +472,7 @@ const Type* NumberType::makeUnion(const Type& t, Lattice& lat) const {
     if (bt == BUILTIN_any) {
       return lat.makeType(AnyType(union_traits, t.is_nullable));
     } else {
-      assert(bt == BUILTIN_object);
+      AvmAssert(bt == BUILTIN_object);
       return lat.makeType(ObjectType(union_traits, t.is_nullable));
     }
   }
@@ -512,10 +516,11 @@ bool maybeIndex(const Type* name_type, const Type* index_type) {
 }
 
 /**
- * Lattice
+ * Lattice. Unlike map, The size here is fixed and on colision, a list if created. 
+ * so it affects get/put performance if items in map are beyond size. hence keeping the size large enough.
  */
 Lattice::Lattice(AvmCore* core, Allocator& alloc) :
-    alloc(alloc), core_(core), types(alloc) {
+    alloc(alloc), core_(core), types(alloc,16384) {
 
   BuiltinTraits& builtin = core->traits;
   int_traits = builtin.int_itraits;
@@ -600,7 +605,7 @@ const Type* Lattice::makeParamType(int p, MethodSignaturep signature) {
  */
 const Type* Lattice::makeType(const Type& type) {
   // TODO figure this out, then remove
-  assert(!type.is_const || !isDataType(type) || model(&type) != kModelInvalid);
+  AvmAssert(!type.is_const || !isDataType(type) || model(&type) != kModelInvalid);
 
   const Type* interned = types.get(TypeKey(&type));
   if (interned == NULL) {
@@ -617,7 +622,7 @@ const Type* Lattice::makeType(const Type& type) {
  * TODO final param
  */
 const DataType* Lattice::makeType(Traits* traits, bool nullable, ModelKind model) {
-  assert(isNullable(traits) || !nullable);
+  AvmAssert(isNullable(traits) || !nullable);
   switch (builtinType(traits)) {
     case BUILTIN_int:
       return int_type;
@@ -636,10 +641,10 @@ const DataType* Lattice::makeType(Traits* traits, bool nullable, ModelKind model
     case BUILTIN_number:
       return (DataType*)makeType(NumberType(*this, model));
     case BUILTIN_object:
-      assert(model == kModelAtom);
+      AvmAssert(model == kModelAtom);
       return (DataType*)makeType(ObjectType(traits, nullable));
     case BUILTIN_any:
-      assert(model == kModelAtom);
+      AvmAssert(model == kModelAtom);
       return (DataType*)makeType(AnyType(traits, nullable));
     default:
       return (DataType*)makeType(ScriptObjectType(model, traits, nullable));
@@ -659,7 +664,7 @@ const Type* Lattice::makeType(const FrameValue& value) {
  * Create a non-null type value given a type-value that might be null.
  */
 const Type* Lattice::makeNotNull(const Type* type) {
-  assert(isDataType(*type));
+  AvmAssert(isDataType(*type));
   return ((DataType*)type)->makeNotNull(*this);
 }
 
@@ -675,55 +680,55 @@ const DataType* Lattice::makeAtomConst(Traits* traits, Atom val) {
   switch (builtinType(traits)) {
     case BUILTIN_int:
     case BUILTIN_uint: {
-      assert(false); // should have been mapped to number
+      AvmAssert(false); // should have been mapped to number
       break;
     }
 
     case BUILTIN_number: {
-      assert(AvmCore::isNumber(val));
+      AvmAssert(AvmCore::isNumber(val));
       return makeNumberConst(AvmCore::number_d(val), kModelAtom);
     }
 
     case BUILTIN_any: {
-      assert(nullOrUndefined);
+      AvmAssert(nullOrUndefined);
       return AvmCore::isNull(val) ?
         makeObjectConst(traits, (ScriptObject*)atomPtr(val), kModelAtom) :
         (DataType*)makeType(VoidType(void_traits));
     }
 
     case BUILTIN_void: {
-      assert(val == undefinedAtom);
+      AvmAssert(val == undefinedAtom);
       return (DataType*)makeType(VoidType(traits));
     }
 
     case BUILTIN_string: {
-      assert(AvmCore::isString(val));
+      AvmAssert(AvmCore::isString(val));
       return makeStringConst((String*)atomPtr(val), kModelAtom);
     }
 
     case BUILTIN_boolean: {
-      assert(AvmCore::isBoolean(val));
+      AvmAssert(AvmCore::isBoolean(val));
       return makeBoolConst(val == trueAtom, kModelAtom);
     }
 
     case BUILTIN_namespace: {
-      assert(AvmCore::isNamespace(val));
+      AvmAssert(AvmCore::isNamespace(val));
       return makeNamespaceConst((Namespace*)atomPtr(val), kModelAtom);
     }
 
     case BUILTIN_null: {
-      assert(AvmCore::isNull(val));
+      AvmAssert(AvmCore::isNull(val));
       return makeObjectConst(traits, (ScriptObject*)atomPtr(val), kModelAtom);
     }
 
     case BUILTIN_object:
     default: {
-      assert(AvmCore::isNull(val) || AvmCore::isObject(val));
+      AvmAssert(AvmCore::isNull(val) || AvmCore::isObject(val));
       return makeObjectConst(traits, (ScriptObject*)atomPtr(val), kModelAtom);
     }
   }
 
-  assert(false);
+  AvmAssert(false);
   return NULL;
 }
 
@@ -783,7 +788,7 @@ const ScriptObjectType* Lattice::makeObjectConst(Traits* traits, ScriptObject* v
 avmplus::Binding Lattice::toBinding(const Type* obj_type,
                                     const Type* name_type) const {
   // fixme - should isDataType(bottom) = true?  if so, remove this early
-  // return and keep assert.
+  // return and keep AvmAssert.
   if (isBottom(obj_type))
     return BIND_NONE;
   return toBinding(getTraits(obj_type), name_type);
@@ -814,14 +819,14 @@ const Type* Lattice::getSlotType(const Type* obj_type, int slot) {
 
 uint32_t Lattice::getSlotOffset(const Type* obj_type, int slot) {
   Traits* obj_traits = getTraits(obj_type);
-  assert(obj_traits && "getSlotType requires a type with slots");
+  AvmAssert(obj_traits && "getSlotType requires a type with slots");
   TraitsBindingsp tb = obj_traits->getTraitsBindings();
   return tb->getSlotOffset(slot);
 }
 
 Traits* Lattice::getSlotTraits(const Type* obj_type, int slot) {
   Traits* obj_traits = getTraits(obj_type);
-  assert(obj_traits && "getSlotType requires a type with slots");
+  AvmAssert(obj_traits && "getSlotType requires a type with slots");
   TraitsBindingsp tb = obj_traits->getTraitsBindings();
   return tb->getSlotTraits(slot);
 }

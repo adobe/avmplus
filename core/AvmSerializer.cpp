@@ -530,8 +530,24 @@ namespace avmplus
 
         InlineHashtable *h = obj->getTable();
 
-        WriteReference((h->getSize()<<1)|1);
-        
+        {
+            // 04apr14 pgrandma@adobe.com : https://watsonexp.corp.adobe.com/#bug=3731340
+            //
+            // getSize() includes deleted items, but the below iteration skips deleted items,
+            // which caused WriteDictionary() to write corrupted data.
+            //
+            // The fix is to count the number of items using the same iteration we'll write
+            // them with.
+            
+            // uint32_t size = h->getSize();
+            uint32_t size = 0;
+            
+            for (uint32_t c = h->next(0); c ; c = h->next(c))
+            {
+                size++;
+            }
+            WriteReference((size<<1)|1);
+        }
         WriteBoolean(obj->isUsingWeakKeys());
         
         for (uint32_t c = h->next(0); c ; c = h->next(c))
@@ -770,8 +786,13 @@ namespace avmplus
             output->m_out = this;
             argv[1] = output->atom();
 
-            MethodEnv* method = obj->vtable->methods[AvmCore::bindingToMethodId(info->get_functionBinding())];
-            method->coerceEnter(argc, argv);
+			// https://watsonexp.corp.adobe.com/#bug=4066974
+			// Extract a method from the vtable but first ensure it is a method
+            if (AvmCore::isMethodBinding(info->get_functionBinding()))
+			{
+				MethodEnv* method = obj->vtable->methods[AvmCore::bindingToMethodId(info->get_functionBinding())];
+				method->coerceEnter(argc, argv);
+			}
 
         }
         else
@@ -810,18 +831,26 @@ namespace avmplus
                 }
                 else
                 {
+					Atom propAtom = toplevel->getpropname(writer->atom(), core->internConstantStringLatin1("writeDynamicProperties"));
                     // invoke ObjectEncoding.dynamicPropertyWriter
-                    GCRef<ScriptObject> func =  AvmCore::atomToScriptObject(toplevel->getpropname(writer->atom(), core->internConstantStringLatin1("writeDynamicProperties")));
-                    GCRef<DynamicPropertyOutputObject> output = toplevel->builtinClasses()->get_DynamicPropertyOutputClass()->constructObject();
-                    output->m_out = this;
 
-                    const int argc = 2;
-                    Atom argv[argc + 1];
-                    argv[0] = writer->atom();
-                    argv[1] = obj->atom();
-                    argv[2] = output->atom();
+					// https://watsonexp.corp.adobe.com/#bug=4062733
+					// Overriding writeDynamicProperties with something that is not a function 
+					// causes type confusion. The isObject() check here prevents that.
+					GCRef<ScriptObject> func =  AvmCore::isObject(propAtom) ? AvmCore::atomToScriptObject(propAtom) : NULL;
+					if (func)
+					{
+						GCRef<DynamicPropertyOutputObject> output = toplevel->builtinClasses()->get_DynamicPropertyOutputClass()->constructObject();
+						output->m_out = this;
 
-                    func->call(argc, argv);
+						const int argc = 2;
+						Atom argv[argc + 1];
+						argv[0] = writer->atom();
+						argv[1] = obj->atom();
+						argv[2] = output->atom();
+
+						func->call(argc, argv);
+					}
                 }
 
                 // Write out the empty string as a terminator
@@ -1273,8 +1302,13 @@ namespace avmplus
             input->m_in = this;
             argv[1] = input->atom();
 
-            MethodEnv* method = obj->vtable->methods[AvmCore::bindingToMethodId(info->get_functionBinding())];
-            method->coerceEnter(argc, argv);
+			// https://watsonexp.corp.adobe.com/#bug=4066975
+			// Extract a method from the vtable but first ensure it is a method
+			if (AvmCore::isMethodBinding(info->get_functionBinding()))
+			{
+				MethodEnv* method = obj->vtable->methods[AvmCore::bindingToMethodId(info->get_functionBinding())];
+				method->coerceEnter(argc, argv);
+			}
         }
         else
         {

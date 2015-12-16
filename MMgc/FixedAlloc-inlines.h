@@ -179,7 +179,7 @@ namespace MMgc
 
         item = GetUserPointer(item);
 
-#ifdef DEBUG
+#ifdef GCDEBUG
         // Fresh memory poisoning.
         if ((opts & kZero) == 0 && !RUNNING_ON_VALGRIND)
             memset(item, uint8_t(GCHeap::FXFreshPoison), b->size - DebugSize());
@@ -232,7 +232,7 @@ namespace MMgc
                 b->alloc->m_firstFree->prevFree = b;
             b->alloc->m_firstFree = b;
         }
-#ifdef DEBUG
+#ifdef GCDEBUG
         else // The item should already be on b's free list
         {
             GCAssert ((b == b->alloc->m_firstFree) || b->prevFree);

@@ -10,13 +10,13 @@
 namespace halfmoon {
 
 InstrKind tomodelPunt() {
-  assert(false && "cant convert models");
+  AvmAssert(false && "cant convert models");
   return HR_MAX;
 }
 
 InstrKind toModelAtom(const Type* t) {
   switch (model(t)) {
-    default: assert(false && "bad model for toModelAtom");
+    default: AvmAssert(false && "bad model for toModelAtom");
     case kModelString:       return HR_string2atom;
     case kModelDouble:       return HR_double2atom;
     case kModelScriptObject: return HR_scriptobject2atom;
@@ -30,7 +30,7 @@ InstrKind toModelAtom(const Type* t) {
 
 InstrKind toModelDouble(const Type* t) {
   switch (model(t)) {
-    default: assert(false && "bad model for toModelDouble");
+    default: AvmAssert(false && "bad model for toModelDouble");
   case kModelAtom: return HR_atom2double;
     case kModelInt:
       return isInt(t) ? HR_i2d :
@@ -42,7 +42,7 @@ InstrKind toModelDouble(const Type* t) {
 InstrKind toModelInt(const Type* t, const Type* use_type) {
   // todo: double->int
   switch (model(t)) {
-    default: assert(false && "bad input model for toModelInt");
+    default: AvmAssert(false && "bad input model for toModelInt");
     case kModelAtom: {
       if (isBoolean(t)) {
         return HR_atom2bool;
@@ -53,12 +53,12 @@ InstrKind toModelInt(const Type* t, const Type* use_type) {
         /// but uint and int share the same model kModelInt, BUT are unique types
         /// and uint / int are not subtypes of each other
         /// so we have to be explicit in which int we choose based on the use_type
-        assert (isInt(t) || isUInt(t));
+        AvmAssert (isInt(t) || isUInt(t));
         if (isUInt(use_type)) {
-          assert (!isInt(use_type));
+          AvmAssert (!isInt(use_type));
           return HR_atom2uint;
         } else {
-          assert (isInt(use_type) && !isUInt(use_type));
+          AvmAssert (isInt(use_type) && !isUInt(use_type));
           return HR_atom2int;
         }
       }
@@ -68,7 +68,7 @@ InstrKind toModelInt(const Type* t, const Type* use_type) {
         return HR_d2i;
       if (isUInt(t))
         return HR_d2u;
-      assert(false && "nonsense -> int");
+      AvmAssert(false && "nonsense -> int");
       break;
   } // end switch
   return HR_MAX;
@@ -77,7 +77,7 @@ InstrKind toModelInt(const Type* t, const Type* use_type) {
 InstrKind toModelScriptobject(const Type* t) {
   switch (model(t)) {
   default:
-    assert(false && "bad input model for toModelScriptobject");
+    AvmAssert(false && "bad input model for toModelScriptobject");
   case kModelAtom:
     return HR_atom2scriptobject;
   }
@@ -88,7 +88,7 @@ InstrKind toModelKind(const Type* val_type, const Type* use_type) {
     default:
       printf("unknown conversion %s -> %s\n", typeName(val_type),
              typeName(use_type));
-      assert(false && "bad model");
+      AvmAssert(false && "bad model");
     case kModelNamespace:
       return HR_atom2ns;
     case kModelAtom:
@@ -187,7 +187,7 @@ void ModelFixer::fixDefs() {
               converts[h] = expr->value_out();
               converts_kind[h] = convert_kind;
               have_count++;
-              assert(have_count <= kConvertsMax);
+              AvmAssert(have_count <= kConvertsMax);
             }
             use = converts[h];
           }
@@ -268,22 +268,23 @@ ModelKind promoteModelKind(const Type* t) {
 
 /// Run the model fixer once then clean up.
 void fixModels(Context* cxt, InstrGraph* ir) {
-  assert(checkTypes(ir, false));
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkTypes(ir, false));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   propagateTypes(ir);
   ModelFixer fixer(cxt, ir);
   fixer.changeOps();
   fixer.fixDefs();
   propagateTypes(ir);
-  computeIdentities(ir);
+  //We just fixed up the models in fixDefs, let's not change them now 
+  computeIdentities(ir, true/*preserveModels*/);
   removeDeadCode(cxt, ir);
-  assert(checkTypes(ir, true));
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkTypes(ir, true));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
 }
 
 ModelKind defaultModelKind(Traits* traits) {
   switch (valueStorageType(builtinType(traits))) {
-    default: assert(false && "bad SlotStorageType");
+    default: AvmAssert(false && "bad SlotStorageType");
     case SST_atom: return kModelAtom;
     case SST_scriptobject: return kModelScriptObject;
     case SST_string: return kModelString;
@@ -296,9 +297,9 @@ ModelKind defaultModelKind(Traits* traits) {
 }
 
 SlotStorageType type2sst(const Type* t) {
-  assert(isDataType(*t));
+  AvmAssert(isDataType(*t));
   switch (model(t)) {
-    default: assert(false && "bad model");
+    default: AvmAssert(false && "bad model");
     case kModelInt:
       return isInt(t) ? SST_int32 : isUInt(t) ? SST_uint32 : SST_bool32;
     case kModelDouble: return SST_double;

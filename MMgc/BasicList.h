@@ -74,6 +74,20 @@ namespace MMgc
                 holes = true;
         }
 
+        bool Contains(T item)
+        {
+            if (holes && iteratorCount == 0)
+                Compact();
+            uint32_t i=0;
+            while (i < Limit() && items[i] != item)
+                i++;
+            if (i == Limit())
+            {
+                return false;
+            }
+            return true;
+        }
+
         T Get(uint32_t i) const
         {
             GCAssertMsg(i < Limit(), "Index out of bounds");

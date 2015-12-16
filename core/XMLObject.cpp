@@ -1720,6 +1720,20 @@ namespace avmplus
     // E4X 13.4.4.14, page 77
     bool XMLObject::XML_AS3_hasOwnProperty (Atom P)
     {
+/*Bug : 3951226 : when XMLObject/XMLListObject's function are called with Object type variable from 
+actionscript side we get Object type ATOM as this pointer. Object is always handled as Atom in AOT. 
+therefore using this check to correctly finding out the object and call the function.*/
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        Atom thisAtom = (Atom)this;
+        if(atomKind(thisAtom) == kObjectType)
+        {
+            ScriptObject* obj = AvmCore::atomToScriptObject(thisAtom);
+            if(obj->hasAtomProperty(P))
+                return true;
+            
+            return false;
+        }
+#endif
         if (hasAtomProperty(P))
             return true;
 
@@ -2125,7 +2139,20 @@ namespace avmplus
 
     bool XMLObject::XML_AS3_propertyIsEnumerable(Atom P)    // NOT virtual, not an override
     {
-        AvmCore *core = this->core();
+/*Bug : 3951226 : when XMLObject/XMLListObject's function are called with Object type variable from 
+actionscript side we get Object type ATOM as this pointer. Object is always handled as Atom in AOT. 
+therefore using this check to correctly finding out the object and call the function.*/
+        AvmCore *core = NULL;
+#ifdef VMCFG_HALFMOON_AOT_RUNTIME
+        Atom thisAtom = (Atom)this;
+        if(atomKind(thisAtom) == kObjectType)
+        {
+            ScriptObject* obj = AvmCore::atomToScriptObject(thisAtom);
+            core = obj->core();
+        }
+        else
+#endif
+        core = this->core();
         if (core->intern(P) == core->kzero)
             return true;
 

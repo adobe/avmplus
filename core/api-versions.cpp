@@ -38,6 +38,23 @@ const char* const kApiVersionNames[kApiVersion_count] = {
     "AIR_3_8", 
 	"SWF_22", 
 	"AIR_3_9", 
+	"SWF_23", 
+	"AIR_4_0", 
+	"SWF_24", 
+	"AIR_13_0", 
+	"SWF_25", 
+	"AIR_14_0", 
+	"SWF_26", 
+	"AIR_15_0", 
+	"SWF_27", 
+	"AIR_16_0", 
+	"SWF_28", 
+	"AIR_17_0", 
+	"SWF_29", 
+	"AIR_18_0", 
+	"SWF_30", 
+	"AIR_19_0", 
+//ADD_PREVIOUS_2_VERSIONED_LINES
     "VM_INTERNAL"
 };
 
@@ -76,6 +93,23 @@ uint32_t const kApiVersionSeriesMembership[kApiVersion_count] = {
     (1<<kApiVersionSeries_AIR),
 	(1<<kApiVersionSeries_FP),
 	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+	(1<<kApiVersionSeries_FP),
+	(1<<kApiVersionSeries_AIR),
+//ADD_PREVIOUS_2_VERSIONED_LINES
     (1<<kApiVersionSeries_AIR)|(1<<kApiVersionSeries_FP)
 };
 
@@ -115,6 +149,23 @@ ApiVersion const kApiVersionSeriesTransfer[kApiVersion_count][kApiVersionSeries_
     { kApiVersion_AIR_3_8, kApiVersion_VM_INTERNAL }, // AIR_3_8
 	{ kApiVersion_AIR_3_9, kApiVersion_SWF_22 }, // SWF_22
 	{ kApiVersion_AIR_3_9, kApiVersion_VM_INTERNAL }, // AIR_3_9
+	{ kApiVersion_AIR_4_0, kApiVersion_SWF_23 }, // SWF_23
+	{ kApiVersion_AIR_4_0, kApiVersion_VM_INTERNAL }, // AIR_4_0
+	{ kApiVersion_AIR_13_0, kApiVersion_SWF_24 }, // SWF_24
+	{ kApiVersion_AIR_13_0, kApiVersion_VM_INTERNAL }, // AIR_13_0
+	{ kApiVersion_AIR_14_0, kApiVersion_SWF_25 }, // SWF_25
+	{ kApiVersion_AIR_14_0, kApiVersion_VM_INTERNAL }, // AIR_14_0
+	{ kApiVersion_AIR_15_0, kApiVersion_SWF_26 }, // SWF_26
+	{ kApiVersion_AIR_15_0, kApiVersion_VM_INTERNAL }, // AIR_15_0
+	{ kApiVersion_AIR_16_0, kApiVersion_SWF_27 }, // SWF_27
+	{ kApiVersion_AIR_16_0, kApiVersion_VM_INTERNAL }, // AIR_16_0
+	{ kApiVersion_AIR_17_0, kApiVersion_SWF_28 }, // SWF_28
+	{ kApiVersion_AIR_17_0, kApiVersion_VM_INTERNAL }, // AIR_17_0
+	{ kApiVersion_AIR_18_0, kApiVersion_SWF_29 }, // SWF_29
+	{ kApiVersion_AIR_18_0, kApiVersion_VM_INTERNAL }, // AIR_18_0
+	{ kApiVersion_AIR_19_0, kApiVersion_SWF_30 }, // SWF_30
+	{ kApiVersion_AIR_19_0, kApiVersion_VM_INTERNAL }, // AIR_19_0
+//ADD_PREVIOUS_2_VERSIONED_LINES
     { kApiVersion_VM_INTERNAL, kApiVersion_VM_INTERNAL } // VM_INTERNAL
 };
 
@@ -124,8 +175,9 @@ ApiVersion const kApiVersionFirst[kApiVersionSeries_count] = {
 };
 
 ApiVersion const kApiVersionLatest[kApiVersionSeries_count] = {
-    kApiVersion_AIR_3_9,
-    kApiVersion_SWF_22
+    kApiVersion_AIR_19_0,
+    kApiVersion_SWF_30
+//REPLACE_PREVIOUS_2_VERSIONED_LINES
 };
 
 }

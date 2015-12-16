@@ -238,7 +238,11 @@ public:
     return is_const != 0;
   }
 
+  bool isNull() const {
+    return is_const && is_nullable;
+  }
 protected:
+    
   /** copy ourselves into Lattice - service for Lattice::makeType */
   virtual const Type* copy(Lattice& lattice) const = 0;
 
@@ -310,13 +314,13 @@ extern const Type* ENV;     // = &EnvType::BASE
 
 /** safe downcast from Type to given Type subclass */
 template <class TYPE_SUB> const TYPE_SUB& toType(const Type& t) {
-  assert(t.kind == TYPE_SUB::KIND);
+  AvmAssert(t.kind == TYPE_SUB::KIND);
   return (const TYPE_SUB&)t;
 }
 
 /** pointer version of toType<T> */
 template <class TYPE_SUB> const TYPE_SUB* toType(const Type* t) {
-  assert(t->kind == TYPE_SUB::KIND);
+  AvmAssert(t->kind == TYPE_SUB::KIND);
   return (const TYPE_SUB*)t;
 }
 
@@ -341,7 +345,7 @@ protected:
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(false && "SimpleType::printName");
+    AvmAssert(false && "SimpleType::printName");
     return console;
   }
 
@@ -503,7 +507,7 @@ public:
   }
 
   VALUE_REP getConst() const {
-    assert(is_const);
+    AvmAssert(is_const);
     return const_value;
   }
 };
@@ -518,7 +522,7 @@ class TraitsType : public VMType<TraitsType, kTypeTraits, Traits*> {
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(is_const);
+    AvmAssert(is_const);
     return console << "<" << const_value << ">";
   }
 
@@ -547,7 +551,7 @@ class OrdinalType : public VMType<OrdinalType, kTypeOrdinal, int> {
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(is_const);
+    AvmAssert(is_const);
     return console << "#" << const_value;
   }
 
@@ -575,7 +579,7 @@ class NameType : public VMType<NameType, kTypeName, const Multiname*> {
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(is_const);
+    AvmAssert(is_const);
     return console << "`" << Multiname::FormatNameOnly(const_value);
   }
 
@@ -584,7 +588,7 @@ public:
 
   NameType(const Multiname* multiname_const) :
     VMType<NameType, kTypeName, const Multiname*>(multiname_const) {
-    assert(multiname_const != NULL);
+    AvmAssert(multiname_const != NULL);
   }
 };
 
@@ -605,7 +609,7 @@ class MethodType : public VMType<MethodType, kTypeMethod, MethodInfo*> {
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(is_const);
+    AvmAssert(is_const);
 #ifdef AVMPLUS_VERBOSE
     return console << const_value;   // note: PrintWriter appends '()'
 #else
@@ -618,7 +622,7 @@ public:
 
   MethodType(MethodInfo* method_const) :
     VMType<MethodType, kTypeMethod, MethodInfo*>(method_const) {
-    assert(method_const != NULL);
+    AvmAssert(method_const != NULL);
   }
 };
 
@@ -657,7 +661,7 @@ class EnvType : public Type {
   }
 
   PrintWriter& printName(PrintWriter& console, AvmCore*) const {
-    assert(method != NULL);
+    AvmAssert(method != NULL);
 #ifdef AVMPLUS_VERBOSE
     return console << "E|" << this->method;
 #else
@@ -674,7 +678,7 @@ public:   // TODO private to Lattice
   EnvType(MethodInfo* method) :
     Type(NULL, kTypeEnv, false, false),
     method(method) {
-    assert(method != NULL);
+    AvmAssert(method != NULL);
   }
 
 public:
@@ -748,12 +752,12 @@ public:
 };
 
 inline ModelKind model(const Type* t) {
-  return isDataType(*t) ? ((DataType*)t)->model : kModelInvalid;
+  return isDataType(*t) ? ((const DataType*)t)->model : kModelInvalid;
 }
 
 inline Traits* getTraits(const Type* t) {
-  assert(isDataType(*t));
-  return ((DataType*)t)->traits;
+  AvmAssert(isDataType(*t));
+  return isDataType(*t)? ((const DataType*)t)->traits:NULL;
 }
 
 /**
@@ -767,7 +771,7 @@ inline BuiltinType builtinType(Traits* t) {
  * Return the BuiltinType of t->traits.
  */
 inline BuiltinType builtinType(const DataType* t) {
-  assert(isDataType(*t));
+  AvmAssert(isDataType(*t));
   return builtinType(getTraits(t));
 }
 
@@ -792,10 +796,6 @@ class SimpleDataType : public DataType {
 
 protected:
   PrintWriter& printName(PrintWriter& console, AvmCore* core) const;
-
-  bool isNull() const {
-    return is_const && is_nullable;
-  }
 
   bool isCompatibleModel(ModelKind model) const {
     return model == NATIVE_MODEL || model == kModelAtom;
@@ -843,7 +843,7 @@ public:
     DataType(TYPE_KIND, model, traits, is_nullable, is_const),
     const_value(const_value) {
     // require that non-const types park their const_values
-    assert(isConst() || const_value == (VALUE_REP)0);
+    AvmAssert(isConst() || const_value == (VALUE_REP)0);
   }
 
   const SELF_CLASS* makeUnion(const SELF_CLASS& t, Lattice& lat) const;
@@ -883,7 +883,7 @@ public:
   }
 
   VALUE_REP getConst() const {
-    assert(isConst());
+    AvmAssert(isConst());
     return const_value;
   }
 };
@@ -899,9 +899,9 @@ public:
           Atom const_value) :
     SimpleDataType<AnyType, kTypeAny, kModelAtom, Atom>
       (traits, model, is_nullable, is_const, const_value) {
-    assert(!is_const);
-    assert(builtinType(traits) == BUILTIN_any);
-    assert(model == kModelAtom);
+    AvmAssert(!is_const);
+    AvmAssert(builtinType(traits) == BUILTIN_any);
+    AvmAssert(model == kModelAtom);
   }
 
   virtual ~AnyType() {}
@@ -918,7 +918,7 @@ public:
   }
 
   Atom getAtomConst(AvmCore*) const {
-    assert(false);
+    AvmAssert(false);
     return const_value;
   }
 };
@@ -934,9 +934,9 @@ public:
              Atom const_value) :
     SimpleDataType<ObjectType, kTypeObject, kModelAtom, Atom>
       (traits, model, is_nullable, is_const, const_value) {
-    assert(!is_const);
-    assert(builtinType(traits) == BUILTIN_object);
-    assert(model == kModelAtom);
+    AvmAssert(!is_const);
+    AvmAssert(builtinType(traits) == BUILTIN_object);
+    AvmAssert(model == kModelAtom);
   }
 
   virtual ~ObjectType() {}
@@ -953,7 +953,7 @@ public:
   }
 
   Atom getAtomConst(AvmCore*) const {
-    assert(false);
+    AvmAssert(false);
     return const_value;
   }
 };
@@ -969,10 +969,10 @@ public:
            Atom const_value) :
     SimpleDataType<VoidType, kTypeVoid, kModelAtom, Atom>
       (traits, model, is_nullable, is_const, const_value) {
-    assert(builtinType(traits) == BUILTIN_void);
-    assert(is_const);
-    assert(AvmCore::isUndefined(const_value));
-    assert(model == kModelAtom);
+    AvmAssert(builtinType(traits) == BUILTIN_void);
+    AvmAssert(is_const);
+    AvmAssert(AvmCore::isUndefined(const_value));
+    AvmAssert(model == kModelAtom);
   }
 
   virtual ~VoidType() {}
@@ -1067,7 +1067,7 @@ public:
   virtual ~StringType() {}
 
   PrintWriter& printNameQual(PrintWriter& console, AvmCore*) const {
-    assert(is_const);
+    AvmAssert(is_const);
     return console << "='" << const_value << "'";
   }
 
@@ -1127,7 +1127,7 @@ struct Int32Range {
 
   Int32Range() : is_int(false), is_uint(false) {}
   Int32Range(bool is_int, bool is_uint) : is_int(is_int), is_uint(is_uint) {
-    assert(is_int || is_uint);
+    AvmAssert(is_int || is_uint);
   }
 
   bool equals(const Int32Range& r) const {
@@ -1371,7 +1371,7 @@ public:
   }
 
   double getConst() const {
-    assert(isConst());
+    AvmAssert(isConst());
     return constraint.value;
   }
 
@@ -1388,7 +1388,7 @@ public:
   }
 
   Atom getAtomConst(AvmCore* core) const {
-    assert(isConst());
+    AvmAssert(isConst());
     return core->doubleToAtom(constraint.value);
   }
 };
@@ -1409,11 +1409,11 @@ inline bool isNumber(const Type* t) {
 }
 
 inline bool isInt(const Type* t) {
-  return isNumber(t) && ((NumberType*)t)->isInt();
+  return isNumber(t) && ((const NumberType*)t)->isInt();
 }
 
 inline bool isUInt(const Type* t) {
-  return isNumber(t) && ((NumberType*)t)->isUInt();
+  return isNumber(t) && ((const NumberType*)t)->isUInt();
 }
 
 inline bool isDouble(const Type* t) {
@@ -1461,7 +1461,7 @@ inline bool isPrimitiveTraits(Traits* t) {
  * Number, and Boolean.
  */
 inline bool isPrimitive(const Type* t) {
-  assert(isDataType(*t));
+  AvmAssert(isDataType(*t));
   return isPrimitiveTraits(getTraits(t));
 }
 
@@ -1470,24 +1470,24 @@ inline bool isInterface(const Type* t) {
 }
 
 inline Atom atomVal(const Type* t, AvmCore* core) {
-  assert(isDataType(*t) && isConst(t));
-  return ((DataType*)t)->getAtomConst(core);
+  AvmAssert(isDataType(*t) && isConst(t));
+  return ((const DataType*)t)->getAtomConst(core);
 }
 
 inline int32_t intVal(const Type* t) {
-  assert(isInt(t) && isConst(t));
+  AvmAssert(isInt(t) && isConst(t));
   // return int32_t(((DataType*)t)->double_const);
   return int32_t(toType<NumberType>(t)->getConst());
 }
 
 inline uint32_t uintVal(const Type* t) {
-  assert(isUInt(t) && isConst(t));
+  AvmAssert(isUInt(t) && isConst(t));
   // return uint32_t(((DataType*)t)->double_const);
   return uint32_t(toType<NumberType>(t)->getConst());
 }
 
 inline double doubleVal(const Type* t) {
-  assert(isNumber(t) && isConst(t));
+  AvmAssert(isNumber(t) && isConst(t));
   // return ((DataType*)t)->double_const;
   return toType<NumberType>(t)->getConst();
 }
@@ -1496,6 +1496,8 @@ inline size_t argSizeof(const Type* t) {
   return isNumber(t) ? sizeof(double) : sizeof(Atom);
 }
 
+// TODO: Spuriously returns false for non-scriptobjects like Strings
+// TODO: Why not use type->isNull() instead?
 inline bool isNull(const Type* t) {
   return isConst(t) && isScriptObject(t) && !objectVal(t);
 }
@@ -1517,6 +1519,10 @@ inline bool isConstSlot(Binding b) {
 
 inline bool hasGetter(Binding b) {
   return AvmCore::hasGetterBinding(b);
+}
+
+inline bool hasSetter(Binding b) {
+  return AvmCore::hasSetterBinding(b);
 }
 
 /**
@@ -1552,6 +1558,13 @@ inline uint32_t toGetterIndex(Binding b) {
   return AvmCore::bindingToGetterId(b);
 }
 
+/**
+ * Return the disp_id of the setter.
+ */
+inline uint32_t toSetterIndex(Binding b) {
+  return AvmCore::bindingToSetterId(b);
+}
+
 inline bool isValidBinding(Binding b) {
   return b != BIND_NONE && b != BIND_AMBIGUOUS;
 }
@@ -1575,7 +1588,7 @@ bool maybeIndex(const Type* name_type, const Type* index_type);
 class TypeKey {
 public:
   TypeKey(int i) : type_(0) {
-    assert(!i); (void) i;
+    AvmAssert(!i); (void) i;
   }
 
   explicit TypeKey(const Type* type) : type_(type) {
@@ -1701,30 +1714,30 @@ public:
    *
    */
   const DataType* changeModel(const Type* type, ModelKind m) {
-    assert(isDataType(*type));
-    return ((DataType*)type)->changeModel(*this, m);
+    AvmAssert(isDataType(*type));
+    return ((const DataType*)type)->changeModel(*this, m);
   }
 
   // ---
 
   /** Create a constant TraitsType for the given Traits */
   const TraitsType* makeTraitsConst(Traits* traits) {
-    return (TraitsType*)makeType(TraitsType(traits));
+    return (const TraitsType*)makeType(TraitsType(traits));
   }
 
   /** Create a constant OrdinalType for the given ordinal */
   const OrdinalType* makeOrdinalConst(int ordinal) {
-    return (OrdinalType*)makeType(OrdinalType(ordinal));
+    return (const OrdinalType*)makeType(OrdinalType(ordinal));
   }
 
   /** Create a constant NameType for the Multiname given by this (pool, index) */
   const NameType* makeNameConst(PoolObject* pool, int index) {
-    return (NameType*)makeType(NameType(pool->precomputedMultiname(index)));
+    return (const NameType*)makeType(NameType(pool->precomputedMultiname(index)));
   }
 
   /** Create a constant MethodType for the given MethodInfo* */
   const MethodType* makeMethodConst(MethodInfo* method) {
-    return (MethodType*)makeType(MethodType(method));
+    return (const MethodType*)makeType(MethodType(method));
   }
 
   /** Create a constant MethodType for the Method given by this (pool, id) */
@@ -1738,7 +1751,7 @@ public:
    * carry this MethodInfo.
    */
   const EnvType* makeEnvType(MethodInfo* method) {
-    return (EnvType*)makeType(EnvType(method));
+    return (const EnvType*)makeType(EnvType(method));
   }
 
   // ---

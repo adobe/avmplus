@@ -375,6 +375,8 @@ namespace nanojit
         // First call underrunProtect().  Without it, we might compute the
         // difference just before starting a new code chunk.
         underrunProtect(8);
+        if (_config.force_long_branch)
+            return false;
         return isS8(target - _nIns);
     }
 
@@ -384,6 +386,8 @@ namespace nanojit
         NanoAssert(target);
         // some instructions with S32 offsets take more than 8 bytes (e.g. packed float loads like movaps/movups)
         underrunProtect(maxInstSize);
+        if (_config.force_long_branch)
+            return false;
         return isS32(target - _nIns);
     }
 
@@ -669,6 +673,7 @@ namespace nanojit
     void Assembler::JNBE8(S n, NIns* t)    { emit_target8(n,X64_jbe8^X64_jneg8, t); asm_output("jnbe %p",t); }
     void Assembler::JNA8( S n, NIns* t)    { emit_target8(n,X64_ja8 ^X64_jneg8, t); asm_output("jna %p", t); }
     void Assembler::JNAE8(S n, NIns* t)    { emit_target8(n,X64_jae8^X64_jneg8, t); asm_output("jnae %p",t); }
+    void Assembler::JNP8( S n, NIns* t)    { emit_target8(n,X64_jp8 ^X64_jneg8, t); asm_output("jnp  %p",t); }
 
     void Assembler::CALL( S n, NIns* t)    { emit_target32(n,X64_call,t); asm_output("call %p",t); }
 
@@ -705,20 +710,22 @@ namespace nanojit
     // we cannot do that if an 8-bit relative jump is used, so we can't use
     // JMP().
     void Assembler::JMPl(NIns* target) {
-        if (!target || isTargetWithinS32(target)) {
+        if (target && isTargetWithinS32(target)) {
             JMP32(8, target);
         } else {
             JMP64(16, target);
         }
     }
 
+	// If target address is unknown, i.e., a backward branch, allow for 64-bit address.
+	// Formerly, a 32-bit displacement would do, but layout randomization may result in
+	// larger displacements if a function is split between two randomly-placed regions.
+	
     void Assembler::JMP(NIns *target) {
-        if (!target || isTargetWithinS32(target)) {
-            if (target && isTargetWithinS8(target)) {
-                JMP8(8, target);
-            } else {
-                JMP32(8, target);
-            }
+        if (target && isTargetWithinS8(target)) {
+			JMP8(8, target);
+		} else if (target && isTargetWithinS32(target)) {
+			JMP32(8, target);
         } else {
             JMP64(16, target);
         }
@@ -1117,7 +1124,6 @@ namespace nanojit
             // used for regular arguments, and is otherwise scratch since it's
             // clobberred by the call.
             CALLRAX();
-
             // Call this now so that the arg setup can involve 'rr'.
             freeResourcesOf(ins);
 
@@ -1554,101 +1560,121 @@ namespace nanojit
         return branches;
     }
 
+	// If target address is unknown, i.e., a backward branch, allow for 64-bit address.
+	// Formerly, a 32-bit displacement would do, but layout randomization may result in
+	// larger displacements if a function is split between two randomly-placed regions.
+	
     Branches Assembler::asm_branch_helper(bool onFalse, LIns *cond, NIns *target) {
-        if (target && !isTargetWithinS32(target)) {
-            // A conditional jump beyond 32-bit range, so invert the
-            // branch/compare and emit an unconditional jump to the target:
-            //         j(inverted) B1
-            //         jmp target
-            //     B1:
-            NIns* shortTarget = _nIns;
-            JMP(target);
-            target = shortTarget;
-            onFalse = !onFalse;
-        }
 
-        // float4 is handled by the "branchi" path
-        return isCmpDOpcode(cond->opcode()) || isCmpFOpcode(cond->opcode())
-             ? asm_branchd_helper(onFalse, cond, target)
-             : asm_branchi_helper(onFalse, cond, target);
+        // Float or double. Float4 is handled by the integer path.
+        if (isCmpDOpcode(cond->opcode()) || isCmpFOpcode(cond->opcode())) {
+			return asm_branchd_helper(onFalse, cond, target);
+		}
+
+		// Integer
+		NIns* patch = NULL;
+        if (target && isTargetWithinS8(target)) {
+			patch = asm_branchi_S8(onFalse, cond, target);
+		} else if (target && isTargetWithinS32(target)) {
+			patch = asm_branchi_S32(onFalse, cond, target);
+		} else {
+			// A conditional jump beyond 32-bit range, so invert the
+			// branch/compare and emit an unconditional jump to the target:
+			//         j(inverted) B1
+			//         jmp target
+			//     B1:
+			underrunProtect(22);	// 14 bytes for JMP64 + 8 bytes (incl. overhang) for branchi helper
+			NIns* skip = _nIns;
+			JMP64(16, target);		// 6 + 8 bytes (16)
+			patch = _nIns;
+			// Generate an 8-bit branch to a target that does not need to be patched.  Needs 8 bytes max.
+			asm_branchi_S8(!onFalse, cond, skip);
+		}
+        return Branches(patch);
     }
 
-    Branches Assembler::asm_branchi_helper(bool onFalse, LIns *cond, NIns *target) {
-        // We must ensure there's room for the instruction before calculating
-        // the offset.  And the offset determines the opcode (8bit or 32bit).
-        LOpcode condop = cond->opcode();
-        if (target && isTargetWithinS8(target)) {
-            if (onFalse) {
-                switch (condop) {
-                case LIR_eqf4:
-                case LIR_eqi:  case LIR_eqq:    JNE8( 8, target); break;
-                case LIR_lti:  case LIR_ltq:    JNL8( 8, target); break;
-                case LIR_gti:  case LIR_gtq:    JNG8( 8, target); break;
-                case LIR_lei:  case LIR_leq:    JNLE8(8, target); break;
-                case LIR_gei:  case LIR_geq:    JNGE8(8, target); break;
-                case LIR_ltui: case LIR_ltuq:   JNB8( 8, target); break;
-                case LIR_gtui: case LIR_gtuq:   JNA8( 8, target); break;
-                case LIR_leui: case LIR_leuq:   JNBE8(8, target); break;
-                case LIR_geui: case LIR_geuq:   JNAE8(8, target); break;
-                default:                        NanoAssert(0);    break;
-                }
-            } else {
-                switch (condop) {
-                case LIR_eqf4:
-                case LIR_eqi:  case LIR_eqq:    JE8( 8, target);  break;
-                case LIR_lti:  case LIR_ltq:    JL8( 8, target);  break;
-                case LIR_gti:  case LIR_gtq:    JG8( 8, target);  break;
-                case LIR_lei:  case LIR_leq:    JLE8(8, target);  break;
-                case LIR_gei:  case LIR_geq:    JGE8(8, target);  break;
-                case LIR_ltui: case LIR_ltuq:   JB8( 8, target);  break;
-                case LIR_gtui: case LIR_gtuq:   JA8( 8, target);  break;
-                case LIR_leui: case LIR_leuq:   JBE8(8, target);  break;
-                case LIR_geui: case LIR_geuq:   JAE8(8, target);  break;
-                default:                        NanoAssert(0);    break;
-                }
-            }
-        } else {
-            if (onFalse) {
-                switch (condop) {
-                case LIR_eqf4:
-                case LIR_eqi:  case LIR_eqq:    JNE( 8, target);  break;
-                case LIR_lti:  case LIR_ltq:    JNL( 8, target);  break;
-                case LIR_gti:  case LIR_gtq:    JNG( 8, target);  break;
-                case LIR_lei:  case LIR_leq:    JNLE(8, target);  break;
-                case LIR_gei:  case LIR_geq:    JNGE(8, target);  break;
-                case LIR_ltui: case LIR_ltuq:   JNB( 8, target);  break;
-                case LIR_gtui: case LIR_gtuq:   JNA( 8, target);  break;
-                case LIR_leui: case LIR_leuq:   JNBE(8, target);  break;
-                case LIR_geui: case LIR_geuq:   JNAE(8, target);  break;
-                default:                        NanoAssert(0);    break;
-                }
-            } else {
-                switch (condop) {
-                case LIR_eqf4:
-                case LIR_eqi:  case LIR_eqq:    JE( 8, target);   break;
-                case LIR_lti:  case LIR_ltq:    JL( 8, target);   break;
-                case LIR_gti:  case LIR_gtq:    JG( 8, target);   break;
-                case LIR_lei:  case LIR_leq:    JLE(8, target);   break;
-                case LIR_gei:  case LIR_geq:    JGE(8, target);   break;
-                case LIR_ltui: case LIR_ltuq:   JB( 8, target);   break;
-                case LIR_gtui: case LIR_gtuq:   JA( 8, target);   break;
-                case LIR_leui: case LIR_leuq:   JBE(8, target);   break;
-                case LIR_geui: case LIR_geuq:   JAE(8, target);   break;
-                default:                        NanoAssert(0);    break;
-                }
-            }
-        }
-        return Branches(_nIns); // address of instruction to patch
+    NIns* Assembler::asm_branchi_S8(bool onFalse, LIns *cond, NIns *target) {
+		LOpcode condop = cond->opcode();
+		if (onFalse) {
+			switch (condop) {
+			case LIR_eqf4:
+			case LIR_eqi:  case LIR_eqq:    JNE8( 8, target); break;
+			case LIR_lti:  case LIR_ltq:    JNL8( 8, target); break;
+			case LIR_gti:  case LIR_gtq:    JNG8( 8, target); break;
+			case LIR_lei:  case LIR_leq:    JNLE8(8, target); break;
+			case LIR_gei:  case LIR_geq:    JNGE8(8, target); break;
+			case LIR_ltui: case LIR_ltuq:   JNB8( 8, target); break;
+			case LIR_gtui: case LIR_gtuq:   JNA8( 8, target); break;
+			case LIR_leui: case LIR_leuq:   JNBE8(8, target); break;
+			case LIR_geui: case LIR_geuq:   JNAE8(8, target); break;
+			default:                        NanoAssert(0);    break;
+			}
+		} else {
+			switch (condop) {
+			case LIR_eqf4:
+			case LIR_eqi:  case LIR_eqq:    JE8( 8, target);  break;
+			case LIR_lti:  case LIR_ltq:    JL8( 8, target);  break;
+			case LIR_gti:  case LIR_gtq:    JG8( 8, target);  break;
+			case LIR_lei:  case LIR_leq:    JLE8(8, target);  break;
+			case LIR_gei:  case LIR_geq:    JGE8(8, target);  break;
+			case LIR_ltui: case LIR_ltuq:   JB8( 8, target);  break;
+			case LIR_gtui: case LIR_gtuq:   JA8( 8, target);  break;
+			case LIR_leui: case LIR_leuq:   JBE8(8, target);  break;
+			case LIR_geui: case LIR_geuq:   JAE8(8, target);  break;
+			default:                        NanoAssert(0);    break;
+			}
+		}
+		return _nIns;
+	}
+
+    NIns* Assembler::asm_branchi_S32(bool onFalse, LIns *cond, NIns *target) {
+		LOpcode condop = cond->opcode();
+		if (onFalse) {
+			switch (condop) {
+			case LIR_eqf4:
+			case LIR_eqi:  case LIR_eqq:    JNE( 8, target);  break;
+			case LIR_lti:  case LIR_ltq:    JNL( 8, target);  break;
+			case LIR_gti:  case LIR_gtq:    JNG( 8, target);  break;
+			case LIR_lei:  case LIR_leq:    JNLE(8, target);  break;
+			case LIR_gei:  case LIR_geq:    JNGE(8, target);  break;
+			case LIR_ltui: case LIR_ltuq:   JNB( 8, target);  break;
+			case LIR_gtui: case LIR_gtuq:   JNA( 8, target);  break;
+			case LIR_leui: case LIR_leuq:   JNBE(8, target);  break;
+			case LIR_geui: case LIR_geuq:   JNAE(8, target);  break;
+			default:                        NanoAssert(0);    break;
+			}
+		} else {
+			switch (condop) {
+			case LIR_eqf4:
+			case LIR_eqi:  case LIR_eqq:    JE( 8, target);   break;
+			case LIR_lti:  case LIR_ltq:    JL( 8, target);   break;
+			case LIR_gti:  case LIR_gtq:    JG( 8, target);   break;
+			case LIR_lei:  case LIR_leq:    JLE(8, target);   break;
+			case LIR_gei:  case LIR_geq:    JGE(8, target);   break;
+			case LIR_ltui: case LIR_ltuq:   JB( 8, target);   break;
+			case LIR_gtui: case LIR_gtuq:   JA( 8, target);   break;
+			case LIR_leui: case LIR_leuq:   JBE(8, target);   break;
+			case LIR_geui: case LIR_geuq:   JAE(8, target);   break;
+			default:                        NanoAssert(0);    break;
+			}
+		}
+		return _nIns;
     }
 
     NIns* Assembler::asm_branch_ov(LOpcode, NIns* target) {
         // We must ensure there's room for the instr before calculating
         // the offset.  And the offset determines the opcode (8bit or 32bit).
-        if (target && isTargetWithinS8(target))
+        if (target && isTargetWithinS8(target)) {
             JO8(8, target);
-        else
-            JO( 8, target);
-        return _nIns;
+		} else if (target && isTargetWithinS32(target)) {
+            JO(8, target);
+		} else {
+			underrunProtect(22);
+            NIns* skip = _nIns;
+            JMP64(16, target);				// 6 + 8 bytes (16)
+			JNO8(8, skip);					// 2 bytes (8)
+		}
+		return _nIns;
     }
 
     void Assembler::asm_pushstate()
@@ -1696,28 +1722,33 @@ namespace nanojit
     void Assembler::asm_brsavpc_impl(LIns* flag, NIns* target)
     {
         Register r = findRegFor(flag, GpRegs);
-        underrunProtect(19);
+        underrunProtect(37);
     
         // discard pc
-        ADDQR8(RSP, 16);  
+        ADDQR8(RSP, 16);  				// 4 bytes (8)
         
         // handle interrupt call
-        JNE(0, target);  
+        // The length of this instruction sequence (16) is hardcoded into asm_restorepc below!
+        NIns* skip = _nIns;
+        JMP64(16, target);				// 6 + 8 bytes (16)
+        JE8(8, skip);					// 2 bytes (8)
         
         // save pc
-        emit(X64_call); // call with displacement 0  
+        emit(X64_call);					// call with displacement 0, 5 bytes (8)
         
-        CMPQR8(r, 0);   
-        SUBQR8(RSP, 8); 
+        CMPQR8(r, 0);					// 4 bytes (8)
+        SUBQR8(RSP, 8);					// 4 bytes (8)
     }
 
     void Assembler::asm_restorepc()
     {
-        underrunProtect(9);
+        underrunProtect(11);
         // jmp dword ptr [rsp]
-        emit(0x2424FF0000000003LL);
-        // add qword ptr [rsp],6
-        emit(0x0600244483480006LL);
+        emit(0x2424FF0000000003LL);   // 3 bytes (8)
+        // add qword ptr [rsp], 16
+        // The constant '16' is the size of the branch to the interrupt label
+        // in the epilogue, which is emitted in asm_brsavpc_impl above.
+        emit(0x1000244483480006LL);   // 6 bytes (8)
     }
 
 	void Assembler::asm_memfence()
@@ -1809,22 +1840,42 @@ namespace nanojit
         if (condop == LIR_eqd) {
             if (onFalse) {
                 // branch if unordered or !=
-                JP(16, target);     // underrun of 12 needed, round up for overhang --> 16
-                patch1 = _nIns;
-                JNE(0, target);     // no underrun needed, previous was enough
-                patch2 = _nIns;
+				underrunProtect(14);		// ensure we have space for entire 32-bit branch sequence with overhang
+				if (target && isTargetWithinS32(target)) {
+					JP(8, target);			// 6 bytes (8)
+					patch1 = _nIns;
+					JNE(8, target);			// 6 bytes (8)
+					patch2 = _nIns;
+				} else {
+					underrunProtect(38); 	// ensure we have space for entire 64-bit branch sequence with overhang
+					NIns* skip1 = _nIns;
+					JMP64(16, target);		// 6 + 8 bytes (16)
+					patch1 = _nIns;
+					JNP8(8, skip1);			// 2 bytes (8)
+					NIns* skip2 = _nIns;
+					JMP64(16, target);		// 6 + 8 bytes (16)
+					patch2 = _nIns;
+					JE8(8, skip2);			// 2 bytes (8)
+				}
             } else {
-                // jp skip (2byte)
-                // jeq target
-                // skip: ...
-                underrunProtect(16); // underrun of 7 needed but we write 2 instr --> 16
-                NIns *skip = _nIns;
-                JE(0, target);      // no underrun needed, previous was enough
-                patch1 = _nIns;
-                JP8(0, skip);       // ditto
+				underrunProtect(14);		// ensure we have space for entire 32-bit branch sequence with overhang
+				if (target && isTargetWithinS32(target)) {
+					NIns *skip = _nIns;
+					JE(8, target);			// 6 bytes (8)
+					patch1 = _nIns;
+					JP8(8, skip);			// 2 bytes (8)
+				} else {
+					underrunProtect(28); 	// ensure we have space for entire 64-bit branch sequence with overhang
+					NIns *skip = _nIns;
+					JMP64(16, target);		// 6 + 8 bytes (16)
+					patch1 = _nIns;
+					JNE8(8, skip);			// 6 bytes (8)
+					JP8(8, skip);			// 2 bytes (8)
+				}
             }
         }
-        else {
+        else if (target && isTargetWithinS32(target)) {
+            // TODO: Use 8-bit branches where possible for branch to known target.
             // LIR_ltd and LIR_gtd are handled by the same case because
             // asm_cmpd() converts LIR_ltd(a,b) to LIR_gtd(b,a).  Likewise for
             // LIR_led/LIR_ged.
@@ -1836,6 +1887,19 @@ namespace nanojit
             default:      NanoAssert(0);                                    break;
             }
             patch1 = _nIns;
+        } else {
+            // Skip over long branch on inverted sense of comparison.
+            underrunProtect(22);  // 14 bytes of JMP64 + 8 bytes Jcc (incl. overhang)
+			NIns* skip = _nIns;
+            JMP64(16, target);
+			patch1 = _nIns;
+            switch (condop) {
+            case LIR_ltd:
+            case LIR_gtd: if (onFalse) JA8(8, skip); else JBE8(8, skip);  break;
+            case LIR_led:
+            case LIR_ged: if (onFalse) JAE8(8, skip);  else JB8(8, skip); break;
+            default:      NanoAssert(0);                                  break;
+            }
         }
         return Branches(patch1, patch2);
     }
@@ -2615,10 +2679,27 @@ namespace nanojit
                 SUBQRI(RSP, amt);
         }
 
+#if defined(NANOJIT_WIN_CFG)
+		// Do 16 bytes alignment
+		// Function entry address is going to be "_nIns - 4" at this point.
+		// The function entry should be 16 bytes aligned so we check with "_nIns - 4".
+		// Alternatively, we can add this NOPs in front of function prologue but if we do,
+		// a debugger (i.e Visueal Studio) would get lost callstack information so it would make us difficult to debug.
+		// ToDo:
+		//    There may be something to optimaize, such as using 15 NOPs vs. using JMP
+		//    Leave it as follow-up action item.
+		while ((((uintptr_t)_nIns - 4) & (uintptr_t)0x0F))
+			emit(X64_nop1);
+#endif
+
         verbose_only( asm_output("[patch entry]"); )
         NIns *patchEntry = _nIns;
         MR(FP, RSP);    // Establish our own FP.
         PUSHR(FP);      // Save caller's FP.
+
+#if defined(NANOJIT_WIN_CFG)
+		NanoAssert(((uintptr_t)_nIns & (uintptr_t)0x0F) == 0);
+#endif
 
         return patchEntry;
     }

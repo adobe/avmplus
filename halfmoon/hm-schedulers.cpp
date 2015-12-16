@@ -85,7 +85,7 @@ BlockStartInstr* hoistInstr(Instr* instr, BlockStartInstr** blockmap,
 ///
 BlockStartInstr** scheduleEarly(Allocator& alloc, InstrGraph* ir,
                                 DominatorTree* doms) {
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   // Assign begin/end instructions to root blocks.
   BlockStartInstr** blockmap = pinBlocks(ir, alloc);
 
@@ -96,7 +96,7 @@ BlockStartInstr** scheduleEarly(Allocator& alloc, InstrGraph* ir,
 
   // Sort instructions within each block.
   scheduleBlocks(ir, blockmap);
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   return blockmap;
 }
 
@@ -111,7 +111,7 @@ void scheduleEarly(InstrGraph* ir) {
 ///
 BlockStartInstr* findNearestDominator(DominatorTree* doms, BlockStartInstr* a,
                                       BlockStartInstr* b) {
-  assert(b);
+  AvmAssert(b != NULL);
   if (!a)
     return b;
   while (doms->depth(a) > doms->depth(b))
@@ -122,7 +122,7 @@ BlockStartInstr* findNearestDominator(DominatorTree* doms, BlockStartInstr* a,
     a = doms->idom(a);
     b = doms->idom(b);
   }
-  assert(a && "Common dominator not found");
+  AvmAssert(a && "Common dominator not found");
   return a;
 }
 
@@ -153,7 +153,7 @@ BlockStartInstr* sinkInstr(Instr* instr, BlockStartInstr** blockmap,
 /// legal point in the latest legal block.
 ///
 void scheduleLate(InstrGraph* ir) {
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
   Allocator scratch;
 
   if (enable_verbose)
@@ -176,7 +176,7 @@ void scheduleLate(InstrGraph* ir) {
 
   // 3. put instructions in order within each blocks.
   scheduleBlocks(ir, blockmap);
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
 }
 
 /// Find the lowest block we can place instr, by finding the lowest common
@@ -197,8 +197,8 @@ BlockStartInstr* placeInstr(Instr* instr, BlockStartInstr** blockmap,
     latest = findNearestDominator(doms, latest, use_block);
   }
   BlockStartInstr* earliest = early[instr->id];
-  assert(latest && earliest && "latest or earliest not computed");
-  assert(doms->dominates(earliest, latest));
+  AvmAssert(latest && earliest && "latest or earliest not computed");
+  AvmAssert(doms->dominates(earliest, latest));
   int min_depth = loops->depth(latest);
   for (BlockStartInstr* b = latest; b != earliest && min_depth > 0;) {
     b = doms->idom(b);
@@ -235,7 +235,7 @@ void scheduleMiddle(InstrGraph* ir) {
       placeInstr(user(u.front()), blockmap, early, doms, &loops);
   }
   scheduleBlocks(ir, blockmap);
-  assert(checkPruned(ir) && checkSSA(ir));
+  AvmAssert(checkPruned(ir) && checkSSA(ir));
 }
 
 } // namespace avmplus

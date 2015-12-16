@@ -93,7 +93,7 @@ namespace MMgc
         GCAssert(Invariants());
         GCAssert(m_top-nwords >= m_base);
         m_top -= nwords;
-#ifdef _DEBUG
+#ifdef GCDEBUG
         VMPI_memset(m_top, 0, nwords*sizeof(uintptr_t));
 #endif
         if (m_top == m_base) 

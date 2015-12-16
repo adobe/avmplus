@@ -24,7 +24,7 @@ public:
 
   /// return a reference to the given template param
   Def* paramRef(int i) {
-    assert(i >= 0 && i < numDefs(start_instr_));
+    AvmAssert(i >= 0 && i < numDefs(start_instr_));
     return &start_instr_->params[i];
   }
 
@@ -35,7 +35,7 @@ public:
   Instr* addInstr(Instr* instr) {
     instr = builder_.addInstr(instr);
     if (kind(instr) == HR_return) {
-      assert(!ir_->end);
+      AvmAssert(!ir_->end);
       ir_->end = cast<StopInstr>(instr);
     }
     return instr;
@@ -58,7 +58,7 @@ public:
 
   /// return a reference to the finished template IR
   InstrGraph* ir() {
-    assert(ir_->end && "incomplete template");
+    AvmAssert(ir_->end && "incomplete template");
     return ir_;
   }
 

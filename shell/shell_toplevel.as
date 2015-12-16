@@ -93,6 +93,12 @@ package avmplus
         // DEOPT: Diagnostic scaffolding.
         public native static function deopt(n:int):void;
 
+        // for testing only: smash the size field of a vector for testing the smash protection feature
+        public native static function smashObjectVectorSize(vec:Vector.<Object>, size:uint):void;
+        public native static function smashIntVectorSize(vec:Vector.<int>, size:uint):void;
+        public native static function smashUIntVectorSize(vec:Vector.<uint>, size:uint):void;
+        public native static function smashDoubleVectorSize(vec:Vector.<Number>, size:uint):void;
+
         /**
          * Suggest to the garbage collector that if collector's imminence
          * exceeds imminence parameter then the collector should finish

@@ -461,6 +461,7 @@ namespace nanojit
 
             verbose_only( void asm_inc_m32(uint32_t*); )
             void        asm_mmq(Register rd, int dd, Register rs, int ds);
+			void		asm_unreachable();
             void        asm_jmp(LIns* ins, InsList& pending_lives);
             void        asm_jcc(LIns* ins, InsList& pending_lives);
 #if NJ_SAFEPOINT_POLLING_SUPPORTED

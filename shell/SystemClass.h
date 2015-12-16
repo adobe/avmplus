@@ -321,6 +321,12 @@ namespace avmshell
 
         void disposeXML(avmplus::XMLObject *xmlObject);
 
+		// Test vector length smash protection feature.  No effect if feature not configured.
+        void smashObjectVectorSize(avmplus::ObjectVectorObject* vec, uint32_t size);
+        void smashIntVectorSize(avmplus::IntVectorObject* vec, uint32_t size);
+        void smashUIntVectorSize(avmplus::UIntVectorObject* vec, uint32_t size);
+        void smashDoubleVectorSize(avmplus::DoubleVectorObject* vec, uint32_t size);
+
         void pauseForGCIfCollectionImminent(double imminence);
 
         // Support for VM tests that depend on representation of numeric atoms.
