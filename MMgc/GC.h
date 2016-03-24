@@ -631,7 +631,7 @@ namespace MMgc
          * There are at present no useful guarantees about better alignment like that,
          * notably there are no guarantees about 16-byte alignment to benefit float4.
          */
-        void *Alloc(size_t size, int flags=0);
+        void *Alloc(size_t size, int flags, int partition);
 
         /**
          * Specialized implementations of Alloc().  Flags are omitted, each function is annotated
@@ -640,12 +640,12 @@ namespace MMgc
          * The result is that most computation boils away and we're left with just a call to the
          * underlying primitive operator.
          */
-        void *AllocPtrZero(size_t size);                 // Flags: GC::kContainsPointers|GC::kZero
-        void *AllocPtrZeroExact(size_t size);            // Flags: GC::kContainsPointers|GC::kZero|GC::kInternalExact
-        void *AllocPtrZeroFinalized(size_t size);        // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize
-        void *AllocPtrZeroFinalizedExact(size_t size);   // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact
-        void *AllocRCObject(size_t size);                // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize
-        void *AllocRCObjectExact(size_t size);           // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact
+        void *AllocPtrZero(size_t size, int partition);                 // Flags: GC::kContainsPointers|GC::kZero
+        void *AllocPtrZeroExact(size_t size, int partition);            // Flags: GC::kContainsPointers|GC::kZero|GC::kInternalExact
+        void *AllocPtrZeroFinalized(size_t size, int partition);        // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize
+        void *AllocPtrZeroFinalizedExact(size_t size, int partition);   // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact
+        void *AllocRCObject(size_t size, int partition);                // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize
+        void *AllocRCObjectExact(size_t size, int partition);           // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact
 
         /**
          * Like Alloc but optimized for the case of allocating one 8-byte non-pointer-containing
@@ -672,27 +672,27 @@ namespace MMgc
          * Like Alloc but allocating a little extra memory; factored out as a
          * separate function in order to allow for a fast object overflow check.
          */
-        void *AllocExtra(size_t size, size_t extra, int flags=0);
+        void *AllocExtra(size_t size, size_t extra, int flags, int partition);
 
         /**
          * Specialized implementations of Alloc().  See above for explanations.
          */
-        void *AllocExtraPtrZero(size_t size, size_t extra);             // Flags: GC::kContainsPointers|GC::kZero
-        void *AllocExtraPtrZeroExact(size_t size, size_t extra);        // Flags: GC::kContainsPointers|GC::kZero|GC::kInternalExact
-        void *AllocExtraPtrZeroFinalized(size_t size, size_t extra);    // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize
-        void *AllocExtraPtrZeroFinalizedExact(size_t size, size_t extra); // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact
-        void *AllocExtraRCObject(size_t size, size_t extra);            // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize
-        void *AllocExtraRCObjectExact(size_t size, size_t extra);       // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact
+        void *AllocExtraPtrZero(size_t size, size_t extra, int partition);             // Flags: GC::kContainsPointers|GC::kZero
+        void *AllocExtraPtrZeroExact(size_t size, size_t extra, int partition);        // Flags: GC::kContainsPointers|GC::kZero|GC::kInternalExact
+        void *AllocExtraPtrZeroFinalized(size_t size, size_t extra, int partition);    // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize
+        void *AllocExtraPtrZeroFinalizedExact(size_t size, size_t extra, int partition); // Flags: GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact
+        void *AllocExtraRCObject(size_t size, size_t extra, int partition);            // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize
+        void *AllocExtraRCObjectExact(size_t size, size_t extra, int partition);       // Flags: GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact
 
         /**
          * Out-of-line version of AllocExtra, used by the specialized versions
          */
-        void *OutOfLineAllocExtra(size_t size, size_t extra, int flags);
+        void *OutOfLineAllocExtra(size_t size, size_t extra, int flags, int partition);
 
         /**
          * Just like Alloc but can return NULL
          */
-        void *PleaseAlloc(size_t size, int flags=0);
+        void *PleaseAlloc(size_t size, int flags, int partition);
 
         /**
          * Signal that client code has performed an allocation from memory known not to be
@@ -846,7 +846,7 @@ namespace MMgc
          * all instance of Alloc(num*sizeof(thing)) should be replaced with:
          * Calloc(num, sizeof(thing))
          */
-        void *Calloc(size_t num, size_t elsize, int flags=0);
+        void *Calloc(size_t num, size_t elsize, int flags, int partition);
 
         /**
          * Free a GC allocated object.  The pointer may be NULL.
@@ -923,9 +923,9 @@ namespace MMgc
         /**
          * Used by sub-allocators to obtain memory.
          */
-        void* AllocBlock(int size, PageMap::PageType pageType, bool zero=true, bool canFail=false);
+        void* AllocBlock(int size, int partitition, PageMap::PageType pageType, bool zero=true, bool canFail=false);
 
-        void FreeBlock(void *ptr, uint32_t size);
+        void FreeBlock(void *ptr, uint32_t size, int partition);
 
         // Host API: this should go away but Player code is currently using it.  VM code should not use it.
         GCHeap *GetGCHeap() const;
@@ -1416,10 +1416,10 @@ namespace MMgc
 
         // heapAlloc is like heap->Alloc except that it also calls policy.signalBlockAllocation
         // if the allocation succeeded.
-        void *heapAlloc(size_t size, int flags=GCHeap::flags_Alloc);
+        void *heapAlloc(size_t size, int partition, int flags=GCHeap::flags_Alloc);
 
         // heapFree is like heap->Free except that it also calls policy.signalBlockDeallocation.
-        void heapFree(void *ptr, size_t siz=0, bool profile=true);
+        void heapFree(void *ptr, size_t siz, int partition, bool profile=true);
 
         friend class GCAutoEnter;
         friend class GCAutoEnterPause;
@@ -1447,12 +1447,12 @@ namespace MMgc
         void log_mem(const char *name, size_t s, size_t comp );
 
         const static int kNumSizeClasses = 40;
+		
+        uint32_t *AllocBits(int numBytes, int sizeClass, int partition);
 
-        uint32_t *AllocBits(int numBytes, int sizeClass);
+        void FreeBits(uint32_t *bits, int sizeClass, int partition);
 
-        void FreeBits(uint32_t *bits, int sizeClass);
-
-        uint32_t *m_bitsFreelists[kNumSizeClasses];
+        uint32_t *m_bitsFreelists[kNumSizeClasses][kNumGCPartitions];
         uint32_t *m_bitsNext;
 
         GCHashtable weakRefs;
@@ -1585,8 +1585,10 @@ namespace MMgc
         // tree inside GC::Alloc.
 
         const uint8_t* const sizeClassIndex;
-        GCAlloc** allocsTable[(kRCObject|kFinalize|kContainsPointers)+1];
-
+		
+		typedef GCAlloc* Allocators[kNumSizeClasses][kNumGCPartitions];
+        Allocators* allocsTable[(kRCObject|kFinalize|kContainsPointers)+1];
+		
         void *m_contextVars[GCV_COUNT];
 
         /**
@@ -1625,14 +1627,14 @@ namespace MMgc
          */
         void ConservativeMarkRegion(const void *base, size_t bytes);
 
-        GCAlloc *containsPointersNonfinalizedAllocs[kNumSizeClasses]; // Non-RC non-finalized objects containing pointers
-        GCAlloc *containsPointersFinalizedAllocs[kNumSizeClasses];    // Non-RC finalized objects containing pointers
-        GCAlloc *containsPointersRCAllocs[kNumSizeClasses];           // RC finalized objects containing pointers
-        GCAlloc *noPointersNonfinalizedAllocs[kNumSizeClasses];       // Non-RC non-finalized objects not containing pointers
-        GCAlloc *noPointersFinalizedAllocs[kNumSizeClasses];          // Non-RC finalized objects not containing pointers
+        GCAlloc *containsPointersNonfinalizedAllocs[kNumSizeClasses][kNumGCPartitions]; // Non-RC non-finalized objects containing pointers
+        GCAlloc *containsPointersFinalizedAllocs[kNumSizeClasses][kNumGCPartitions];    // Non-RC finalized objects containing pointers
+        GCAlloc *containsPointersRCAllocs[kNumSizeClasses][kNumGCPartitions];           // RC finalized objects containing pointers
+        GCAlloc *noPointersNonfinalizedAllocs[kNumSizeClasses][kNumGCPartitions];       // Non-RC non-finalized objects not containing pointers
+        GCAlloc *noPointersFinalizedAllocs[kNumSizeClasses][kNumGCPartitions];          // Non-RC finalized objects not containing pointers
         GCAlloc *bibopAllocFloat;
         GCAlloc *bibopAllocFloat4;
-        GCLargeAlloc *largeAlloc;
+        GCLargeAlloc *largeAllocs[kNumGCPartitions];
         GCHeap *heap;
 
 #ifdef GCDEBUG

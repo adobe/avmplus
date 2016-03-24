@@ -10,10 +10,10 @@
 
 namespace MMgc
 {
-    FixedAlloc::FixedAlloc(uint32_t itemSize, GCHeap* heap, bool isFixedAllocSafe)
+    FixedAlloc::FixedAlloc(uint32_t itemSize, GCHeap* heap, int partition, bool isFixedAllocSafe)
         : m_isFixedAllocSafe(isFixedAllocSafe)
     {
-        Init(itemSize, heap);
+        Init(itemSize, heap, partition);
         
         GCAssert(m_itemSize <= GCHeap::kBlockSize);
         GCAssert(m_itemsPerBlock <= GCHeap::kBlockSize);
@@ -25,9 +25,10 @@ namespace MMgc
     {
     }
 
-    void FixedAlloc::Init(uint32_t itemSize, GCHeap* heap)
+    void FixedAlloc::Init(uint32_t itemSize, GCHeap* heap, int heapPartition)
     {
         m_heap          = heap;
+		m_heapPartition = heapPartition;
         m_firstBlock    = NULL;
         m_lastBlock     = NULL;
         m_firstFree     = NULL;
@@ -156,7 +157,7 @@ namespace MMgc
             VMPI_lockRelease(lock);
         }
 
-        FixedBlock* b = (FixedBlock*) m_heap->Alloc(1, GCHeap::kExpand | (canFail ? GCHeap::kCanFail : 0));
+        FixedBlock* b = (FixedBlock*) m_heap->GetPartition(m_heapPartition)->Alloc(1, GCHeap::kExpand | (canFail ? GCHeap::kCanFail : 0));
         VALGRIND_CREATE_MEMPOOL(b,  0/*redZoneSize*/, 0/*zeroed*/);
 
         // treat block header as allocation so reads write are okay
@@ -243,7 +244,7 @@ namespace MMgc
         }
 
         // Free the memory
-        m_heap->FreeNoProfile(b);
+        m_heap->GetPartition(m_heapPartition)->FreeNoProfile(b);
 
         if(lock != NULL)
             VMPI_lockAcquire(lock);
@@ -291,8 +292,8 @@ namespace MMgc
 
     // FixedAllocSafe
 
-    FixedAllocSafe::FixedAllocSafe(int itemSize, GCHeap* heap)
-        : FixedAlloc(itemSize, heap, true)
+    FixedAllocSafe::FixedAllocSafe(int itemSize, GCHeap* heap, int partition)
+        : FixedAlloc(itemSize, heap, partition, true)
     {
         VMPI_lockInit(&m_spinlock);
     }
@@ -319,12 +320,12 @@ namespace MMgc
 
     void *FastAllocator::operator new[](size_t size)
     {
-        return FixedMalloc::GetFixedMalloc()->OutOfLineAlloc(size);
+        return FixedMalloc::GetFixedMalloc(kFastAllocatorPartition)->OutOfLineAlloc(size);
     }
 
     void FastAllocator::operator delete [](void *item)
     {
-        FixedMalloc::GetFixedMalloc()->OutOfLineFree(item);
+        FixedMalloc::GetFixedMalloc(kFastAllocatorPartition)->OutOfLineFree(item);
     }
 
     /*static*/

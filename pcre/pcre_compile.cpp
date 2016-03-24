@@ -1175,7 +1175,12 @@ for (; *ptr != 0; ptr++)
   term = *ptr++;
   if (term == '<') term = '>';
   thisname = ptr;
-  while (*ptr != term) ptr++;
+  // https://watsonexp.corp.adobe.com/#bug=4081378
+  // When dealing with '<abc', after a '<' character, pcre looks
+  // for a '>' character, but in the while loop, it does not check
+  // if it is the end of the string ('\x00'), so it will cause an 
+  // out-of-bounds read access exception.
+  while (*ptr != term && *ptr != '\x00') ptr++;
   if (name != NULL && lorn == ptr - thisname &&
       VMPI_strncmp((const char *)name, (const char *)thisname, lorn) == 0)
     return count;

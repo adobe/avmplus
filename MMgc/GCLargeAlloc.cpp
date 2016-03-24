@@ -8,7 +8,7 @@
 
 namespace MMgc
 {
-    GCLargeAlloc::GCLargeAlloc(GC* gc) : m_totalAllocatedBytes(0), m_gc(gc)
+    GCLargeAlloc::GCLargeAlloc(GC* gc, int partitionIndex) : m_totalAllocatedBytes(0), m_gc(gc), m_partitionIndex(partitionIndex)
     {
         m_blocks = NULL;
         m_startedFinalize = false;
@@ -44,7 +44,7 @@ namespace MMgc
         if((flags&GC::kContainsPointers) != 0)
             flags |= GC::kZero;
 
-        LargeBlock *block = (LargeBlock*) m_gc->AllocBlock(blocks, PageMap::kGCLargeAllocPageFirst,
+        LargeBlock *block = (LargeBlock*) m_gc->AllocBlock(blocks, m_partitionIndex, PageMap::kGCLargeAllocPageFirst,
                                                            (flags&GC::kZero) != 0, (flags&GC::kCanFail) != 0);
         void *item = NULL;
 
@@ -176,7 +176,7 @@ namespace MMgc
                 VALGRIND_MEMPOOL_FREE(b, b);
                 VALGRIND_MEMPOOL_FREE(b, item);
                 VALGRIND_DESTROY_MEMPOOL(b);
-                m_gc->FreeBlock(b, (uint32_t)numBlocks);
+                m_gc->FreeBlock(b, (uint32_t)numBlocks, m_partitionIndex);
                 return;
             }
             prev = (LargeBlock**)(&(*prev)->next);

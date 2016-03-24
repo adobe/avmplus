@@ -418,12 +418,28 @@ namespace avmplus
         // a while, so duplicating this data is unnecessary
         ByteArray& ba = obj->GetByteArray();
 
-        int len = ba.GetLength();
-        const uint8_t* buf = ba.GetReadableBuffer();
-
         // write an invalid reference, but re-use the surplus bits to store the length
+        int len = ba.GetLength();
         WriteReference((len << 1) | 1);
-        Write(buf, len);
+        
+        // 02nov15 pgrandma@adobe.com : https://watsonexp.corp.adobe.com/#bug=4079374
+        //
+        // Consider { aByteArray.writeObject(aByteArray); }.
+        //
+        // A side-effect of any write is the backing buffer could be re-allocated,
+        // so it's unsafe cache ba.GetReadableBuffer(), as the pointer might
+        // change with each call.
+        //
+        // NOTE: ByteArray::Write() uses ByteArray::UnprotectedEnsureCapacityAndWrite(),
+        // which is effectively:
+        //  {
+        //      Grower grower(this, capacity);
+        //      memcpy(new_ptr, old_ptr, size);
+        //  }
+        // where the memcpy() from old_ptr to new_ptr is safe because Grower() allocates new_ptr,
+        // and ~Grower() deletes old_ptr, so both are valid while the grower instance is in scope.
+        
+        Write(ba.GetReadableBuffer(), len);
     }
 
     void AvmPlusObjectOutput::WriteArray(GCRef<ArrayObject> obj)

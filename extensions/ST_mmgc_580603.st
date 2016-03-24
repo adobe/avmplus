@@ -85,9 +85,9 @@ char *my_alloc(size_t size, alloc_method_t m)
     size_t sizeInPages = (size+(GCHeap::kBlockSize-1))/GCHeap::kBlockSize;
 
     switch (m) {
-    case via_gc:     ret = (char*)gc->Alloc(size); break;
+    case via_gc:     ret = (char*)gc->Alloc(size, MMgc::kNone, MMgc::kAVMShellGCPartition); break;
     case via_heap:
-        ret = (char*)heap->Alloc(sizeInPages, heapFlags);
+        ret = (char*)heap->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(sizeInPages, heapFlags);
         break;
     default: ret = 0; break;
     }
@@ -112,7 +112,7 @@ void my_free(char *p, alloc_method_t m)
 {
     switch (m) {
     case via_gc:     gc->Free(p); return;
-    case via_heap:   heap->FreeNoProfile(p); return;
+    case via_heap:   heap->GetPartition(MMgc::kAVMShellHeapPartition)->FreeNoProfile(p); return;
     default: AvmAssert(p == 0); return;
     }
 }

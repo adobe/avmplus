@@ -52,7 +52,7 @@ namespace MMgc
          *                          is FixedAllocSafe, and certain unlocking operations
          *                          will be performed in out-of-memory situations.
          */
-        FixedAlloc(uint32_t itemSize, GCHeap* heap, bool isFixedAllocSafe=false);
+        FixedAlloc(uint32_t itemSize, GCHeap* heap, int partition, bool isFixedAllocSafe=false);
 
         /**
          * Destroy the allocator, returning all blocks to the block manager.
@@ -119,6 +119,7 @@ namespace MMgc
 
     private:
         GCHeap *m_heap;             // The heap from which we obtain memory
+		int m_heapPartition;		// The heap partition from which we obtain memory
         uint32_t m_itemsPerBlock;   // Number of items that fit in a block
         uint32_t m_itemSize;        // Size of each individual item
         
@@ -173,7 +174,7 @@ namespace MMgc
 
         // Initialize the allocator.  'itemSize' is the size of objects managed by
         // the allocator; 'heap' is the heap from which we obtain memory.
-        void Init(uint32_t itemSize, GCHeap *heap);
+        void Init(uint32_t itemSize, GCHeap *heap, int heapPartition);
 
         // Destroy the allocator and free all resources.
         void Destroy();
@@ -239,7 +240,7 @@ namespace MMgc
 
         // Initialize the allocator.  'itemSize' is the size of objects managed by
         // the allocator; 'heap' is the heap from which we obtain memory.
-        FixedAllocSafe(int itemSize, GCHeap* heap);
+        FixedAllocSafe(int itemSize, GCHeap* heap, int partition);
 
         // Initialize the allocator with default values.  Used by FixedMalloc,
         // which calls FixedAlloc::Init directly.

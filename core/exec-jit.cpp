@@ -577,7 +577,7 @@ ImtEntry* BaseExecMgr::buildImtEntries(VTable* vtable, uint32_t slot, uint32_t& 
 //   Some counter-research suggests a much higher threshold
 // where binary search is faster:
 // http://schani.wordpress.com/2010/04/30/linear-vs-binary-search/
-REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, ScriptObject* obj)
+REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, VTable* vtable)
 {
     AvmAssert(ite->imtMapCount > 1);
     const ImtThunkEntry* const m = ite->entries();
@@ -592,7 +592,7 @@ REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, ScriptObjec
     }
     AvmAssert((lo < ite->imtMapCount) && (m[lo].iid == iid));
     uintptr_t disp_id = m[lo].disp_id;
-    return obj->vtable->methods[disp_id];
+    return vtable->methods[disp_id];
 }
 
 // called the first time a method is called via an interface type.
@@ -626,7 +626,7 @@ REALLY_INLINE MethodEnv* findMethod(ImtThunkEnv* ite, uintptr_t iid, ScriptObjec
 // same imt[] slot; this method picks the one matching iid and calls it.
 /*static*/ uintptr_t BaseExecMgr::dispatchImt(ImtThunkEnv* ite, int argc, uint32_t* ap, uintptr_t iid)
 {
-    MethodEnv* const env = findMethod(ite, iid, *(ScriptObject**)ap);
+    MethodEnv* const env = findMethod(ite, iid, (*(ScriptObject**)ap)->vtable);
 
     STACKADJUST(); // align stack for 32-bit Windows and MSVC compiler
     uintptr_t r = (*env->_implGPR)(env, argc, ap);
@@ -742,6 +742,30 @@ void BaseExecMgr::resolveImtSlotFull(VTable* vtable, uint32_t slot)
         resolveImtSlotFromBase(cur, slot);
     }
 }
+
+MethodEnv *BaseExecMgr::resolveImtToConcreteMethodEnv(ImtThunkEnv *ite, VTable* vtable, MethodInfo* info)
+{
+    uintptr_t iid = ImtHolder::getIID(info);
+    
+    // The job of resolveImtSlot is to replace the imt[] slot with a pointer
+    // to a concrete stub.  There are two cases:
+    // a) only one concrete method was hashed to this slot.  The concrete
+    //    MethodEnv* pointer is placed in the slot, and further calls are
+    //    done with no overhead. If we land here we directly return the MethodEnv.
+    // b) more than one method hashed to this slot.  imt[] is updated to
+    //    point to ::dispatchImt(), which uses the incoming iid parameter
+    //    to choose which concrete MethodEnv to call. For this case we case findMethodEnv to
+    //	find the correct method which is hashed.
+    
+    if((reinterpret_cast<MethodEnv*>(ite))->_implGPR == (GprMethodProc) BaseExecMgr::resolveImt)
+        ite = resolveImtSlot(ite, iid);
+    
+    if((reinterpret_cast<MethodEnv*>(ite))->_implGPR == (GprMethodProc) BaseExecMgr::dispatchImt)
+        return findMethod(ite, iid, vtable);
+    
+    return reinterpret_cast<MethodEnv*>(ite);
+}
+
 #endif
 
 #ifdef VMCFG_NANOJIT

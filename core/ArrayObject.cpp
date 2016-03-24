@@ -426,7 +426,7 @@ namespace avmplus
       
         AvmCore *core = this->core();
         MMgc::GC *gc = core->GetGC();
-        Atom *result = (Atom *)gc->Calloc(len, sizeof(Atom), MMgc::GC::kContainsPointers);
+        Atom *result = (Atom *)gc->Calloc(len, sizeof(Atom), MMgc::GC::kContainsPointers, MMgc::kAOTDenseCopyPartition);
         for (uint32_t n = 0; n < len; n++)
             AvmCore::atomWriteBarrier_ctor(gc, result, result + n, m_denseArray.get(n));
     

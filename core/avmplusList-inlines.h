@@ -71,10 +71,9 @@ namespace avmplus
     // For information about "align", see the doc block at class DataListHelper.
     
     template<class T, uintptr_t align>
-    REALLY_INLINE /*static*/ void DataListHelper<T, align>::wbData(const void* /*container*/, LISTHEADER& header, LISTDATA* data, uint32_t capacity)
+    REALLY_INLINE /*static*/ void DataListHelper<T, align>::wbData(const void* /*container*/, LISTHEADER& header, LISTDATA* data)
     {
 		header.data = data;
-		header.capacity = capacity;
     }
 
     template<class T, uintptr_t align>
@@ -143,9 +142,8 @@ namespace avmplus
 
     // ----------------------------
 
-    REALLY_INLINE /*static*/ void GCListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity)
+    REALLY_INLINE /*static*/ void GCListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data)
     {
-		(void)capacity;
 		MMgc::GC* const gc = MMgc::GC::GetGC(data);
         if (gc->IsPointerToGCPage(container))
         {
@@ -194,9 +192,8 @@ namespace avmplus
     
     // ----------------------------
 
-    REALLY_INLINE /*static*/ void RCListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity)
+    REALLY_INLINE /*static*/ void RCListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data)
     {
-		(void)capacity;
         MMgc::GC* const gc = MMgc::GC::GetGC(data);
         if (gc->IsPointerToGCPage(container))
         {
@@ -280,9 +277,8 @@ namespace avmplus
         AtomListHelper::storePointer(m_header.data, index, value);
     }
 
-    REALLY_INLINE /*static*/ void AtomListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity)
+    REALLY_INLINE /*static*/ void AtomListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data)
     {
-		(void)capacity;
         MMgc::GC* const gc = MMgc::GC::GetGC(data);
         if (gc->IsPointerToGCPage(container))
         {
@@ -361,9 +357,8 @@ namespace avmplus
 
     // ----------------------------
 
-    REALLY_INLINE /*static*/ void WeakRefListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity)
+    REALLY_INLINE /*static*/ void WeakRefListHelper::wbData(const void* container, LISTHEADER& header, LISTDATA* data)
     {
-		(void)capacity;
         MMgc::GC* const gc = MMgc::GC::GetGC(data);
         if (gc->IsPointerToGCPage(container))
         {

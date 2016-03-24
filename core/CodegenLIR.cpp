@@ -284,7 +284,7 @@ namespace avmplus
     private:
         void clearMemBaseAndSize();
 
-        static void extractConstantDisp(LIns*& mopAddr, int32_t& curDisp);
+        static void extractConstantDisp(LIns*& mopAddr, int32_t size, int32_t& curDisp);
         LIns* safeIns2(LOpcode op, LIns*, int32_t);
         void safeRewrite(LIns* ins, int32_t);
 
@@ -337,17 +337,23 @@ namespace avmplus
         }
     }
 
+	// We introduce some casts that might appear redundant upon cursory examination.
+	// They are needed to avoid undefined behavior: Signed add/substractare assumed
+	// not to overflow, and yield undefined behavior in that case, while unsigned
+	// add/subtract are defined to wrap as we would expect in machine arithmetic.
+	// These definitions assume 2's complement arithmetic, as we do pervasively in avmplus.
+	
     static bool sumFitsInInt32(int32_t a, int32_t b)
     {
-        return int64_t(a) + int64_t(b) == int64_t(a + b);
+        return int64_t(a) + int64_t(b) == int64_t(int32_t(uint32_t(a) + uint32_t(b)));
     }
     
     static bool differenceFitsInInt32(int32_t a, int32_t b)
     {
-        return int64_t(a) - int64_t(b) == int64_t(a - b);
+        return int64_t(a) - int64_t(b) == int64_t(int32_t(uint32_t(a) - uint32_t(b)));
     }
     
-    /*static*/ void MopsRangeCheckFilter::extractConstantDisp(LIns*& mopAddr, int32_t& curDisp)
+    /*static*/ void MopsRangeCheckFilter::extractConstantDisp(LIns*& mopAddr, int32_t size, int32_t& curDisp)
     {
         // mopAddr is an int (an offset from globalMemoryBase) on all archs.
         // if mopAddr is an expression of the form
@@ -390,6 +396,11 @@ namespace avmplus
 
             if (!sumFitsInInt32(curDisp, imm))
                 break;
+			
+			// If adding the size of the value to be loaded or stored would cause the
+			// accumulated displacement to wrap, don't extract this and further displacements.
+			if (!sumFitsInInt32(curDisp + imm, size))
+				break;
 
             curDisp += imm;
             mopAddr = nonImm;
@@ -402,10 +413,12 @@ namespace avmplus
         if (disp != NULL)
         {
             *disp = 0;
-            extractConstantDisp(mopAddr, *disp);
+            extractConstantDisp(mopAddr, size, *disp);
             offsetMin = *disp;
         }
 
+		// We must guarantee that this addition does not overflow.
+		// See code to this effect in extractConstantDisp() above.
         int32_t offsetMax = offsetMin + size;
 
         AvmAssert((curRangeCheckLHS != NULL) == (curRangeCheckRHS != NULL));
@@ -587,8 +600,10 @@ namespace avmplus
 #ifdef DEBUG
         jit_sst[i] = uint16_t(1 << sst); 
 #endif
-        lirout->insStore(o, vars, i << VARSHIFT(info) , ACCSET_VARS);
-        lirout->insStore(LIR_sti2c, InsConst(sst), tags, i, ACCSET_TAGS);
+        LIns* st1 = lirout->insStore(o, vars, i << VARSHIFT(info) , ACCSET_VARS);
+		st1->setStoreTainted(true);
+        LIns* st2 = lirout->insStore(LIR_sti2c, InsConst(sst), tags, i, ACCSET_TAGS);
+		st2->setStoreTainted(true);
     }
 
     LIns* CodegenLIR::atomToNativeRep(int i, LIns* atom)
@@ -1142,7 +1157,9 @@ namespace avmplus
                   (v.sst_mask == (1 << SST_uint32) && v.traits == UINT_TYPE) ||
                   (v.sst_mask == (1 << SST_bool32) && v.traits == BOOLEAN_TYPE));
 #endif
-        return lirout->insLoad(LIR_ldi, vars, i << VARSHIFT(info) , ACCSET_VARS);
+        LIns* ld = lirout->insLoad(LIR_ldi, vars, i << VARSHIFT(info) , ACCSET_VARS);
+		ld->setLoadTainted(true);
+		return ld;
     }
 
     LIns* CodegenLIR::localGetf(int i) {
@@ -1151,7 +1168,9 @@ namespace avmplus
         const FrameValue& v = state->value(i);
         AvmAssert(v.sst_mask == (1<<SST_float) && v.traits == FLOAT_TYPE);
 #endif
-        return lirout->insLoad(LIR_ldf, vars, i << VARSHIFT(info), ACCSET_VARS);
+		LIns* ld = lirout->insLoad(LIR_ldf, vars, i << VARSHIFT(info), ACCSET_VARS);
+		ld->setLoadTainted(true);
+		return ld;
 #else
         toplevel->throwError(kNotImplementedError); (void)i;
         return NULL;
@@ -1163,7 +1182,9 @@ namespace avmplus
         const FrameValue& v = state->value(i);
         AvmAssert((v.sst_mask == (1<<SST_double) && v.traits == NUMBER_TYPE));
 #endif
-        return lirout->insLoad(LIR_ldd, vars, i << VARSHIFT(info) , ACCSET_VARS);
+        LIns* ld = lirout->insLoad(LIR_ldd, vars, i << VARSHIFT(info) , ACCSET_VARS);
+		ld->setLoadTainted(true);
+		return ld;
     }
 
 #ifdef VMCFG_FLOAT
@@ -1173,7 +1194,9 @@ namespace avmplus
         AvmAssert(v.sst_mask == (1<<SST_float4) && v.traits == FLOAT4_TYPE);
         AvmAssert(VARSHIFT(info) == 4);
 #endif
-        return lirout->insLoad(LIR_ldf4, vars, i << 4, ACCSET_VARS);
+        LIns* ld = lirout->insLoad(LIR_ldf4, vars, i << 4, ACCSET_VARS);
+		ld->setLoadTainted(true);
+		return ld;
     }
 
     LIns* CodegenLIR::localGetf4Addr(int i) {
@@ -1182,7 +1205,7 @@ namespace avmplus
         AvmAssert(v.sst_mask == (1<<SST_float4) && v.traits == FLOAT4_TYPE);
         AvmAssert(VARSHIFT(info) == 4);
 #endif
-        return lea(i << 4, vars);
+        return lea(i << 4, vars, /*tainted*/true);
     }
 #endif
 
@@ -1201,6 +1224,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                       !(v.sst_mask == (1 << SST_float4) && v.traits == FLOAT4_TYPE)  && )
                       !(v.sst_mask == (1 << SST_double) && v.traits == NUMBER_TYPE));
             ins = lirout->insLoad(LIR_ldp, vars, i << VARSHIFT(info) , ACCSET_VARS);
+			ins->setLoadTainted(true);
             // If multiple slot states represented by SST_scriptobject are merged,
             // we may end up with state Object[O], that is, the type Object represented
             // as SST_scriptobject.  While we know in this case that all values of the
@@ -1222,7 +1246,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             // more than one representation is possible: convert to atom using tag found at runtime.
             AvmAssert(bt(v.traits) == BUILTIN_any || bt(v.traits) == BUILTIN_object);
             LIns* tag = lirout->insLoad(LIR_lduc2ui, tags, i, ACCSET_TAGS);
-            LIns* varAddr = lea( i << VARSHIFT(info) , vars);
+            LIns* varAddr = lea(i << VARSHIFT(info), vars, /*tainted*/true);
             ins = callIns(FUNCTIONID(makeatom), 3, coreAddr, varAddr, tag);
         }
         // A sentinel null value may be stored in the rest local slot even though the
@@ -3344,7 +3368,8 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                                 loadEnvToplevel(),
                                 InsConstPtr(multiname),
                                 loadAtomRep(state->sp()),
-                                lea(restLocal << VARSHIFT(info) , vars),
+								// With a sane number of parameters, the displacement will never need to be blinded.
+                                lea(restLocal << VARSHIFT(info), vars, /*tainted*/true),
                                 restArgc,
                                 (info->needRest() ?
                                     binaryIns(LIR_addp, ap_param, InsConstPtr((void*)(ms->rest_offset()))) :
@@ -5170,7 +5195,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             case BUILTIN_float4: 
                 v = (i == 0) ? obj : lirout->insLoad(LIR_ldf4, vars, index << VARSHIFT(info), ACCSET_VARS);
                 stf4(v, ap, disp, ACCSET_OTHER);
-                disp += sizeof(float4_t); 
+                disp += sizeof(float4_t);
                 break;
 #endif
             case BUILTIN_number:
@@ -5201,7 +5226,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         ap->setSize(disp);
 
         LIns* target = loadIns(LIR_ldp, offsetof(MethodEnvProcHolder,_implGPR), method, ACCSET_OTHER);
-        LIns* apAddr = lea(pad, ap);
+        LIns* apAddr = lea(pad, ap, /*tainted*/true);
 
         LIns *out;
         BuiltinType rbt = bt(result);
@@ -5287,7 +5312,9 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
         case BUILTIN_boolean:   op = LIR_ldi;    break;
         default:                op = LIR_ldp;   break;
         }
-        return loadIns(op, offset, ptr, ACCSET_OTHER);
+		LIns* ld = loadIns(op, offset, ptr, ACCSET_OTHER);
+		ld->setLoadTainted(true);
+		return ld;
     }
 
     void CodegenLIR::emitGetslot(int slot, int ptr_index, Traits *slotType)
@@ -5354,25 +5381,29 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             callIns(wbAddr, 4,
                     InsConstPtr(core->GetGC()),
                     unoffsetPtr,
-                    lea(offset, ptr),
+                    lea(offset, ptr, /*tainted*/true),
                     value);
         }
 #ifdef VMCFG_FLOAT
         else if (slotType == FLOAT_TYPE) {
             // slot type is double or int
-            stf(value, ptr, offset, ACCSET_OTHER);
+            LIns* st = stf(value, ptr, offset, ACCSET_OTHER);
+			st->setStoreTainted(true);
         }
         else if (slotType == FLOAT4_TYPE) {
             // slot type is double or int
-            stf4(value, ptr, offset, ACCSET_OTHER);
+            LIns* st = stf4(value, ptr, offset, ACCSET_OTHER);
+			st->setStoreTainted(true);
         }
 #endif
         else if (slotType == NUMBER_TYPE) {
             // slot type is double or int
-            std(value, ptr, offset, ACCSET_OTHER);
+            LIns* st = std(value, ptr, offset, ACCSET_OTHER);
+			st->setStoreTainted(true);
         } else {
             AvmAssert(slotType == INT_TYPE || slotType == UINT_TYPE || slotType == BOOLEAN_TYPE);
-            sti(value, ptr, offset, ACCSET_OTHER);
+            LIns* st = sti(value, ptr, offset, ACCSET_OTHER);
+			st->setStoreTainted(true);
         }
     }
 
@@ -6193,6 +6224,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                 int32_t disp = 0;
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, &disp);
                 LIns* i2 = loadIns(mi.op, disp, realAddr, ACCSET_OTHER);
+				i2->setLoadTainted(true); // ISSUE: This may clobber performance of absolute addressing in Alchemy code!
             #else
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, NULL);
                 LIns* i2 = callIns(mi.call, 1, realAddr);
@@ -6214,6 +6246,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                 int32_t disp = 0;
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, &disp);
                 LIns* i2 = loadIns(mi.op, disp, realAddr, ACCSET_OTHER);
+				i2->setLoadTainted(true); // ISSUE: This may clobber performance of absolute addressing in Alchemy code!
             #else
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, NULL);
                 LIns* i2 = callIns(mi.call, 1, realAddr);
@@ -6252,7 +6285,8 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
            #ifdef VMCFG_MOPS_USE_EXPANDED_LOADSTORE_INT
                 int32_t disp = 0;
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, &disp);
-                lirout->insStore(mi.op, svalue, realAddr, disp, ACCSET_OTHER);
+                LIns* st = lirout->insStore(mi.op, svalue, realAddr, disp, ACCSET_OTHER);
+				st->setStoreTainted(true); // ISSUE: This may clobber performance of absolute addressing in Alchemy code!
             #else
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, NULL);
                 callIns(mi.call, 2, realAddr, svalue);
@@ -6273,7 +6307,8 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
            #ifdef VMCFG_MOPS_USE_EXPANDED_LOADSTORE_FP
                 int32_t disp = 0;
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, &disp);
-                lirout->insStore(mi.op, svalue, realAddr, disp, ACCSET_OTHER);
+                LIns* st = lirout->insStore(mi.op, svalue, realAddr, disp, ACCSET_OTHER);
+				st->setStoreTainted(true); // ISSUE: This may clobber performance of absolute addressing in Alchemy code!
             #else
                 LIns* realAddr = mopAddrToRangeCheckedRealAddrAndDisp(mopAddr, mi.size, NULL);
                 callIns(mi.call, 2, realAddr, svalue);
@@ -6946,7 +6981,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
                 LIns* ap = storeAtomArgs(2*argc, arg0);
 
                 LIns* i3 = callIns(FUNCTIONID(op_newobject), 3,
-                                   env_param, lea(sizeof(Atom)*(2*argc-1), ap), InsConst(argc, /*tainted*/true));
+                                   env_param, lea(sizeof(Atom)*(2*argc-1), ap, /*tainted*/true), InsConst(argc, /*tainted*/true));
                 liveAlloc(ap);
 
                 localSet(dest, ptrToNativeRep(result, i3), result);
@@ -7968,7 +8003,7 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
             // _ef.beginCatch()
             int stackBase = ms->stack_base();
             LIns* pc = loadIns(LIR_ldp, 0, _save_eip, ACCSET_OTHER);
-            LIns* slotAddr = lea(stackBase << VARSHIFT(info) , vars);
+            LIns* slotAddr = lea(stackBase << VARSHIFT(info), vars);
             LIns* tagAddr = lea(stackBase, tags);
             LIns* handler_ordinal = callIns(FUNCTIONID(beginCatch), 6, coreAddr, _ef, InsConstPtr(info), pc, slotAddr, tagAddr);
 
@@ -9014,9 +9049,10 @@ FLOAT_ONLY(           !(v.sst_mask == (1 << SST_float)  && v.traits == FLOAT_TYP
     // build a filename based on path/title
     static const char* filenameFor(const char* path, const char* name, const char* ext, Allocator& alloc)
     {
-        char* filename = new (alloc) char[1+VMPI_strlen(name)+VMPI_strlen(path)+VMPI_strlen(ext)];
+		size_t bufferLen = 1 + VMPI_strlen(name) + VMPI_strlen(path) + VMPI_strlen(ext);
+        char* filename = new (alloc) char[bufferLen];
         VMPI_strcpy(filename, path);
-        VMPI_strcat(filename, "/");  // sorry windows
+		VMPI_strcat(filename, bufferLen, "/");  // sorry windows
         char* dst = &filename[VMPI_strlen(filename)];
         for(const char* s = name; *s; s++) {
             char c = *s;

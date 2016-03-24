@@ -98,12 +98,9 @@ psdk_interface_classes = set([
     "AdPolicySelector",
     "ContentFactory",
     "ContentResolver",
-    "ContentResolverClient",
     "ContentTracker",
     "CustomAdHandler",
-    "CustomAdHandlerClient",
-    "OpportunityGenerator",
-    "OpportunityGeneratorClient"
+    "OpportunityGenerator"
 ])
 
 # Look for additional modules in the halfmoon templates directory.

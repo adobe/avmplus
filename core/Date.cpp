@@ -425,6 +425,10 @@ namespace avmplus
         int month = MonthFromTime(time);
         int day = WeekDay(time);
         if (month < 0 || month >= 12 || day < 0 || day >= 7) {
+			// https://asset-jira.corp.adobe.com/browse/PSIRT-4587
+			// The bug demonstrates the scenario when we early without initializing 'len'
+			// which might result in further actions being performed on the wrong length.
+			len = 0;
             return false;
         }
 

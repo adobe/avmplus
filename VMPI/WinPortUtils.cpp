@@ -277,12 +277,17 @@ const char *VMPI_getenv(const char *env)
     const char *val = NULL;
     (void)env;
 	// Environment variables are not available for Windows Store applications.
-#ifndef AVMSYSTEM_WINDOWSSTOREAPP
-#ifndef UNDER_CE
+#if !defined(UNDER_CE) && (!defined(AVMSYSTEM_WINDOWSSTOREAPP) || AVMSYSTEM_WINDOWSSTOREAPP == 0)
+// The MS compiler warns that getenv() is 'insecure', but as far as I can tell, the issue
+// is simply that it returns a pointer to a static memory location.  I do not intend to change
+// the cross-platform VMPI_getenv API, so using one of the MS-suggested alternatives would
+// simply move the static variable to another location, raising the question of how much space
+// to allocate for it, since we would no longer be referencing the environment in-place.
+#pragma warning(disable: 4996)
     val = getenv(env);
+#pragma warning(default: 4996)	
 #endif
-#endif // AVMSYSTEM_WINDOWSSTOREAPP
-    return val;
+	return val;
 }
 
 // Call VMPI_getPerformanceFrequency() once to initialize its cache; avoids thread safety issues.

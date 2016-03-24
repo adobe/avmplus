@@ -119,7 +119,7 @@ namespace MMgc
 
         enum { kFreelist=kMark|kQueued };
 
-        GCAlloc(GC* gc, int itemSize, bool containsPointers, bool isRC, bool isFinalized, int sizeClassIndex, uint8_t bibopTag);
+        GCAlloc(GC* gc, int itemSize, bool containsPointers, bool isRC, bool isFinalized, int sizeClassIndex, int sliceIndex, int partitionIndex, uint8_t bibopTag);
 
 #if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
         void* Alloc(size_t size, int flags);
@@ -252,6 +252,8 @@ namespace MMgc
 #endif
         const int m_numBitmapBytes;
         const int m_sizeClassIndex;
+		const int m_sliceIndex;
+		const int m_partitionIndex;
 
 #ifdef MMGC_MEMORY_PROFILER
         size_t m_totalAskSize;

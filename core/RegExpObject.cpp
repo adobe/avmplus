@@ -7,7 +7,7 @@
 
 #include "avmplus.h"
 
-#include "pcre.h"
+#include "RegExp.h"
 
 // todo figure out what to do about all the new/delete in here
 // todo general clean-up
@@ -32,8 +32,7 @@ namespace avmplus
         // NOTE: we do not set the PCRE_STATE here, because we don't have a toplevel
         // that we can use to pass to AvmCore::setPCREContext.  It's OK: pcre_free
         // just frees a char[], it does not go deep like the compilation step does.
-
-        (pcre_free)((void*)(pcre*)regex);
+        mmfx_delete(((RegExp*)regex));
         regex = NULL;
     }
 
@@ -41,7 +40,7 @@ namespace avmplus
         : ScriptObject(ivtable, objectPrototype)
         , m_source(core()->kEmptyString)
         , m_lastIndex(0)
-        , m_optionFlags(PCRE_UTF8)
+        , m_optionFlags(RegExp::kUtfOption)
         , m_global(false)
         , m_hasNamedGroups(false)
     {
@@ -58,6 +57,7 @@ namespace avmplus
         , m_optionFlags(toCopy->m_optionFlags)
         , m_global(toCopy->m_global)
         , m_hasNamedGroups(toCopy->m_hasNamedGroups)
+        , m_regexp(toCopy->m_regexp)
     {
     }
 
@@ -68,7 +68,7 @@ namespace avmplus
         : ScriptObject(ivtable, delegate)
         , m_source(pattern)
         , m_lastIndex(0)
-        , m_optionFlags(PCRE_UTF8)
+        , m_optionFlags(RegExp::kUtfOption)
         , m_global(false)
         , m_hasNamedGroups(false)
     {
@@ -121,16 +121,16 @@ namespace avmplus
                         m_global = true;
                         break;
                     case 'i':
-                        m_optionFlags |= PCRE_CASELESS;
+                        m_optionFlags |= RegExp::kCaselessOption;
                         break;
                     case 'm':
-                        m_optionFlags |= PCRE_MULTILINE;
+                        m_optionFlags |= RegExp::kMultilineOption;
                         break;
                     case 's':
-                        m_optionFlags |= PCRE_DOTALL;
+                        m_optionFlags |= RegExp::kDotallOption;
                         break;
                     case 'x':
-                        m_optionFlags |= PCRE_EXTENDED;
+                        m_optionFlags |= RegExp::kExtendedOption;
                         break;
                     }
                     pos++;
@@ -172,6 +172,9 @@ namespace avmplus
             m_optionFlags = r.optionFlags;
             m_hasNamedGroups = r.hasNamedGroups;
             m_pcreInst = r.regex;
+            //m_regexp = mmfx_new(RegExp((RegExp*)(r.regex->regex)));
+            //CompiledRegExp* regex = new (gc()) CompiledRegExp(m_regexp);
+            m_regexp = r.regex->regex;
         }
         else
         {
@@ -180,8 +183,10 @@ namespace avmplus
             int errptr;
             const char *error;
             StUTF8String patternz(m_source);
-            void* pcreInst = (void*)pcre_compile(patternz.c_str(), m_optionFlags, &error, &errptr, NULL);
-            CompiledRegExp* regex = new (gc()) CompiledRegExp(pcreInst);
+            m_regexp = mmfx_new(RegExp());
+            ((RegExp*)m_regexp)->compile(patternz.c_str(), patternz.length(), m_optionFlags, &error, &errptr, NULL);
+            ((RegExp*)m_regexp)->getCompiledData();
+            CompiledRegExp* regex = new (gc()) CompiledRegExp(m_regexp);
 
             if (!core()->m_regexCache.disabled())
             {
@@ -355,21 +360,19 @@ namespace avmplus
     {
         AvmAssert(subject != NULL);
 
-        int ovector[OVECTOR_SIZE];
+        RegExpSizeType ovector(OVECTOR_SIZE);
+        
         int results;
         int subjectLength = utf8Subject.length();
 
         PCRE_STATE(toplevel());
         if( startIndex < 0 ||
             startIndex > subjectLength ||
-            (results = pcre_exec((pcre*)(m_pcreInst->regex),
-                                NULL,
-                                utf8Subject.c_str(),
+            (results = ((RegExp *)m_regexp)->exec(utf8Subject.c_str(),
                                 subjectLength,
                                 startIndex,
-                                PCRE_NO_UTF8_CHECK,
-                                ovector,
-                                OVECTOR_SIZE)) < 0)
+                                RegExp::kNoUtfOption,
+                                ovector)) < 0)
         {
             matchIndex = 0;
             matchLen = 0;
@@ -380,16 +383,16 @@ namespace avmplus
         ArrayObject *a = toplevel()->arrayClass()->newArray(results);
 
         a->setAtomProperty(core->kindex->atom(),
-               core->intToAtom(utf8Subject.toIndex(ovector[0])));
+               core->intToAtom(utf8Subject.toIndex(ovector.getIndex(0))));
         a->setAtomProperty(core->kinput->atom(),
                subject->atom());
         a->setLength(results);
 
         // set array slots
         for (int i=0; i<results; i++) {
-            if (ovector[i*2] > -1) {
-                int length = ovector[i*2 + 1] - ovector[i*2];
-                Atom match = stringFromUTF8(utf8Subject.c_str()+ovector[i*2], length);
+            if ((int)ovector.getIndex(i*2) > -1) {
+                int length = ovector.getIndex(i*2 + 1) - ovector.getIndex(i*2);
+                Atom match = stringFromUTF8(utf8Subject.c_str()+ovector.getIndex(i*2), length);
                 a->setUintProperty(i, match);
             } else {
                 a->setUintProperty(i, undefinedAtom);
@@ -399,15 +402,16 @@ namespace avmplus
         // handle named groups
         if (m_hasNamedGroups)
         {
+
             int entrySize;
-            pcre_fullinfo((pcre*)(m_pcreInst->regex), NULL, PCRE_INFO_NAMEENTRYSIZE, &entrySize);
+            ((RegExp *)m_regexp)->fullinfo(RegExp::kInfoNameEntrySize, &entrySize);
 
             int nameCount;
-            pcre_fullinfo((pcre*)(m_pcreInst->regex), NULL, PCRE_INFO_NAMECOUNT, &nameCount);
+            ((RegExp *)m_regexp)->fullinfo(RegExp::kInfoNameCount, &nameCount);
 
             // this space is freed when (pcre*)m_pcreInst is freed
             char *nameTable;
-            pcre_fullinfo((pcre*)(m_pcreInst->regex), NULL, PCRE_INFO_NAMETABLE, &nameTable);
+            ((RegExp *)m_regexp)->fullinfo(RegExp::kInfoNameTable, &nameTable);
 
             /* nameTable is a series of fixed length entries (entrySize)
                the first two bytes are the index into the ovector and the result
@@ -431,12 +435,12 @@ namespace avmplus
 					return NULL;
 				}
 
-                length = ovector[nameIndex * 2 + 1] - ovector[ nameIndex * 2 ];
+                length = ovector.getIndex(nameIndex * 2 + 1) - ovector.getIndex(nameIndex * 2);
 
                 Atom name = stringFromUTF8((nameTable+2), (uint32_t)VMPI_strlen(nameTable+2));
                 name = core->internString(name)->atom();
 
-                Atom value = stringFromUTF8(utf8Subject.c_str()+ovector[nameIndex*2], length);
+                Atom value = stringFromUTF8(utf8Subject.c_str()+ovector.getIndex(nameIndex*2), length);
 
                 a->setAtomProperty(name, value);
 
@@ -444,8 +448,8 @@ namespace avmplus
             }
         }
 
-        matchIndex = ovector[0];
-        matchLen = ovector[1]-ovector[0];
+        matchIndex = ovector.getIndex(0);
+        matchLen = ovector.getIndex(1)-ovector.getIndex(0);
 
         return a;
     }
@@ -502,7 +506,8 @@ namespace avmplus
         StUTF8String utf8Subject(subject);
         StUTF8String utf8Replacement(replacement);
 
-        int ovector[OVECTOR_SIZE];
+        RegExpSizeType ovector(OVECTOR_SIZE);
+
         int subjectLength = utf8Subject.length();
         int lastIndex=0;
 
@@ -515,13 +520,12 @@ namespace avmplus
         // get start/end index of all matches
         int matchCount;
         while (lastIndex <= subjectLength &&
-               (matchCount = pcre_exec((pcre*)(m_pcreInst->regex), NULL, (const char*)src,
-               subjectLength, lastIndex, PCRE_NO_UTF8_CHECK, ovector, OVECTOR_SIZE)) > 0)
+               (matchCount = ((RegExp *)m_regexp)->exec(src, subjectLength, lastIndex, RegExp::kNoUtfOption, ovector)) > 0)
         {
             int captureCount = matchCount-1;
 
-            int matchIndex = ovector[0];
-            int matchLen   = ovector[1]-ovector[0];
+            int matchIndex = ovector.getIndex(0);
+            int matchLen   = ovector.getIndex(1)-ovector.getIndex(0);
 
             // copy in stuff leading up to match
             resultBuffer.writeN(src+lastIndex, matchIndex-lastIndex);
@@ -543,7 +547,7 @@ namespace avmplus
                         ptr += 2;
                         break;
                     case '\'':
-                        resultBuffer << src+ovector[1];
+                        resultBuffer << src+ovector.getIndex(1);
                         ptr += 2;
                         break;
                     case '0':
@@ -571,8 +575,8 @@ namespace avmplus
                                 i = ptr[1]-'0';
                             }
                             if (i >= 1 && i <= captureCount) {
-                                resultBuffer.writeN(src+ovector[i*2],
-                                                   ovector[i*2+1]-ovector[i*2]);
+                                resultBuffer.writeN(src+ovector.getIndex(i*2),
+                                                   ovector.getIndex(i*2+1)-ovector.getIndex(i*2));
                                 ptr += (i >= 10) ? 3 : 2;
                             } else {
                                 resultBuffer << *ptr++;
@@ -588,7 +592,7 @@ namespace avmplus
                 }
             }
 
-            int newLastIndex = ovector[0] + (ovector[1] - ovector[0]);
+            int newLastIndex = ovector.getIndex(0) + (ovector.getIndex(1) - ovector.getIndex(0));
 
             // prevents infinite looping in certain cases
             fixReplaceLastIndex(src,
@@ -619,7 +623,7 @@ namespace avmplus
     {
         StUTF8String utf8Subject(subject);
 
-        int ovector[OVECTOR_SIZE];
+        RegExpSizeType ovector(OVECTOR_SIZE);
         int subjectLength = utf8Subject.length();
         int lastIndex=0;
 
@@ -632,13 +636,12 @@ namespace avmplus
         // get start/end index of all matches
         int matchCount;
         while (lastIndex < subjectLength &&
-               (matchCount = pcre_exec((pcre*)(m_pcreInst->regex), NULL, (const char*)src,
-                         subjectLength, lastIndex, PCRE_NO_UTF8_CHECK, ovector, OVECTOR_SIZE)) > 0)
+               (matchCount = ((RegExp *)m_regexp)->exec(src, subjectLength, lastIndex, RegExp::kNoUtfOption, ovector)) > 0)
         {
             int captureCount = matchCount-1;
 
-            int matchIndex = ovector[0];
-            int matchLen   = ovector[1]-ovector[0];
+            int matchIndex = ovector.getIndex(0);
+            int matchLen   = ovector.getIndex(1)-ovector.getIndex(0);
 
             // copy in stuff leading up to match
             resultBuffer.writeN(src+lastIndex, matchIndex-lastIndex);
@@ -656,7 +659,7 @@ namespace avmplus
             // MatchResult
             for (int i=1; i<=captureCount; i++)
             {
-                argv[i+1] = stringFromUTF8(src+ovector[i*2], ovector[i*2+1]-ovector[i*2]);
+                argv[i+1] = stringFromUTF8(src+ovector.getIndex(i*2), ovector.getIndex(i*2+1)-ovector.getIndex(i*2));
             }
 
             // ECMA 15.5.4.11: Argument m+2 is the offset within string
@@ -668,7 +671,7 @@ namespace avmplus
 
             resultBuffer << core()->string(avmplus::op_call(toplevel(), replaceFunction, argc, argv));
 
-            int newLastIndex = ovector[0] + (ovector[1] - ovector[0]);
+            int newLastIndex = ovector.getIndex(0) + (ovector.getIndex(1) - ovector.getIndex(0));
 
             // prevents infinite looping in certain cases
             fixReplaceLastIndex(src,
@@ -724,9 +727,9 @@ namespace avmplus
     // Accessors
     //
 
-    bool RegExpObject::get_ignoreCase() { return hasOption(PCRE_CASELESS); }
-    bool RegExpObject::get_multiline() { return hasOption(PCRE_MULTILINE); }
-    bool RegExpObject::get_dotall() { return hasOption(PCRE_DOTALL); }
-    bool RegExpObject::get_extended() { return hasOption(PCRE_EXTENDED); }
+    bool RegExpObject::get_ignoreCase() { return hasOption(RegExp::kCaselessOption); }
+    bool RegExpObject::get_multiline() { return hasOption(RegExp::kMultilineOption); }
+    bool RegExpObject::get_dotall() { return hasOption(RegExp::kDotallOption); }
+    bool RegExpObject::get_extended() { return hasOption(RegExp::kExtendedOption); }
 
 }

@@ -56,6 +56,7 @@ namespace nanojit
 #define NJ_SOFTFLOAT_SUPPORTED          1
 #define NJ_DIVI_SUPPORTED               0
 #define NJ_SAFEPOINT_POLLING_SUPPORTED  1
+#define NJ_BLIND_CONSTANTS				0	
 
 #define NJ_JTBL_ALLOWED_IDX_REGS        GpRegs
 

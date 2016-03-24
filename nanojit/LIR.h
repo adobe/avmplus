@@ -849,6 +849,27 @@ NanoStaticAssert(LIR_start == 0 && LIR_sentinel <= 256); // It's ok if LIR_senti
         void setTainted(bool tainted) {
             sharedFields.isTainted = tainted;
         }
+		
+		// The tainted bit on load and store instructions is
+		// interpreted differently than on LIR_immX.  Whereas
+		// each use of the *value* of a tainted constant may be
+		// blinded, only the actual occurrence of the store is
+		// blinded, because we are concerned with the immediate
+		// displacement that occurs there.  Likewise, a store has
+		// no value, but also contains an immediate displacement.
+		// We must be careful, because insLoad() may actually
+		// return a LIns that is other than a LIR_ldX, due to
+		// CSE optimization.
+
+		void setLoadTainted(bool tainted)
+		{
+			if (isLoad()) sharedFields.isTainted = tainted;
+		}
+
+		void setStoreTainted(bool tainted)
+		{
+			if (isStore()) sharedFields.isTainted = tainted;
+		}
 
         // For various instruction kinds.
         inline LIns*    oprnd1() const;

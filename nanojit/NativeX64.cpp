@@ -2014,13 +2014,13 @@ namespace nanojit
         switch (ins->opcode()) {
         case LIR_addi:
             return ins->oprnd1()->isInRegMask(BaseRegs) && ins->oprnd2()->isImmI() &&
-                   !(ins->oprnd2()->isTainted() && Assembler::shouldBlind(ins->oprnd2()->immI()));
+                   !(ins->oprnd2()->isTainted() && shouldBlind(ins->oprnd2()->immI()));
         case LIR_addq: {
             LIns* rhs;
             return ins->oprnd1()->isInRegMask(BaseRegs) &&
                    (rhs = ins->oprnd2())->isImmQ() &&
                    isS32(rhs->immQ()) &&
-                   !(rhs->isTainted() && Assembler::shouldBlind(rhs->immQ()));
+                   !(rhs->isTainted() && shouldBlind(rhs->immQ()));
         }
         // Subtract and some left-shifts could be rematerialized using LEA,
         // but it hasn't shown to help in real code yet.  Noting them anyway:
@@ -2036,8 +2036,8 @@ namespace nanojit
         // We cannot rematerialize tainted (blinded) integer literals, as the XOR instruction
         // used to synthesize the constant value may alter the CCs.  See asm_restore() below.
         return (ins->isImmAny() &&
-                !(ins->isImmI() && ins->isTainted() && Assembler::shouldBlind(ins->immI())) &&
-                !(ins->isImmQ() && ins->isTainted() && Assembler::shouldBlind(ins->immQ())))
+                !(ins->isImmI() && ins->isTainted() && shouldBlind(ins->immI())) &&
+                !(ins->isImmQ() && ins->isTainted() && shouldBlind(ins->immQ())))
                || ins->isop(LIR_allocp) || canRematLEA(ins);
     }
 
@@ -2164,39 +2164,43 @@ namespace nanojit
     }
 
     // Register setup for load ops.  Pairs with endLoadRegs().
-    void Assembler::beginLoadRegs(LIns *ins, RegisterMask allow, Register &rr, int32_t &dr, Register &rb) {
+    void Assembler::beginLoadRegs(LIns *ins, RegisterMask allow, Register &rr, int32_t &dr, Register &rb, Register &orb) {
         dr = ins->disp();
         LIns *base = ins->oprnd1();
-        rb = getBaseReg(base, dr, BaseRegs);
-        rr = prepareResultReg(ins, allow & ~rmask(rb));
+		bool force = forceDisplacementBlinding(ins->isTainted());
+		// Allocation of r must precede getBaseRegWithBlinding(), as the latter may allocate a temporary register.
+		// Once a temporary has been allocated, no other allocations (within an overlapping regclass) may occur until the temporary is dead.
+        rr = prepareResultReg(ins, allow);
+        rb = getBaseRegWithBlinding(base, dr, BaseRegs & ~rmask(rr), ins->isTainted(), force, &orb);
     }
 
     // Register clean-up for load ops.  Pairs with beginLoadRegs().
-    void Assembler::endLoadRegs(LIns* ins) {
+    void Assembler::endLoadRegs(LIns* ins, Register rb, Register orb) {
+		adjustBaseRegForBlinding(rb, orb);
         freeResourcesOf(ins);
     }
 
     void Assembler::asm_load64(LIns *ins) {
-        Register rr, rb;
+        Register rr, rb, orb;
         int32_t dr;
         switch (ins->opcode()) {
             case LIR_ldq:
-                beginLoadRegs(ins, GpRegs, rr, dr, rb);
+                beginLoadRegs(ins, GpRegs, rr, dr, rb, orb);
                 NanoAssert(IsGpReg(rr));
                 MOVQRM(rr, dr, rb);     // general 64bit load, 32bit const displacement
                 break;
             case LIR_ldd:
-                beginLoadRegs(ins, FpRegs, rr, dr, rb);
+                beginLoadRegs(ins, FpRegs, rr, dr, rb, orb);
                 NanoAssert(IsFpReg(rr));
                 MOVSDRM(rr, dr, rb);    // load 64bits into XMM
                 break;
             case LIR_ldf:
-                beginLoadRegs(ins, FpRegs, rr, dr, rb);
+                beginLoadRegs(ins, FpRegs, rr, dr, rb, orb);
                 NanoAssert(IsFpReg(rr));
                 MOVSSRM(rr, dr, rb);
                 break;
             case LIR_ldf2d:
-                beginLoadRegs(ins, FpRegs, rr, dr, rb);
+                beginLoadRegs(ins, FpRegs, rr, dr, rb, orb);
                 NanoAssert(IsFpReg(rr));
                 CVTSS2SD(rr, rr);
                 MOVSSRM(rr, dr, rb);
@@ -2205,25 +2209,25 @@ namespace nanojit
                 NanoAssertMsg(0, "asm_load64 should never receive this LIR opcode");
                 break;
         }
-        endLoadRegs(ins);
+        endLoadRegs(ins, rb, orb);
     }
 
     void Assembler::asm_load128(LIns *ins) {
-        Register rr, rb;
+        Register rr, rb, orb;
         int32_t dr;
         NanoAssert(ins->opcode() == LIR_ldf4);
         
-        beginLoadRegs(ins, FpRegs, rr, dr, rb);
+        beginLoadRegs(ins, FpRegs, rr, dr, rb, orb);
         NanoAssert(IsFpReg(rr));
         MOVUPSRM(rr,dr,rb);
-        endLoadRegs(ins);
+        endLoadRegs(ins, rb, orb);
     }
 
     void Assembler::asm_load32(LIns *ins) {
         NanoAssert(ins->isI());
-        Register r, b;
+        Register r, b, ob;
         int32_t d;
-        beginLoadRegs(ins, GpRegs, r, d, b);
+        beginLoadRegs(ins, GpRegs, r, d, b, ob);
         LOpcode op = ins->opcode();
         switch (op) {
             case LIR_lduc2ui:
@@ -2245,7 +2249,7 @@ namespace nanojit
                 NanoAssertMsg(0, "asm_load32 should never receive this LIR opcode");
                 break;
         }
-        endLoadRegs(ins);
+        endLoadRegs(ins, b, ob);
     }
 
     void Assembler::asm_immf(Register r, uint32_t v, bool canClobberCCs, bool blind) {
@@ -2298,54 +2302,67 @@ namespace nanojit
         }
     }
 
-    void Assembler::asm_store128(LOpcode op, LIns *value, int d, LIns *base) {
+    void Assembler::asm_store128(LOpcode op, LIns *value, int d, LIns *base, bool tainted) {
         NanoAssert((value->isF4() && (op==LIR_stf4)) ); (void) op;
 
-        Register b = getBaseReg(base, d, BaseRegs);
+		bool force = forceDisplacementBlinding(tainted);
+		Register ob;
+		// NOTE: fpRegs are disjoint from BaseRegs
         Register r = findRegFor(value, FpRegs);
+		Register b = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &ob);
         MOVUPSMR(r, d, b);
+		adjustBaseRegForBlinding(b, ob);
     }
 
-    void Assembler::asm_store64(LOpcode op, LIns *value, int d, LIns *base) {
+    void Assembler::asm_store64(LOpcode op, LIns *value, int d, LIns *base, bool tainted) {
         // This function also handles stf (store-float-32) because its more
         // convenient to do it here than asm_store32, which only handles GP registers.
         NanoAssert(op == LIR_stf ? value->isF() : value->isQorD());
-
+		bool force = forceDisplacementBlinding(tainted);
         switch (op) {
             case LIR_stq: {
                 uint64_t c;
                 if (value->isImmQ() && (c = value->immQ(), isS32(c)) && !(value->isTainted() && shouldBlind(c))) {
+					force = force || tainted; // If the store is tainted, and we are not going to blind the immediate, then blind the displacement.
                     uint64_t c = value->immQ();
-                    Register rb = getBaseReg(base, d, BaseRegs);
+					Register orb;
+                    Register rb = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &orb);
                     // MOVQMI takes a 32-bit integer that gets signed extended to a 64-bit value.
                     MOVQMI(rb, d, int32_t(c));
+					adjustBaseRegForBlinding(rb, orb);
                 } else {
-                    Register rr, rb;
-                    getBaseReg2(GpRegs, value, rr, BaseRegs, base, rb, d);
+                    Register rr, rb, orb;
+                    getBaseReg2WithBlinding(GpRegs, value, rr, BaseRegs, base, rb, d, tainted, force, &orb);
                     MOVQMR(rr, d, rb);    // gpr store
+					adjustBaseRegForBlinding(rb, orb);
                 }
                 break;
             }
             case LIR_std: {
-                Register b = getBaseReg(base, d, BaseRegs);
+				Register ob;
                 Register r = findRegFor(value, FpRegs);
+                Register b = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &ob);
                 MOVSDMR(r, d, b);   // xmm store
+				adjustBaseRegForBlinding(b, ob);
                 break;
             }
             case LIR_stf:{
-                Register b = getBaseReg(base, d, BaseRegs);
+				Register ob;
                 Register r = findRegFor(value, FpRegs);
+                Register b = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &ob);
                 MOVSSMR(r, d, b);   // store
+				adjustBaseRegForBlinding(b, ob);
                 break;
             }
             case LIR_std2f: {
-                Register b = getBaseReg(base, d, BaseRegs);
+				Register ob;
                 Register r = findRegFor(value, FpRegs);
+                Register b = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &ob);
                 Register t = _allocator.allocTempReg(FpRegs & ~rmask(r));
-
                 MOVSSMR(t, d, b);   // store
                 CVTSD2SS(t, r);     // cvt to single-precision
                 XORPS(t);           // break dependency chains
+				adjustBaseRegForBlinding(b, ob);
                 break;
             }
             default:
@@ -2354,32 +2371,38 @@ namespace nanojit
         }
     }
 
-    void Assembler::asm_store32(LOpcode op, LIns *value, int d, LIns *base) {
+    void Assembler::asm_store32(LOpcode op, LIns *value, int d, LIns *base, bool tainted) {
+		bool force = forceDisplacementBlinding(tainted);
         if (value->isImmI() && !(value->isTainted() && shouldBlind(value->immI()))) {
-            Register rb = getBaseReg(base, d, BaseRegs);
+			force = force || tainted; // If the store is tainted, and we are not going to blind the immediate, then blind the displacement.
             int c = value->immI();
+			Register orb;
+			Register rb = getBaseRegWithBlinding(base, d, BaseRegs, tainted, force, &orb);
             switch (op) {
                 case LIR_sti2c: MOVBMI(rb, d, c); break;
                 case LIR_sti2s: MOVSMI(rb, d, c); break;
                 case LIR_sti:   MOVLMI(rb, d, c); break;
                 default:        NanoAssert(0);    break;
             }
-
+			adjustBaseRegForBlinding(rb, orb);
         } else {
             // Quirk of x86-64: reg cannot appear to be ah/bh/ch/dh for
             // single-byte stores with REX prefix.
             const RegisterMask SrcRegs = (op == LIR_sti2c) ? SingleByteStoreRegs : GpRegs;
 
             NanoAssert(value->isI());
-            Register b = getBaseReg(base, d, BaseRegs);
-            Register r = findRegFor(value, SrcRegs & ~rmask(b));
-
+			Register ob;
+			// Allocation of r must precede getBaseRegWithBlinding(), as the latter may allocate a temporary register.
+			// Once a temporary has been allocated, no other allocations (within an overlapping regclass) may occur until the temporary is dead.
+            Register r = findRegFor(value, SrcRegs);
+			Register b = getBaseRegWithBlinding(base, d, BaseRegs & ~rmask(r), tainted, force, &ob);
             switch (op) {
                 case LIR_sti2c: MOVBMR(r, d, b); break;
                 case LIR_sti2s: MOVSMR(r, d, b); break;
                 case LIR_sti:   MOVLMR(r, d, b); break;
                 default:        NanoAssert(0);   break;
             }
+			adjustBaseRegForBlinding(b, ob);
         }
     }
 

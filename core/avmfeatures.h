@@ -1409,6 +1409,9 @@
 #if AVMTWEAK_HEAP_GRAPH
 #  define MMGC_HEAP_GRAPH
 #endif
+#if AVMFEATURE_PCRE2
+# define VMCFG_PCRE2
+#endif
 
 #ifdef AVMSHELL_BUILD
 extern const char * const avmfeatures;

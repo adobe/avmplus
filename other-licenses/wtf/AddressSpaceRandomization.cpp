@@ -116,8 +116,17 @@ namespace WTF {
 	#if OS(WIN)
 		// 64-bit Windows has a bizarrely small 8TB user address space.
 		// Allocates in the 1-5TB region.
+		//
+		// wmaddox 2015.11.23
+		// Microsoft wants us to keep our allocations above 2TB, as the region
+		// from 1TB to 2TB is "loosely carved out" for stacks.  I'm not sure of
+		// the consequences of failing to do so, but I believe they are concerned
+		// primarily with maintaining stack/heap segregation.  None of this does
+		// any good for our own stacks, which are allocated via MMgc and will go
+		// above 2TB.  We're now allocating in the 2-6TB region, to avoid reducing
+		// ASLR entropy.  Are we encroaching on anyone else's turf on the high end?
 		random &= 0x3ffffffffffUL;
-		random += 0x10000000000UL;
+		random += 0x20000000000UL;
 	#else
 		// Linux and OS X support the full 47-bit user space of x64 processors.
 		random &= 0x3fffffffffffUL;

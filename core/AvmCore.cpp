@@ -3560,7 +3560,9 @@ return the result of the comparison ToPrimitive(x) == y.
         StringBuffer output(this);
 
         int i = 0;
-        int last = s->length() - 1;
+		// https://asset-jira.corp.adobe.com/browse/PSIRT-4097
+		// Check for empty string
+		int last = (_s ? s->length() : 0) - 1;
         if (removeLeadingTrailingWhitespace)
         {
             // finding trailing whitespace
@@ -3739,6 +3741,46 @@ return the result of the comparison ToPrimitive(x) == y.
         node->next = livePools;
         livePools = node;
     }
+
+#ifdef VMCFG_CODE_METRICS
+    bool AvmCore::collectStaticCodeMetrics(CodeMetricsListener& listener)
+    {
+        for ( LivePoolNode* ptr = livePools ; ptr != NULL ; ptr = ptr->next)
+        {
+            PoolObject* pool = (PoolObject*) ptr->pool->get();
+            
+            // Skip weak reference to pool no longer in use.  Skip if pool is builtin.
+            if (pool == NULL || pool->isBuiltin) continue;
+            
+            // This is not needed if you can be sure that all ABC blocks have been verified
+            // before the present method is called.
+            pool->initPrecomputedMultinames();
+            
+            // Compare with PoolObject::initPrecomputedMultinames().
+            // Slot 0 of cpool_mn_offsets is not used, allowing index value 0 to be reserved.
+            int cnt = pool->cpool_mn_offsets.length();
+            for (int i = 1; i < cnt; i++)
+            {
+                const Multiname& name = *pool->precomputedMultiname(i);
+                
+                // This is the idiom used by the verifier to resolve a multiname to a type name.
+                // It should deal with all the complexities of multiple namespaces, etc., but note
+                // that only references that can be resolved statically are resolved.  Actionscript allows
+                // for both the name and the namespace to be computed dynamically at runtime, in which
+                // case a static scan of the ABC pools cannot determine the referent.  In these cases,
+                // we will not be able to determine the APIs that are used.  Fortunately, runtime
+                // names and namespaces are not commonly used.
+                
+                Traits* t = domainMgr()->findTraitsInPoolByMultiname(pool, name);
+                if (t != NULL && t != (Traits*)BIND_AMBIGUOUS && !name.isParameterizedType())
+                {
+                    listener.classReferenced(t->formatClassName());                    
+                }
+            }
+        }        
+        return true;
+    }
+#endif
 
     void AvmCore::presweep()
     {
@@ -4193,7 +4235,9 @@ return the result of the comparison ToPrimitive(x) == y.
      */
     Stringp AvmCore::internString(Stringp o)
     {
-        if (o->isInterned())
+		// https://asset-jira.corp.adobe.com/browse/PSIRT-4098
+		// Check for empty string
+        if (!o || o->isInterned())
             return o;
 
         int i = findString(o);
@@ -4507,10 +4551,12 @@ return the result of the comparison ToPrimitive(x) == y.
         mmfx_delete_array(old);
     }
 
+#if defined(AVMSHELL_BUILD) || defined(VMCFG_HALFMOON_AOT_COMPILER)
     ScriptBufferImpl* AvmCore::newScriptBuffer(size_t size)
     {
         return new (GetGC(), size) BasicScriptBufferImpl(size);
     }
+#endif
 
     VTable* AvmCore::newVTable(Traits* traits, VTable* base, Toplevel* toplevel)
     {
@@ -5580,6 +5626,22 @@ return the result of the comparison ToPrimitive(x) == y.
     /* static */
     void AvmCore::handleStackOverflowToplevel(Toplevel* toplevel)
     {
+        // 13nov15 pgrandma@adobe.com : https://watsonexp.corp.adobe.com//#bug=4074456
+        //
+        // MethodInfo::_getMethodSignature() does
+        //  _buildMethodSignature(NULL /* toplevel */);
+        //
+        // and _buildMethodSignature() potentially ends up here,
+        // resulting in a crash on a NULL pointer. So I'm adding a
+        // NULL pointer check. We call checkStack() from enough
+        // places in the code that I'm assuming the handleStackOverflowToplevel(NULL)
+        // will be followed by a handleStackOverflowToplevel(non-NULL)
+        // before we crash from an overflow.
+        //
+        AvmAssert(toplevel != NULL);
+        if (toplevel == NULL) {
+            return;
+        }
         // this could be a real stack overflow, or an interrupt that
         // used the stack overflow handler as a way to take control of AS3.
         AvmCore *core = toplevel->core();
@@ -5994,7 +6056,8 @@ return the result of the comparison ToPrimitive(x) == y.
 		27,
 		28,
 		29,
-		30
+		30,
+		31
 //ADD_PREVIOUS_VERSIONED_LINE_WITH_COMMA
     };
 }

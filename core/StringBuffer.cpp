@@ -37,7 +37,7 @@ namespace avmplus
         if (m_buffer == NULL || m_length+count >= (size_t)GC::Size(m_buffer))
         {
             size_t newCapacity = (m_length+count+1)*2;
-            char* newBuffer = (char*) m_gc->Alloc(newCapacity);
+            char* newBuffer = (char*) m_gc->Alloc(newCapacity, 0, MMgc::kStringBufferPartition);
             if (m_buffer != NULL) {
                 VMPI_memcpy(newBuffer, m_buffer, m_length);
                 m_gc->Free(m_buffer);

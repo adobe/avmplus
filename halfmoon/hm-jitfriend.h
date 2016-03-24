@@ -50,7 +50,9 @@ public:
   }
 
   static MethodEnv* imtEntry(VTable* vtable, MethodInfo* info) {
-    return reinterpret_cast<MethodEnv*>(vtable->imt.entries[hashIID(info)]);
+      ImtThunkEnv *ite = vtable->imt.entries[hashIID(info)];
+
+      return BaseExecMgr::resolveImtToConcreteMethodEnv(ite, vtable, info);
   }
 
   static MethodEnv* superInitEnv(MethodEnv* env) {

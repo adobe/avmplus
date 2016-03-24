@@ -182,7 +182,7 @@ namespace MMgc
                 uint8_t *subMap = pageMap[i];
                 if (subMap == NULL)
                     continue;
-                heap->Free(subMap);
+                heap->GetPartition(kPageMapPartition)->Free(subMap);
                 pageMap[i] = NULL;
             }
         }
@@ -212,7 +212,7 @@ namespace MMgc
                          <= tier2_pages*GCHeap::kBlockSize);
                 uint8_t *subMap = pageMap[i];
                 if (subMap == NULL) {
-                    subMap = (uint8_t*)heap->AllocNoOOM(tier2_pages);
+                    subMap = (uint8_t*)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier2_pages);
                     pageMap[i] = subMap;
                 }
             }
@@ -300,11 +300,11 @@ namespace MMgc
                         uint8_t *subMap3 = subMap2[k];
                         if (subMap3 == NULL)
                             continue;
-                        heap->Free(subMap3);
+                        heap->GetPartition(kPageMapPartition)->Free(subMap3);
                     }
-                    heap->Free(subMap2);
+                    heap->GetPartition(kPageMapPartition)->Free(subMap2);
                 }
-                heap->Free(subMap1);
+                heap->GetPartition(kPageMapPartition)->Free(subMap1);
             }
         }
 
@@ -324,20 +324,20 @@ namespace MMgc
                 uint8_t ***subMap1 = pageMap[i];
                 uint32_t j_lim = (i+1 < i_lim) ? tier1_entries : AddrToIndex1(limit-1)+1;
                 if (subMap1 == NULL) {
-                    subMap1 = (uint8_t***)heap->AllocNoOOM(tier1_pages);
+                    subMap1 = (uint8_t***)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier1_pages);
                     pageMap[i] = subMap1;
                 }
                 for (; j < j_lim; j++, k=0) {
                     uint8_t **subMap2 = subMap1[j];
                     uint32_t k_lim = (j+1 < j_lim) ? tier2_entries : AddrToIndex2(limit-1)+1;
                     if (subMap2 == NULL) {
-                        subMap2 = (uint8_t**)heap->AllocNoOOM(tier2_pages);
+                        subMap2 = (uint8_t**)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier2_pages);
                         subMap1[j] = subMap2;
                     }
                     for (; k < k_lim; k++) {
                         uint8_t *subMap3 = subMap2[k];
                         if (subMap3 == NULL) {
-                            subMap3 = (uint8_t*)heap->AllocNoOOM(tier3_pages);
+                            subMap3 = (uint8_t*)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier3_pages);
                             subMap2[k] = subMap3;
                         }
                     }
@@ -394,7 +394,7 @@ namespace MMgc
                     // allocation of tree structure was delayed
                     // indefinitely but for a single leaf
                     GCAssert(cached_leaf_bytes != NULL);
-                    heap->Free(cached_leaf_bytes);
+                    heap->GetPartition(kPageMapPartition)->Free(cached_leaf_bytes);
                     cached_leaf_bytes = NULL;
                     cached_addr_prefix = 0;
                 }
@@ -451,14 +451,14 @@ namespace MMgc
                 uint8_t ***subMap1 = pageMap[i];
                 uint32_t j_lim = (i+1 < i_lim) ? tier1_entries : AddrToIndex1(limit-1)+1;
                 if (subMap1 == NULL) {
-                    subMap1 = (uint8_t***)heap->AllocNoOOM(tier1_pages);
+                    subMap1 = (uint8_t***)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier1_pages);
                     pageMap[i] = subMap1;
                 }
                 for (; j < j_lim; j++, k=0) {
                     uint8_t **subMap2 = subMap1[j];
                     uint32_t k_lim = (j+1 < j_lim) ? tier2_entries : AddrToIndex2(limit-1)+1;
                     if (subMap2 == NULL) {
-                        subMap2 = (uint8_t**)heap->AllocNoOOM(tier2_pages);
+                        subMap2 = (uint8_t**)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier2_pages);
                         subMap1[j] = subMap2;
                     }
                     for (; k < k_lim; k++) {
@@ -475,7 +475,7 @@ namespace MMgc
                             cached_addr_prefix = CacheT4::uncached;
 
                         } else if (subMap3 == NULL) {
-                            subMap3 = (uint8_t*)heap->AllocNoOOM(tier3_pages);
+                            subMap3 = (uint8_t*)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier3_pages);
                             subMap2[k] = subMap3;
                         }
                     }
@@ -528,7 +528,7 @@ namespace MMgc
                 if (cached_addr_prefix == CacheT4::uncached) {
                     cached_addr_prefix = AddrPrefix(addr);
                     cached_leaf_bytes =
-                        (uint8_t*)heap->AllocNoOOM(tier3_pages);
+                        (uint8_t*)heap->GetPartition(kPageMapPartition)->AllocNoOOM(tier3_pages);
                 } else {
                     // the one cached leaf suffices.
                 }

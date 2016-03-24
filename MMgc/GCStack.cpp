@@ -536,9 +536,9 @@ namespace MMgc
         --m_allowance;
 #endif
         if (mustSucceed)
-            return GCHeap::GetGCHeap()->Alloc(1, GCHeap::flags_Alloc);
+            return GCHeap::GetGCHeap()->GetPartition(kStackPartition)->Alloc(1, GCHeap::flags_Alloc);
         else
-            return GCHeap::GetGCHeap()->AllocNoOOM(1, GCHeap::flags_Alloc | GCHeap::kCanFail);
+            return GCHeap::GetGCHeap()->GetPartition(kStackPartition)->AllocNoOOM(1, GCHeap::flags_Alloc | GCHeap::kCanFail);
     }
 
     inline void GCMarkStack::FreeStackSegment(void* p)
@@ -546,7 +546,7 @@ namespace MMgc
 #ifdef MMGC_MARKSTACK_ALLOWANCE
         ++m_allowance;
 #endif
-        GCHeap::GetGCHeap()->FreeNoOOM(p);
+        GCHeap::GetGCHeap()->GetPartition(kStackPartition)->FreeNoOOM(p);
     }
 
 #ifdef GCDEBUG

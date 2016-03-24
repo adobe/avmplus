@@ -163,10 +163,21 @@ static inline bool isU32(uintptr_t i) {
 
 namespace nanojit
 {
-// Define msbSet32(), lsbSet32(), msbSet64(), and lsbSet64() functions using
-// fast find-first-bit instructions intrinsics when available.
-// The fall-back implementations use iteration.
+	// Small (single-byte) values are exempt from constant blinding.
+	// Note that values in the range -256..255 are not blinded even when they will be
+	// represented in 4 or 8 bytes.  In all of the cases permitted, only one byte of
+	// the representation can be controlled by the value, while the others are always
+	// either 0x00 or 0xff.
+	static inline bool shouldBlind(int32_t val)  { return val > 127 || val < -128; }
+	static inline bool shouldBlind(uint32_t val) { return shouldBlind(int32_t(val)); }
+	static inline bool shouldBlind(int64_t val)  { return val > 127 || val < -128; }
+	static inline bool shouldBlind(uint64_t val) { return shouldBlind(int64_t(val)); }
+	static inline bool shouldBlindDisplacement(int32_t val)  { return val > 4095 || val < -4096; }
+	
 #if defined(_WIN32) && (_MSC_VER >= 1300) && (defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64))
+	// Define msbSet32(), lsbSet32(), msbSet64(), and lsbSet64() functions using
+	// fast find-first-bit instructions intrinsics when available.
+	// The fall-back implementations use iteration.
 
     extern "C" unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask);
     extern "C" unsigned char _BitScanReverse(unsigned long * Index, unsigned long Mask);

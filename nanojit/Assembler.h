@@ -334,16 +334,6 @@ namespace nanojit
              */
             int32_t    forceStackIndex(LIns* ins);
 
-            // Small (single-byte) values are exempt from constant blinding.
-            // Note that values in the range -256..255 are not blinded even when they will be
-            // represented in 4 or 8 bytes.  In all of the cases permitted, only one byte of
-            // the representation can be controlled by the value, while the others are always
-            // either 0x00 or 0xff.
-            static bool shouldBlind(int32_t val)  { return val > 127 || val < -128; }
-            static bool shouldBlind(uint32_t val) { return shouldBlind(int32_t(val)); }
-            static bool shouldBlind(int64_t val)  { return val > 127 || val < -128; }
-            static bool shouldBlind(uint64_t val) { return shouldBlind(int64_t(val)); }
-
         private:
             void        gen(LirFilter* toCompile);
             NIns*       genPrologue();
@@ -367,6 +357,16 @@ namespace nanojit
             Register    getBaseReg(LIns *ins, int &d, RegisterMask allow);
             void        getBaseReg2(RegisterMask allowValue, LIns* value, Register& rv,
                                     RegisterMask allowBase, LIns* base, Register& rb, int &d);
+
+#if NJ_BLIND_CONSTANTS
+			bool		forceDisplacementBlinding(bool tainted);
+			Register	getBaseRegWithBlinding(LIns* base, int &d, RegisterMask allow, bool tainted, bool force, Register* rbp);
+			Register	getBaseRegWithBlindingUsingSpecifiedTemp(LIns* base, int &d, RegisterMask allow, bool tainted, bool force, Register* rbp, Register temp);
+			void        getBaseReg2WithBlinding(RegisterMask allowValue, LIns* value, Register& rv,
+												RegisterMask allowBase, LIns* base, Register& rb, int &d, bool tainted, bool force, Register* rbp);
+			void		adjustBaseRegForBlinding(Register trb, Register rb);
+#endif
+
 #if NJ_USES_IMMD_POOL
             const uint64_t* findImmDFromPool(uint64_t q);
 #endif
@@ -454,11 +454,12 @@ namespace nanojit
 
             MetaDataWriter* _mdWriter;
 
+#if NJ_BLIND_CONSTANTS
             uint32_t    _blindMask32;
 #ifdef NANOJIT_64BIT
             uint64_t    _blindMask64;
 #endif
-
+#endif
             verbose_only( void asm_inc_m32(uint32_t*); )
             void        asm_mmq(Register rd, int dd, Register rs, int ds);
 			void		asm_unreachable();
@@ -472,8 +473,13 @@ namespace nanojit
             void        asm_xcc(LIns* ins);
             NIns*       asm_exit(LIns* guard);
             NIns*       asm_leave_trace(LIns* guard);
+#if NJ_BLIND_CONSTANTS
+            void        asm_store32(LOpcode op, LIns *val, int d, LIns *base, bool tainted=false);
+            void        asm_store64(LOpcode op, LIns *val, int d, LIns *base, bool tainted=false);
+#else
             void        asm_store32(LOpcode op, LIns *val, int d, LIns *base);
             void        asm_store64(LOpcode op, LIns *val, int d, LIns *base);
+#endif
 
             // WARNING: the implementation of asm_restore() should emit fast code
             // to rematerialize instructions where canRemat() returns true.
@@ -522,7 +528,11 @@ namespace nanojit
             void        asm_qasd(LIns *ins);
 #endif
             void        asm_mmi(Register rd, int dd, Register rs, int ds);
+#if NJ_BLIND_CONSTANTS
+            void        asm_store128(LOpcode op, LIns *val, int d, LIns *base, bool tainted=false);
+#else
             void        asm_store128(LOpcode op, LIns *val, int d, LIns *base);
+#endif
             void        asm_load128(LIns* ins);
             void        asm_immf(LIns* ins);
             void        asm_immf4(LIns* ins);

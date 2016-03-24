@@ -116,6 +116,7 @@ namespace avmplus
         LIns* InsConst(int32_t c);
         LIns* InsConst(int32_t c, bool blind);
         LIns* InsConstPtr(const void *p);
+        LIns* InsConstPtr(const void *p, bool blind);
         LIns* InsConstAtom(Atom c);
         LIns* InsConstAtom(Atom c, bool blind);
         LIns* InsConstDbl(double d);
@@ -139,6 +140,7 @@ namespace avmplus
         LIns* jgti(LIns* a, int32_t b);
         LIns* jnei(LIns* a, int32_t b);
         LIns* lea(int32_t d, LIns *base);
+        LIns* lea(int32_t d, LIns *base, bool blind);
         LIns* sti(LIns* val, LIns* p, int32_t d, AccSet);
         LIns* stp(LIns* val, LIns* p, int32_t d, AccSet);
         LIns* std(LIns* val, LIns* p, int32_t d, AccSet);
@@ -321,7 +323,7 @@ namespace avmplus
     nanojit::CallInfo::typeSig8(ARGTYPE_##r, ARGTYPE_##a1, ARGTYPE_##a2, ARGTYPE_##a3,\
                         ARGTYPE_##a4, ARGTYPE_##a5, ARGTYPE_##a6, ARGTYPE_##a7, ARGTYPE_##a8)
 
-#if _MSC_VER
+#if defined(_MSC_VER)
     #define ABI_FUNCTION ABI_CDECL
     #define ABI_FAST     ABI_FASTCALL
     #define ABI_METHOD   ABI_THISCALL

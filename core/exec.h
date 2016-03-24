@@ -429,6 +429,10 @@ private:
      * Analyze the implemented types then build the ImtEntry table and
      * install dispatchImt() or a concrete MethodEnv*.
      */
+public:
+    static MethodEnv *resolveImtToConcreteMethodEnv(ImtThunkEnv *ite, VTable* vtable, MethodInfo* info);
+
+private:
     static class ImtThunkEnv* resolveImtSlot(class ImtThunkEnv*, uintptr_t iid);
 
     // Helpers for resolveImtSlot():

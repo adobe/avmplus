@@ -107,6 +107,7 @@ namespace avmplus
         int                      m_optionFlags;
         bool                     m_global;
         bool                     m_hasNamedGroups;
+        void                     *m_regexp;
 
         GC_DATA_END(RegExpObject)
 

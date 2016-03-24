@@ -36,7 +36,7 @@ namespace MMgc
          *
          * @return the FixedMalloc singleton.
          */
-        static FixedMalloc *GetFixedMalloc();
+        static FixedMalloc *GetFixedMalloc(int partition);
 
         /**
          * Obtain a FixedMalloc instance.
@@ -45,7 +45,7 @@ namespace MMgc
          *
          * @note Backward compatible name for GetFixedMalloc, not used by Tamarin.
          */
-        static FixedMalloc *GetInstance();
+        static FixedMalloc *GetInstance(int partition);
 
         /**
          * Allocate one object from this allocator.
@@ -168,10 +168,10 @@ namespace MMgc
         static bool IsLargeAlloc(const void *item);
         
         // Initialize FixedMalloc.  Must be called from GCHeap during GCHeap setup.
-        void InitInstance(GCHeap *heap);
+        void InitInstance(GCHeap *heap, int partition);
 
         // Destroy FixedMalloc and free all resources.
-        void DestroyInstance();
+        void DestroyInstance(int partition);
 
         // Return the total number of blocks allocated by FixedMalloc for large-object allocations.
         size_t GetNumLargeBlocks();
@@ -245,7 +245,7 @@ namespace MMgc
         size_t LargeSize(const void *item);
         
     private:
-        static FixedMalloc *instance;   // The singleton FixedMalloc
+        static FixedMalloc *instances[kNumFixedPartitions];   // A single FixedMalloc instance for each partition
 
 #ifdef MMGC_64BIT
         const static int kLargestAlloc = 2016;  // The largest small-object allocation
@@ -268,8 +268,9 @@ namespace MMgc
         const static uint8_t kSizeClassIndex[kMaxSizeClassIndex];
 
     private:
-        GCHeap *m_heap;                             // The heap from which we allocate, set in InitInstance
-        FixedAllocSafe m_allocs[kNumSizeClasses];   // The array of size-segregated allocators, set in InitInstance
+		GCHeap *m_heap;								// The heap from which we allocate, set in InitInstance
+		int m_largeAllocHeapPartition;				// The heap partition in which we allocate large objects, set in InitInstance
+        FixedAllocSafe m_allocs[kNumSizeClasses];   // The array of size-segregated allocators for small objects, set in InitInstance
 
         class FindBeginningRootsCache {
             friend class GCRoot;

@@ -172,7 +172,7 @@ namespace avmplus
                 // always allocate one more bit than we need to simplify the logic elsewhere (bit 0 goes unused)
                 const uint32_t count = (cap + (BITS_PER_UINTPTR - 1) + 1) / BITS_PER_UINTPTR;
                 const uint32_t sz = count * sizeof(uintptr_t);
-                uintptr_t* v = (uintptr_t*)gc->Alloc(sz, MMgc::GC::kZero);
+                uintptr_t* v = (uintptr_t*)gc->Alloc(sz, MMgc::GC::kZero, MMgc::kFixedBitSetPartition);
                 void* beginning =  gc->FindBeginningFast(this);
                 if (beginning)
                 {

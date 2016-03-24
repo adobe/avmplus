@@ -17,7 +17,7 @@ namespace avmplus
 		m_header.set_gc(gc);
         uint32_t const allocCap = (capacity < kListMinCapacity) ? kListMinCapacity : capacity;
         typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, allocCap);
-        ListHelper::wbData(this, m_header, newData, allocCap);
+        ListHelper::wbData(this, m_header, newData);
 
         if (args != NULL)
         {
@@ -119,7 +119,7 @@ namespace avmplus
             // Don't call ListHelper::clearRange here; we want the refCounts to be transferred.
 			// The old references will be invalidated in freeData, which resets the length to zero.
             m_header.freeData();
-            ListHelper::wbData(this, m_header, newData, cap);
+            ListHelper::wbData(this, m_header, newData);
             set_length_guarded(len);
 
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
@@ -192,7 +192,7 @@ namespace avmplus
             MMgc::GC* const gc = m_header.gc();
             typename ListHelper::LISTDATA* newData = ListHelper::LISTHEADER::allocData(gc, kListMinCapacity);
             m_header.freeData();
-            ListHelper::wbData(this, m_header, newData, kListMinCapacity);
+            ListHelper::wbData(this, m_header, newData);
 
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
             if (gc->GetAttachedSampler())
@@ -305,7 +305,7 @@ namespace avmplus
         // Don't call ListHelper::clearRange here; we want the refCounts to be transferred.
 		// The old references will be invalidated in freeData, which resets the length to zero.
         m_header.freeData();
-        ListHelper::wbData(this, m_header, newData, cap);
+        ListHelper::wbData(this, m_header, newData);
 		// Even though the length stays the same, we may need to set the cookie in the newly-allocated buffer.
 		m_header.setLength(len);
 

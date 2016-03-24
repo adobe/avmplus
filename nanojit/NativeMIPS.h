@@ -28,6 +28,7 @@ namespace nanojit
 #define NJ_EXPANDED_LOADSTORE_SUPPORTED 1
 #define NJ_F2I_SUPPORTED                1
 #define NJ_SAFEPOINT_POLLING_SUPPORTED  0
+#define NJ_BLIND_CONSTANTS				0	
 
     // Req: NJ_MAX_STACK_ENTRY is number of instructions to hold in LIR stack
 #if 0

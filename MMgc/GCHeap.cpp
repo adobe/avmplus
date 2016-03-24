@@ -60,6 +60,7 @@ namespace MMgc
 #endif
 
     uint32_t GCHeap::secret = 0;
+	uint32_t GCHeap::secret_uintptr = 0;
 
     GCHeapConfig::GCHeapConfig() :
         initialSize(512),
@@ -215,6 +216,9 @@ namespace MMgc
             // limit=0 is legal, it means unlimited
             for (;;) {
                 if (k < kNumLoadFactors) {
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
                     if (VMPI_sscanf(val, "%lf,%lf%n", &load, &limit, &nchar) == 2 &&
                         load > 1.0 &&
                         limit >= 0.0)
@@ -235,7 +239,10 @@ namespace MMgc
                     {
                         break;
                     }
-                }
+#ifdef _MSC_VER
+#pragma warning(default: 4996)
+#endif
+				}
                 wrong = true;
                 return true;
             }
@@ -247,6 +254,9 @@ namespace MMgc
             k = 0;
             for (;;) {
                 if (k < kNumLoadFactors) {
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
                     if (VMPI_sscanf(val, "%lf,%lf%n", &load, &limit, &nchar) == 2 &&
                         load > 1.0 &&
                         limit >= 0.0)
@@ -272,6 +282,9 @@ namespace MMgc
                         gcLoadCutoff[k] = DBL_MAX;
                         break;
                     }
+#ifdef _MSC_VER
+#pragma warning(default: 4996)
+#endif
                 }
                 // (see above note; if we get here, we're out of sync)
                 GCAssert(false);
@@ -289,7 +302,10 @@ namespace MMgc
             double ceiling;
             int nchar;
             const char* val = param;
-            if (VMPI_sscanf(val, "%lf%n", &ceiling, &nchar) == 1 &&
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
+			if (VMPI_sscanf(val, "%lf%n", &ceiling, &nchar) == 1 &&
                 size_t(nchar) == VMPI_strlen(val) &&
                 ceiling >= 1.0)
             {
@@ -301,7 +317,10 @@ namespace MMgc
                 wrong = true;
                 return true;
             }
-        }
+#ifdef _MSC_VER
+#pragma warning(default: 4996)
+#endif
+		}
         else if (HasPrefix(arg, "-gcwork")) {
             const char* param =
                 useDefaultOrSkipForward(arg, "-gcwork", successorString);
@@ -313,6 +332,9 @@ namespace MMgc
             double work;
             int nchar;
             const char* val = param;
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
             if (VMPI_sscanf(val, "%lf%n", &work, &nchar) == 1 && size_t(nchar) == VMPI_strlen(val) && work > 0.0 && work <= 1.0) {
                 gcEfficiency = work;
                 return true;
@@ -321,6 +343,9 @@ namespace MMgc
                 wrong = true;
                 return true;
             }
+#ifdef _MSC_VER
+#pragma warning(default: 4996)
+#endif
         }
 
         // arg unmatched; option not handled here.
@@ -332,6 +357,7 @@ namespace MMgc
     {
         instance = NULL;
         secret = 0;
+		secret_uintptr = 0;
 #ifdef MMGC_MEMORY_PROFILER
         if(profiler && IsProfilerInitialized())
             delete profiler;
@@ -345,6 +371,12 @@ namespace MMgc
         void *p = (void*)heapSpace;
         instance = new (p) GCHeap(config);
         secret = config.secret;
+#ifdef MMGC_64BIT
+		//TODO: Do we need a true 64-bit secret?
+		secret_uintptr = uintptr_t(config.secret) | (uintptr_t(config.secret) << 32);
+#else
+		secret_uintptr = config.secret;
+#endif
 
 #ifdef VMCFG_VECTOR_SMASH_PROTECTION
         if (secret != 0)
@@ -372,14 +404,10 @@ namespace MMgc
 
     GCHeap::GCHeap(const GCHeapConfig& c)
         : kNativePageSize(VMPI_getVMPageSize()),
-          lastRegion(NULL),
-          freeRegion(NULL),
-          nextRegion(NULL),
-          blocks(NULL),
-          blocksLen(0),
-          numDecommitted(0),
-          numRegionBlocks(0),
-          numAlloc(0),
+		  totalBlocksLen(0),
+		  totalNumDecommitted(0),
+		  totalLargeAllocs(0),
+          totalNumAlloc(0),
           gcheapCodeMemory(0),
           externalCodeMemory(0),
           externalPressure(0),
@@ -396,12 +424,12 @@ namespace MMgc
     #ifdef MMGC_POLICY_PROFILING
           maxPrivateMemory(0),
     #endif
-          largeAllocs(0),
     #ifdef MMGC_HOOKS
           hooksEnabled(false),
     #endif
           entryChecksEnabled(true),
-          abortStatusNotificationSent(false)
+          abortStatusNotificationSent(false),
+		  nextDecommitPartition(0)
     {
         VMPI_lockInit(&m_spinlock);
         VMPI_lockInit(&gclog_spinlock);
@@ -410,22 +438,30 @@ namespace MMgc
         ResetStatics();
 
         // Initialize free lists
-        HeapBlock *block = freelists;
-        for (uint32_t i=0; i<kNumFreeLists; i++) {
-            block->FreelistInit();
-            block++;
-        }
+		for (uint32_t i = 0; i < kNumHeapPartitions; i++)
+		{
+			partitions[i].heap = this;
+			partitions[i].index = i;
 
-        // Create the initial heap
-        {
-            MMGC_LOCK(m_spinlock);
-            if (!ExpandHeap((int)config.initialSize))
-            {
-                Abort();
-            }
-        }
+			HeapBlock *block = partitions[i].freelists;
+			for (uint32_t j=0; j<kNumFreeLists; j++) {
+				block->FreelistInit();
+				block++;
+			}
 
-        fixedMalloc.InitInstance(this);
+			// Create the initial heap
+			{
+				MMGC_LOCK(m_spinlock);
+				if (!partitions[i].ExpandHeap((int)config.initialSize))
+				{
+					Abort();
+				}
+			}
+		}
+		
+		for (int i=0; i < kNumFixedPartitions; i++) {
+			fixedMallocs[i].InitInstance(this, i);
+		}
 
         instance = this;
 
@@ -452,9 +488,39 @@ namespace MMgc
 #endif
     }
 
+    void GCHeap::Partition::Destroy()
+    {
+        size_t internalNum = BaseAddrToBlock(blocks)->size + numRegionBlocks;
+
+        // numAlloc should just be the size of the HeapBlock's space
+        if(numAlloc != internalNum && heap->status != kMemAbort)
+        {
+            for (unsigned int i=0; i<blocksLen; i++)
+            {
+                HeapBlock *block = &blocks[i];
+                if(block->inUse() && block->baseAddr && block->baseAddr != (char*)blocks)
+                {
+#ifndef GCDEBUG
+                    if (heap->config.verbose)
+#endif
+                    {
+                        GCLog("[%d] Block 0x%x not freed\n", index, block->baseAddr);
+                    }
+#if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
+                    if(block->allocTrace)
+                        PrintStackTrace(block->allocTrace);
+#endif
+                }
+            }
+            GCAssert(false);
+        }
+    }
+
     void GCHeap::DestroyInstance()
     {
 #ifdef MMGC_MEMORY_PROFILER
+		//DumpHeapRep();
+
         if (profiler) 
             profiler->DumpAllocationProfile();
 #endif
@@ -465,34 +531,18 @@ namespace MMgc
         gcManager.destroy();
         callbacks.Destroy();
 
-        leakedBytes = GetFixedMalloc()->GetBytesInUse();
-        fixedMalloc.DestroyInstance();
+        leakedBytes = 0;
+		for (int i=0; i < kNumFixedPartitions; i++) {
+			leakedBytes += GetFixedMalloc(i)->GetBytesInUse();
+			fixedMallocs[i].DestroyInstance(i);
+		}
+
         GCAssertMsg(leakedBytes == 0 || GetStatus() == kMemAbort, "Leaks!");
 
-        size_t internalNum = BaseAddrToBlock(blocks)->size + numRegionBlocks;
-
-        // numAlloc should just be the size of the HeapBlock's space
-        if(numAlloc != internalNum && status != kMemAbort)
-        {
-            for (unsigned int i=0; i<blocksLen; i++)
-            {
-                HeapBlock *block = &blocks[i];
-                if(block->inUse() && block->baseAddr && block->baseAddr != (char*)blocks)
-                {
-#ifndef GCDEBUG
-                    if (config.verbose)
-#endif
-                    {
-                        GCLog("Block 0x%x not freed\n", block->baseAddr);
-                    }
-#if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
-                    if(block->allocTrace)
-                        PrintStackTrace(block->allocTrace);
-#endif
-                }
-            }
-            GCAssert(false);
-        }
+		for (uint32_t i = 0; i < kNumHeapPartitions; i++)
+		{
+			partitions[i].Destroy();
+		}
 
 #ifdef MMGC_MEMORY_PROFILER
         hooksEnabled = false;
@@ -501,7 +551,11 @@ namespace MMgc
             AVMPI_spyTeardown();
 #endif
 
-        FreeAll();
+		for (uint32_t i = 0; i < kNumHeapPartitions; i++)
+		{
+			partitions[i].FreeAll();
+		}
+
         ResetStatics();
 
         // Acquire all the locks before destroying them to make reasonably
@@ -524,7 +578,7 @@ namespace MMgc
         enterFrame.destroy();       // Destroy the thread-local itself
     }
 
-    void* GCHeap::Alloc(size_t size, uint32_t flags, size_t alignment)
+    void* GCHeap::Partition::Alloc(size_t size, uint32_t flags, size_t alignment)
     {
         GCAssert(size > 0);
         GCAssert(alignment > 0);
@@ -542,10 +596,10 @@ namespace MMgc
         bool zero = (flags & kZero) != 0;
         bool expand = (flags & kExpand) != 0;
         {
-            MMGC_LOCK(m_spinlock);
+            MMGC_LOCK(heap->m_spinlock);
 
-            bool saved_oomHandling = m_oomHandling;
-            m_oomHandling = saved_oomHandling && (flags & kNoOOMHandling) == 0;
+            bool saved_oomHandling = heap->m_oomHandling;
+            heap->m_oomHandling = saved_oomHandling && (flags & kNoOOMHandling) == 0;
 
             baseAddr = AllocHelper(size, expand, zero, alignment);
 
@@ -553,7 +607,7 @@ namespace MMgc
             //  memory then realloc from the heap
             if (!baseAddr)
             {
-                SendFreeMemorySignal(size);
+                heap->SendFreeMemorySignal(size);
                 baseAddr = AllocHelper(size, expand, zero, alignment);
             }
 
@@ -562,28 +616,29 @@ namespace MMgc
             {
                 if (flags & kCanFail)
                 {
-                    m_oomHandling = saved_oomHandling;
+                    heap->m_oomHandling = saved_oomHandling;
                     return NULL;
                 } else {
-                    Abort();
+                    heap->Abort();
                 }
             }
 
-            numAlloc += size;
+			numAlloc += size;
+            heap->totalNumAlloc += size;
 
 #ifdef MMGC_MEMORY_PROFILER
-            if((flags & kProfile) && HooksEnabled() && profiler) {
-                profiler->RecordAllocation(baseAddr, size * kBlockSize, size * kBlockSize, /*managed=*/false);
+            if((flags & kProfile) && heap->HooksEnabled() && heap->profiler) {
+                heap->profiler->RecordAllocation(baseAddr, size * kBlockSize, size * kBlockSize, /*managed=*/false);
             }
 #endif
 
             //  Only check for memory limits if we're allowing OOM notifications
-            if (m_oomHandling)
+            if (heap->m_oomHandling)
             {
-                CheckForMemoryLimitsExceeded();
+                heap->CheckForMemoryLimitsExceeded();
             }
 
-            m_oomHandling = saved_oomHandling;
+            heap->m_oomHandling = saved_oomHandling;
         }
 
         GCAssert(Size(baseAddr) == size);
@@ -604,9 +659,9 @@ namespace MMgc
         }
 
         // Fail the allocation if we're a "canFail" allocation that has pushed beyond one of our limits.
-        if((flags & kCanFail) != 0 && (status == kMemSoftLimit || SoftLimitExceeded() || HardLimitExceeded() ))
+        if((flags & kCanFail) != 0 && (heap->status == kMemSoftLimit || heap->SoftLimitExceeded() || heap->HardLimitExceeded() ))
         {
-            FreeInternal(baseAddr, (flags & kProfile) != 0, m_oomHandling);
+            FreeInternal(baseAddr, (flags & kProfile) != 0, heap->m_oomHandling);
             return NULL;
         }
 
@@ -622,7 +677,7 @@ namespace MMgc
         return baseAddr;
     }
 
-    void *GCHeap::AllocHelper(size_t size, bool expand, bool& zero, size_t alignment)
+    void *GCHeap::Partition::AllocHelper(size_t size, bool expand, bool& zero, size_t alignment)
     {
         // first try to find it in our existing free memory
         HeapBlock *block = AllocBlock(size, zero, alignment);
@@ -631,16 +686,16 @@ namespace MMgc
         if(!block && expand) {
 
             //  Look ahead at memory limits to see if we should trigger a free memory signal
-            if ( (HardLimitExceeded(size) || SoftLimitExceeded(size)))
+            if ((heap->HardLimitExceeded(size) || heap->SoftLimitExceeded(size)))
             {
-                SendFreeMemorySignal(size);
+                heap->SendFreeMemorySignal(size);
             }
 
             // Don't allow our memory consumption to grow beyond hard limit
-            if(HardLimitExceeded(size))
+            if(heap->HardLimitExceeded(size))
                 return NULL;
 
-            if(size >= kOSAllocThreshold && config.useVirtualMemory) {
+            if(size >= kOSAllocThreshold && heap->config.useVirtualMemory) {
                 return LargeAlloc(size, alignment);
             } else {
                 ExpandHeap(size);
@@ -649,8 +704,8 @@ namespace MMgc
         }
 
 #if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
-        if(profiler && block)
-            block->allocTrace = profiler->GetStackTrace();
+        if(heap->profiler && block)
+            block->allocTrace = heap->profiler->GetStackTrace();
 #endif
 
         return block != NULL ? block->baseAddr : NULL;
@@ -692,16 +747,16 @@ namespace MMgc
         }
     }
 
-    void GCHeap::FreeInternal(const void *item, bool profile, bool oomHandling)
+	void GCHeap::Partition::FreeInternal(const void *item, bool profile, bool oomHandling)
     {
         (void)profile;
 
         // recursive free calls are allowed from StatusChangeNotify
-        MMGC_LOCK(m_spinlock);
+        MMGC_LOCK(heap->m_spinlock);
 
-        bool saved_oomHandling = m_oomHandling;
-        m_oomHandling = saved_oomHandling && oomHandling;
-
+        bool saved_oomHandling = heap->m_oomHandling;
+        heap->m_oomHandling = saved_oomHandling && oomHandling;
+		
         HeapBlock *block = BaseAddrToBlock(item);
 
         size_t size;
@@ -712,17 +767,19 @@ namespace MMgc
         }
 
         // Update metrics
-        GCAssert(numAlloc >= (unsigned int)size);
+        GCAssert(numAlloc >= size);
         numAlloc -= size;
+        GCAssert(heap->totalNumAlloc >= size);
+        heap->totalNumAlloc -= size;
 
 #if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
-        if(profiler && block)
-            block->freeTrace = profiler->GetStackTrace();
+        if (heap->profiler && block)
+            block->freeTrace = heap->profiler->GetStackTrace();
 #endif
 
 #ifdef MMGC_MEMORY_PROFILER
-        if(profile && HooksEnabled() && profiler) {
-            profiler->RecordDeallocation(item, size * kBlockSize);
+        if (profile && heap->HooksEnabled() && heap->profiler) {
+            heap->profiler->RecordDeallocation(item, size * kBlockSize);
         }
 #endif
 
@@ -734,9 +791,9 @@ namespace MMgc
         if (profile)
             VALGRIND_FREELIKE_BLOCK(item, 0);
 
-        m_oomHandling = saved_oomHandling;
+        heap->m_oomHandling = saved_oomHandling;
     }
-
+	
     void GCHeap::Decommit()
     {
         // keep at least initialSize free
@@ -786,152 +843,159 @@ namespace MMgc
 
 
         MMGC_LOCK(m_spinlock);
-
+		
     restart:
+		
+		int startingPartition = nextDecommitPartition;
+		nextDecommitPartition = (nextDecommitPartition + 1) % kNumHeapPartitions;
+		
+		for (int count = 0; count < kNumHeapPartitions && decommitSize > 0; count++)
+		{
+			int part = (startingPartition + count) % kNumHeapPartitions;
+			// fprintf(stderr, "$$$ Decommit: partition %d\n", part);
 
-        // search from the end of the free list so we decommit big blocks
-        HeapBlock *freelist = freelists+kNumFreeLists-1;
+			// search from the end of the free list so we decommit big blocks
+			HeapBlock *freelist = &partitions[part].freelists[kNumFreeLists-1];
 
-        HeapBlock *endOfBigFreelists = &freelists[GetFreeListIndex(1)];
+			HeapBlock *endOfBigFreelists = &partitions[part].freelists[partitions[part].GetFreeListIndex(1)];
 
-        for (; freelist >= endOfBigFreelists && decommitSize > 0; freelist--)
-        {
-#ifdef MMGC_MAC
-            // We may call RemoveLostBlock below which splits regions
-            // and may need to create a new one, don't let it expand
-            // though, expanding while Decommit'ing would be silly.
-            if(!EnsureFreeRegion(/*expand=*/false))
-                return;
-#endif
+			for (; freelist >= endOfBigFreelists && decommitSize > 0; freelist--)
+			{
+			#ifdef MMGC_MAC
+				// We may call RemoveLostBlock below which splits regions
+				// and may need to create a new one, don't let it expand
+				// though, expanding while Decommit'ing would be silly.
+				if(!partitions[part].EnsureFreeRegion(/*expand=*/false))
+					return;
+			#endif
 
-            HeapBlock *block = freelist;
-            while ((block = block->prev) != freelist && decommitSize > 0)
-            {
-                // decommitting already decommitted blocks doesn't help
-                // temporary replacement for commented out conditional below
-                GCAssert(block->size != 0);
-                if(!block->committed /*|| block->size == 0*/)
-                    continue;
+				HeapBlock *block = freelist;
+				while ((block = block->prev) != freelist && decommitSize > 0)
+				{
+					// decommitting already decommitted blocks doesn't help
+					// temporary replacement for commented out conditional below
+					GCAssert(block->size != 0);
+					if(!block->committed /*|| block->size == 0*/)
+						continue;
 
-                if(config.useVirtualMemory)
-                {
-                    RemoveFromList(block);
-                    if((size_t)block->size > decommitSize)
-                    {
-                        HeapBlock *newBlock = Split(block, (int)decommitSize);
-                        AddToFreeList(newBlock);
-                    }
+					if(config.useVirtualMemory)
+					{
+						partitions[part].RemoveFromList(block);
+						if((size_t)block->size > decommitSize)
+						{
+							HeapBlock *newBlock = partitions[part].Split(block, (int)decommitSize);
+							partitions[part].AddToFreeList(newBlock);
+						}
 
-                    Region *region = AddrToRegion(block->baseAddr);
-                    if(config.trimVirtualMemory &&
-                       freeSize * 100 > heapSize * kReleaseThresholdPercentage &&
-                       // if block is as big or bigger than a region, free the whole region
-                       block->baseAddr <= region->baseAddr &&
-                       region->reserveTop <= block->endAddr() )
-                    {
+						Region *region = partitions[part].AddrToRegion(block->baseAddr);
+						if(config.trimVirtualMemory &&
+						   freeSize * 100 > heapSize * kReleaseThresholdPercentage &&
+						   // if block is as big or bigger than a region, free the whole region
+						   block->baseAddr <= region->baseAddr &&
+						   region->reserveTop <= block->endAddr() )
+						{
 
-                        if(block->baseAddr < region->baseAddr)
-                        {
-                            HeapBlock *newBlock = Split(block, int((region->baseAddr - block->baseAddr) / kBlockSize));
-                            AddToFreeList(block);
-                            block = newBlock;
-                        }
-                        if(block->endAddr() > region->reserveTop)
-                        {
-                            HeapBlock *newBlock = Split(block, int((region->reserveTop - block->baseAddr) / kBlockSize));
-                            AddToFreeList(newBlock);
-                        }
+							if(block->baseAddr < region->baseAddr)
+							{
+								HeapBlock *newBlock = partitions[part].Split(block, int((region->baseAddr - block->baseAddr) / kBlockSize));
+								partitions[part].AddToFreeList(block);
+								block = newBlock;
+							}
+							if(block->endAddr() > region->reserveTop)
+							{
+								HeapBlock *newBlock = partitions[part].Split(block, int((region->reserveTop - block->baseAddr) / kBlockSize));
+								partitions[part].AddToFreeList(newBlock);
+							}
 
-                        decommitSize -= block->size;
-                        RemoveBlock(block);
-                        goto restart;
-                    }
-                    else if(AVMPI_decommitMemory(block->baseAddr, block->size * kBlockSize))
-                    {
-                        block->committed = false;
-                        block->dirty = false;
-                        decommitSize -= block->size;
-                        if(config.verbose) {
-                            GCLog("decommitted %d page block from %p\n", block->size, block->baseAddr);
-                        }
-                    }
-                    else
-                    {
-#ifdef MMGC_MAC
-                        // this can happen on mac where we release and re-reserve the memory and another thread may steal it from us
-                        RemoveLostBlock(block);
-                        goto restart;
-#else
-                        // if the VM API's fail us bail
-                        VMPI_abort();
-#endif
-                    }
+							decommitSize -= block->size;
+							partitions[part].RemoveBlock(block);
+							goto restart;
+						}
+						else if(AVMPI_decommitMemory(block->baseAddr, block->size * kBlockSize))
+						{
+							block->committed = false;
+							block->dirty = false;
+							decommitSize -= block->size;
+							if(config.verbose) {
+								GCLog("decommitted %d page block from %p\n", block->size, block->baseAddr);
+							}
+						}
+						else
+						{
+						#ifdef MMGC_MAC
+							// this can happen on mac where we release and re-reserve the memory and another thread may steal it from us
+							partitions[part].RemoveLostBlock(block);
+							goto restart;
+						#else
+							// if the VM API's fail us bail
+							VMPI_abort();
+						#endif
+						}
 
-                    numDecommitted += block->size;
+						partitions[part].numDecommitted += block->size;
+						totalNumDecommitted += block->size;
 
-                    // merge with previous/next if not in use and not committed
-                    HeapBlock *prev = block - block->sizePrevious;
-                    if(block->sizePrevious != 0 && !prev->committed && !prev->inUse()) {
-                        RemoveFromList(prev);
+						// merge with previous/next if not in use and not committed
+						HeapBlock *prev = block - block->sizePrevious;
+						if(block->sizePrevious != 0 && !prev->committed && !prev->inUse()) {
+							partitions[part].RemoveFromList(prev);
 
-                        prev->size += block->size;
+							prev->size += block->size;
 
-                        block->size = 0;
-                        block->sizePrevious = 0;
-                        block->baseAddr = 0;
+							block->size = 0;
+							block->sizePrevious = 0;
+							block->baseAddr = 0;
 
-                        block = prev;
-                    }
+							block = prev;
+						}
 
-                    HeapBlock *next = block + block->size;
-                    if(next->size != 0 && !next->committed && !next->inUse()) {
-                        RemoveFromList(next);
+						HeapBlock *next = block + block->size;
+						if(next->size != 0 && !next->committed && !next->inUse()) {
+							partitions[part].RemoveFromList(next);
 
-                        block->size += next->size;
+							block->size += next->size;
 
-                        next->size = 0;
-                        next->sizePrevious = 0;
-                        next->baseAddr = 0;
-                    }
+							next->size = 0;
+							next->sizePrevious = 0;
+							next->baseAddr = 0;
+						}
 
-                    next = block + block->size;
-                    next->sizePrevious = block->size;
+						next = block + block->size;
+						next->sizePrevious = block->size;
 
-                    // add this block to the back of the bus to make sure we consume committed memory
-                    // first
-                    HeapBlock *backOfTheBus = &freelists[kNumFreeLists-1];
-                    HeapBlock *pointToInsert = backOfTheBus;
-                    while ((pointToInsert = pointToInsert->next) !=  backOfTheBus) {
-                        if (pointToInsert->size >= block->size && !pointToInsert->committed) {
-                            break;
-                        }
-                    }
-                    AddToFreeList(block, pointToInsert);
+						// add this block to the back of the bus to make sure we consume committed memory first
+						HeapBlock *backOfTheBus = &partitions[part].freelists[kNumFreeLists-1];
+						HeapBlock *pointToInsert = backOfTheBus;
+						while ((pointToInsert = pointToInsert->next) !=  backOfTheBus) {
+							if (pointToInsert->size >= block->size && !pointToInsert->committed) {
+								break;
+							}
+						}
+						partitions[part].AddToFreeList(block, pointToInsert);
 
-                    // so we keep going through freelist properly
-                    block = freelist;
+						// so we keep going through freelist properly
+						block = freelist;
 
-                } else { // not using virtual memory
+					} else { // not using virtual memory
 
-                    // if we aren't using mmap we can only do something if the block maps to a region
-                    // that is completely empty
-                    Region *region = AddrToRegion(block->baseAddr);
-                    if(block->baseAddr == region->baseAddr && // beginnings match
-                       region->commitTop == block->baseAddr + block->size*kBlockSize) {
+						// if we aren't using mmap we can only do something if the block maps to a region that is completely empty
+						Region *region = partitions[part].AddrToRegion(block->baseAddr);
+						if(block->baseAddr == region->baseAddr && // beginnings match
+						   region->commitTop == block->baseAddr + block->size*kBlockSize) {
 
-                        RemoveFromList(block);
+							partitions[part].RemoveFromList(block);
+							partitions[part].RemoveBlock(block);
 
-                        RemoveBlock(block);
+							goto restart;
+						}
+					}
+				}
+			}
 
-                        goto restart;
-                    }
-                }
-            }
-        }
-
-        if(config.verbose)
-            DumpHeapRep();
-        CheckForStatusReturnToNormal();
+			if(config.verbose)
+				DumpHeapRep();
+			CheckForStatusReturnToNormal();
+		}
     }
 
     // m_spinlock is held
@@ -976,7 +1040,7 @@ namespace MMgc
                 if (!SoftLimitExceeded())
                 {
                     size_t used = GetUsedHeapSize() + externalBlocks;
-                    GCDebugMsg(false, "### Alloc dropped below softlimit: usedheapsize =%u, totalHeap =%u, of which external =%u\n",
+                    GCDebugMsg(false, "*** Alloc dropped below softlimit: usedheapsize =%u, totalHeap =%u, of which external =%u\n",
                                unsigned(used),
                                unsigned(total),
                                unsigned(externalBlocks) );
@@ -991,11 +1055,11 @@ namespace MMgc
 
 #ifdef MMGC_MAC
 
-    void GCHeap::RemoveLostBlock(HeapBlock *block)
+    void GCHeap::Partition::RemoveLostBlock(HeapBlock *block)
     {
-        if(config.verbose) {
+        if(heap->config.verbose) {
             GCLog("Removing block %p %d\n", block->baseAddr, block->size);
-            DumpHeapRep();
+            DumpPartitionRep();
         }
 
         {
@@ -1062,16 +1126,16 @@ namespace MMgc
 
 #ifdef GCDEBUG
         // doing this here is an extra validation step
-        if(config.verbose)
+        if(heap->config.verbose)
         {
-            DumpHeapRep();
+            DumpPartitionRep();
         }
 #endif
     }
 
 #endif
 
-    void GCHeap::RemoveBlock(HeapBlock *block, bool release)
+    void GCHeap::Partition::RemoveBlock(HeapBlock *block, bool release)
     {
         Region *region = AddrToRegion(block->baseAddr);
 
@@ -1169,6 +1233,7 @@ namespace MMgc
             r = r->prev;
         }
 
+		heap->totalBlocksLen += (newBlocksLen - blocksLen);
         blocksLen = newBlocksLen;
         RemoveRegion(region, release);
 
@@ -1177,7 +1242,7 @@ namespace MMgc
         ValidateHeapBlocks();
     }
 
-    void GCHeap::ValidateHeapBlocks()
+    void GCHeap::Partition::ValidateHeapBlocks()
     {
 #ifdef GCDEBUG
         // iterate through HeapBlocks making sure:
@@ -1228,7 +1293,7 @@ namespace MMgc
 #endif
     }
 
-    GCHeap::Region *GCHeap::AddrToRegion(const void *item) const
+    GCHeap::Region *GCHeap::Partition::AddrToRegion(const void *item) const
     {
         // Linear search of regions list to find this address.
         // The regions list should usually be pretty short.
@@ -1243,7 +1308,7 @@ namespace MMgc
         return NULL;
     }
 
-    GCHeap::HeapBlock* GCHeap::BaseAddrToBlock(const void *item) const
+    GCHeap::HeapBlock* GCHeap::Partition::BaseAddrToBlock(const void *item) const
     {
         Region *region = AddrToRegion(item);
         if(region) {
@@ -1257,7 +1322,7 @@ namespace MMgc
         return NULL;
     }
 
-    GCHeap::HeapBlock* GCHeap::InteriorAddrToBlock(const void *item) const
+    GCHeap::HeapBlock* GCHeap::Partition::InteriorAddrToBlock(const void *item) const
     {
         Region *region = AddrToRegion(item);
         if(region) {
@@ -1281,9 +1346,9 @@ namespace MMgc
         return NULL;
     }
 
-    size_t GCHeap::SafeSize(const void *item)
+    size_t GCHeap::Partition::SafeSize(const void *item)
     {
-        MMGC_LOCK(m_spinlock);
+        MMGC_LOCK(heap->m_spinlock);
         GCAssert((uintptr_t(item) & kOffsetMask) == 0);
         HeapBlock *block = InteriorAddrToBlock(item);
         if (block)
@@ -1333,22 +1398,23 @@ namespace MMgc
     }
 #endif
 
-    REALLY_INLINE char *GCHeap::ReserveSomeRegion(size_t sizeInBytes)
+    REALLY_INLINE char *GCHeap::Partition::ReserveSomeRegion(size_t sizeInBytes)
     {
 #ifdef GCDEBUG
-        if (!config.dispersiveAdversarial)
+        if (!heap->config.dispersiveAdversarial)
             return (char*)AVMPI_reserveMemoryRegion(NULL, sizeInBytes);
         else
-            return reserveSomeRegionDispersively(config.dispersiveAdversarial,
+            return reserveSomeRegionDispersively(heap->config.dispersiveAdversarial,
                                                  sizeInBytes);
 #else
         return (char*)AVMPI_reserveMemoryRegion(NULL, sizeInBytes);
 #endif
     }
 
-    void *GCHeap::LargeAlloc(size_t size, size_t alignment)
+	
+    void *GCHeap::Partition::LargeAlloc(size_t size, size_t alignment)
     {
-        GCAssert(config.useVirtualMemory);
+        GCAssert(heap->config.useVirtualMemory);
         
         size_t sizeInBytes = size * kBlockSize;
 
@@ -1382,18 +1448,20 @@ namespace MMgc
                   addr + unalignedSize, // reserveTop
                   alignedAddr + sizeInBytes, // commitTop
                   kLargeItemBlockId);
-        largeAllocs += size;
-        CheckForNewMaxTotalHeapSize();
+        largeAllocation += size;
+		heap->totalLargeAllocs += size;
+        heap->CheckForNewMaxTotalHeapSize();
 
         return alignedAddr;
     }
 
-    void GCHeap::LargeFree(const void *item)
+    void GCHeap::Partition::LargeFree(const void *item)
     {
-        GCAssert(config.useVirtualMemory);
+        GCAssert(heap->config.useVirtualMemory);
 
         size_t size = LargeAllocSize(item);
-        largeAllocs -= size;
+        largeAllocation -= size;
+		heap->totalLargeAllocs -= size;
         Region *r = AddrToRegion(item);
         // Must use r->baseAddr which may be less than item due to alignment,
         // and we must calculate full size
@@ -1401,7 +1469,7 @@ namespace MMgc
         RemoveRegion(r, false);
     }
 
-    GCHeap::HeapBlock* GCHeap::AllocBlock(size_t size, bool& zero, size_t alignment)
+    GCHeap::HeapBlock* GCHeap::Partition::AllocBlock(size_t size, bool& zero, size_t alignment)
     {
         uint32_t startList = GetFreeListIndex(size);
         HeapBlock *freelist = &freelists[startList];
@@ -1425,7 +1493,7 @@ namespace MMgc
                 // Look for a sequence of decommitted and committed blocks that together would
                 // be large enough, in case a single committed block can't be found.
 
-                if(config.useVirtualMemory && decommittedSuitableBlock == NULL && !block->committed)
+                if(heap->config.useVirtualMemory && decommittedSuitableBlock == NULL && !block->committed)
                 {
                     // Note, 'block' should be invariant throughout this scope, it's the block
                     // whose successors and predecessors we're inspecting
@@ -1473,7 +1541,7 @@ namespace MMgc
         return NULL;
     }
 
-    GCHeap::HeapBlock* GCHeap::AllocCommittedBlock(HeapBlock* block, size_t size, bool& zero, size_t alignment)
+    GCHeap::HeapBlock* GCHeap::Partition::AllocCommittedBlock(HeapBlock* block, size_t size, bool& zero, size_t alignment)
     {
         GCAssert(block->committed);
         GCAssert(block->size >= size);
@@ -1517,7 +1585,7 @@ namespace MMgc
     // Turn a sequence of committed and uncommitted blocks into a single committed
     // block that's at least large enough to satisfy the request.
 
-    GCHeap::HeapBlock* GCHeap::CreateCommittedBlock(HeapBlock* block, size_t size, size_t alignment)
+    GCHeap::HeapBlock* GCHeap::Partition::CreateCommittedBlock(HeapBlock* block, size_t size, size_t alignment)
     {
         RemoveFromList(block);
 
@@ -1539,7 +1607,7 @@ namespace MMgc
             bool dirty = block->dirty;
 
             // The first block needs to be committed when sloppyCommit is disabled.
-            if(!config.sloppyCommit && !block->committed)
+            if(!heap->config.sloppyCommit && !block->committed)
                 Commit(block);
 
             while(block->size < size)
@@ -1558,7 +1626,7 @@ namespace MMgc
 
                     amountRecommitted += nextBlock->size;
 
-                    if (!config.sloppyCommit)
+                    if (!heap->config.sloppyCommit)
                         Commit(nextBlock);
                 }
 
@@ -1573,7 +1641,7 @@ namespace MMgc
 
             GCAssert(amountRecommitted > 0);
 
-            if (config.sloppyCommit)
+            if (heap->config.sloppyCommit)
                 Commit(block);
             block->dirty = dirty;
         }
@@ -1597,7 +1665,7 @@ namespace MMgc
     // 'available' is the amount of memory available including the memory in 'block',
     // and 'request' is the amount of memory required.
 
-    void GCHeap::PruneDecommittedBlock(HeapBlock* block, size_t available, size_t request)
+    void GCHeap::Partition::PruneDecommittedBlock(HeapBlock* block, size_t available, size_t request)
     {
         GCAssert(available >= request);
         GCAssert(!block->committed);
@@ -1612,7 +1680,7 @@ namespace MMgc
         }
     }
 
-    GCHeap::HeapBlock *GCHeap::Split(HeapBlock *block, size_t size)
+    GCHeap::HeapBlock *GCHeap::Partition::Split(HeapBlock *block, size_t size)
     {
         GCAssert(block->size > size);
         HeapBlock *newBlock = block + size;
@@ -1628,26 +1696,27 @@ namespace MMgc
         return newBlock;
     }
 
-    void GCHeap::Commit(HeapBlock *block)
+    void GCHeap::Partition::Commit(HeapBlock *block)
     {
-        GCAssert(config.sloppyCommit || !block->committed);
+        GCAssert(heap->config.sloppyCommit || !block->committed);
 
         if(!AVMPI_commitMemory(block->baseAddr, block->size * kBlockSize))
         {
             GCAssert(false);
         }
-        if(config.verbose) {
+        if(heap->config.verbose) {
             GCLog("recommitted %d pages\n", block->size);
-            DumpHeapRep();
+            DumpPartitionRep();
         }
         numDecommitted -= block->size;
+		heap->totalNumDecommitted -= block->size;
         block->committed = true;
         block->dirty = AVMPI_areNewPagesDirty();
     }
 
 #ifdef GCDEBUG
     // Non-debug version in GCHeap.h
-    void GCHeap::CheckFreelist()
+    void GCHeap::Partition::CheckFreelist()
     {
         HeapBlock *freelist = freelists;
         for (uint32_t i = 0; i < kNumFreeLists; i++)
@@ -1748,14 +1817,14 @@ namespace MMgc
     }
 #endif // GCDEBUG
 
-    bool GCHeap::BlocksAreContiguous(void *item1, void *item2)
+    bool GCHeap::Partition::BlocksAreContiguous(void *item1, void *item2)
     {
         Region *r1 = AddrToRegion(item1);
         Region *r2 = AddrToRegion(item2);
         return r1 == r2 || r1->reserveTop == r2->baseAddr;
     }
 
-    void GCHeap::AddToFreeList(HeapBlock *block, HeapBlock* pointToInsert)
+    void GCHeap::Partition::AddToFreeList(HeapBlock *block, HeapBlock* pointToInsert)
     {
         CheckFreelist();
 
@@ -1767,7 +1836,7 @@ namespace MMgc
         CheckFreelist();
     }
 
-    void GCHeap::AddToFreeList(HeapBlock* block, bool makeDirty)
+    void GCHeap::Partition::AddToFreeList(HeapBlock* block, bool makeDirty)
     {
         GCAssert(block->size != 0);
 
@@ -1843,7 +1912,7 @@ namespace MMgc
         }
     }
 
-    void GCHeap::FreeBlock(HeapBlock *block)
+    void GCHeap::Partition::FreeBlock(HeapBlock *block)
     {
         GCAssert(block->inUse());
 
@@ -1877,10 +1946,10 @@ namespace MMgc
         }
     }
 
-    bool GCHeap::ExpandHeap( size_t askSize)
+    bool GCHeap::Partition::ExpandHeap( size_t askSize)
     {
         bool bRetVal = ExpandHeapInternal(askSize);
-        CheckForNewMaxTotalHeapSize();
+        heap->CheckForNewMaxTotalHeapSize();
         return bRetVal;
     }
 
@@ -1897,7 +1966,7 @@ namespace MMgc
 
 #define roundUp(_s, _inc) (((_s + _inc - 1) / _inc) * _inc)
 
-    bool GCHeap::ExpandHeapInternal(size_t askSize)
+    bool GCHeap::Partition::ExpandHeapInternal(size_t askSize)
     {
         size_t size = askSize;
 
@@ -1925,14 +1994,14 @@ namespace MMgc
         HeapBlock *newBlocks = blocks;
 
         if(blocksLen != 0 || // first time through just take what we need out of initialSize instead of adjusting
-           config.initialSize == 0) // unless initializeSize is zero of course
+           heap->config.initialSize == 0) // unless initializeSize is zero of course
         {
             int extraBlocks = 1; // for potential new sentinel
             if(nextRegion == NULL) {
                 extraBlocks++; // may need a new page for regions
             }
             size_t curHeapBlocksSize = blocks ? BaseAddrToBlock(blocks)->size : 0;
-            size_t newHeapBlocksSize = numHeapBlocksToNumBlocks(blocksLen + size + extraBlocks);
+            size_t newHeapBlocksSize = heap->numHeapBlocksToNumBlocks(blocksLen + size + extraBlocks);
 
             // size is based on newSize and vice versa, loop to settle (typically one loop, sometimes two)
             while(newHeapBlocksSize > curHeapBlocksSize)
@@ -1945,16 +2014,16 @@ namespace MMgc
 
                 // since newSize is based on size we have to repeat in case it changes
                 curHeapBlocksSize = newHeapBlocksSize;
-                newHeapBlocksSize = numHeapBlocksToNumBlocks(blocksLen + size + extraBlocks);
+                newHeapBlocksSize = heap->numHeapBlocksToNumBlocks(blocksLen + size + extraBlocks);
             }
         }
 
         // At this point we have adjusted/calculated the final size that would need to be committed.
         // We need to check that against the hardlimit to see if we are going to go above it.
-        if (HardLimitExceeded(size))
+        if (heap->HardLimitExceeded(size))
             return false;
 
-        if(config.useVirtualMemory)
+        if(heap->config.useVirtualMemory)
         {
             Region *region = lastRegion;
             if (region != NULL)
@@ -2103,6 +2172,7 @@ namespace MMgc
         }
         else
         {
+			// Not using virtual memory.
             // Allocate the requested amount of space as a new region.
             newRegionAddr = (char*)AVMPI_allocateAlignedMemory(size * kBlockSize);
             baseAddr = newRegionAddr;
@@ -2120,6 +2190,7 @@ namespace MMgc
         // the old top sentinel.
         if (contiguous) {
             blocksLen--;
+			heap->totalBlocksLen--;
         }
 
         // Expand the block list.
@@ -2156,7 +2227,7 @@ namespace MMgc
         // Create a single free block for the new space,
         // and add it to the free list.
         HeapBlock *block = newBlocks+blocksLen;
-        block->Init(baseAddr, size, newPagesDirty());
+        block->Init(baseAddr, size, heap->newPagesDirty());
 
         // link up contiguous blocks
         if(blocksLen && contiguous)
@@ -2175,10 +2246,11 @@ namespace MMgc
         // if baseAddr was used for HeapBlocks split
         if((char*)newBlocks == baseAddr)
         {
-            size_t numBlocksNeededForHeapBlocks = numHeapBlocksToNumBlocks(newBlocksLen);
+            size_t numBlocksNeededForHeapBlocks = heap->numHeapBlocksToNumBlocks(newBlocksLen);
             HeapBlock *next = Split(block, numBlocksNeededForHeapBlocks);
             // this space counts as used space
-            numAlloc += numBlocksNeededForHeapBlocks;
+			numAlloc += numBlocksNeededForHeapBlocks;
+            heap->totalNumAlloc += numBlocksNeededForHeapBlocks;
             block = next;
         }
 
@@ -2187,7 +2259,8 @@ namespace MMgc
             nextRegion = (Region*)(void *)block->baseAddr;
             HeapBlock *next = Split(block, 1);
             // this space counts as used space
-            numAlloc++;
+			numAlloc++;
+            heap->totalNumAlloc++;
             numRegionBlocks++;
             block = next;
         }
@@ -2214,12 +2287,14 @@ namespace MMgc
         void *oldBlocks = blocks;
 
         blocks = newBlocks;
+		heap->totalBlocksLen += (newBlocksLen - blocksLen);
         blocksLen = newBlocksLen;
 
         // free old blocks space using new blocks (FreeBlock poisons blocks so can't use old blocks)
         if (oldBlocks && oldBlocks != newBlocks) {
             HeapBlock *oldBlocksHB = BaseAddrToBlock(oldBlocks);
-            numAlloc -= oldBlocksHB->size;
+			numAlloc -= oldBlocksHB->size;
+            heap->totalNumAlloc -= oldBlocksHB->size;
             FreeBlock(oldBlocksHB);
         }
 
@@ -2243,7 +2318,7 @@ namespace MMgc
                                               newRegionAddr+(size-commitAvail)*kBlockSize, // commit top
                                               newBlocksLen-(size-commitAvail)-1); // block id
 
-                if(config.verbose)
+                if(heap->config.verbose)
                     GCLog("reserved new region, %p - %p %s\n",
                           newRegion->baseAddr,
                           newRegion->reserveTop,
@@ -2253,9 +2328,9 @@ namespace MMgc
 
         CheckFreelist();
 
-        if(config.verbose) {
+        if(heap->config.verbose) {
             GCLog("heap expanded by %d pages\n", size);
-            DumpHeapRep();
+            DumpPartitionRep();
         }
         ValidateHeapBlocks();
 
@@ -2263,7 +2338,7 @@ namespace MMgc
         return true;
     }
 
-    void GCHeap::RemoveRegion(Region *region, bool release)
+    void GCHeap::Partition::RemoveRegion(Region *region, bool release)
     {
         Region **next = &lastRegion;
         while(*next != region)
@@ -2273,14 +2348,14 @@ namespace MMgc
             ReleaseMemory(region->baseAddr,
                           region->reserveTop-region->baseAddr);
         }
-        if(config.verbose) {
+        if(heap->config.verbose) {
             GCLog("unreserved region 0x%p - 0x%p (commitTop: %p)\n", region->baseAddr, region->reserveTop, region->commitTop);
-            DumpHeapRep();
+            DumpPartitionRep();
         }
         FreeRegion(region);
     }
 
-    void GCHeap::FreeAll()
+    void GCHeap::Partition::FreeAll()
     {
         // Release all of the heap regions
         while (lastRegion != NULL) {
@@ -2288,7 +2363,7 @@ namespace MMgc
             lastRegion = lastRegion->prev;
             if(region->blockId == kLargeItemBlockId) {
                 // leaks can happen during abort
-                GCAssertMsg(status == kMemAbort, "Allocation of large object not freed");
+                GCAssertMsg(heap->status == kMemAbort, "Allocation of large object not freed");
                 AVMPI_releaseMemoryRegion(region->baseAddr, region->reserveTop - region->baseAddr);
             } else {
                 ReleaseMemory(region->baseAddr,
@@ -2674,11 +2749,18 @@ namespace MMgc
         MMGC_LOCK(m_spinlock);
         size_t priv = AVMPI_getPrivateResidentPageCount() * VMPI_getVMPageSize();
         size_t mmgc = GetTotalHeapSize() * GCHeap::kBlockSize;
-        size_t unmanaged = GetFixedMalloc()->GetTotalSize() * GCHeap::kBlockSize;
-        size_t fixed_alloced;
-        size_t fixed_asksize;
-        GetFixedMalloc()->GetUsageInfo(fixed_asksize, fixed_alloced);
-
+        size_t unmanaged = 0;
+		for (int i=0; i < kNumFixedPartitions; i++) {
+			unmanaged += GetFixedMalloc(i)->GetTotalSize() * GCHeap::kBlockSize;
+		}
+        size_t fixed_alloced = 0;
+        size_t fixed_asksize = 0;
+		for (int i=0; i < kNumFixedPartitions; i++) {
+			size_t asksize, alloced;
+			GetFixedMalloc(i)->GetUsageInfo(asksize, alloced);
+			fixed_asksize += asksize;
+			fixed_alloced += alloced;
+		}
         size_t gc_total=0;
         size_t gc_allocated_total =0;
         size_t gc_ask_total = 0;
@@ -2705,7 +2787,9 @@ namespace MMgc
         }
 
 #ifdef MMGC_MEMORY_PROFILER
-        fixedMalloc.DumpMemoryInfo();
+		for (int i=0; i < kNumFixedPartitions; i++) {
+			fixedMallocs[i].DumpMemoryInfo();
+		}
 #endif
 
         // Gross stats are not meaningful if the profiler is running, see bugzilla 490014.
@@ -2763,15 +2847,11 @@ namespace MMgc
             VMPI_free(buf);
     }
 
-    void GCHeap::DumpHeapRep()
+    size_t GCHeap::Partition::DumpPartitionRep()
     {
         Region **regions = NULL;
         Region *r = lastRegion;
         int numRegions = 0;
-
-        GCLog("Heap representation format: \n");
-        GCLog("region base address - commitTop/reserveTop\n");
-        GCLog("[0 == free, 1 == committed, - = uncommitted]*\n");
 
         // count and sort regions
         while(r) {
@@ -2780,7 +2860,7 @@ namespace MMgc
         }
         regions = (Region**) VMPI_alloc(sizeof(Region*)*numRegions);
         if (regions == NULL)
-            return;
+            return 0;
         r = lastRegion;
         for(int i=0; i < numRegions; i++, r = r->prev) {
             int insert = i;
@@ -2794,11 +2874,15 @@ namespace MMgc
             regions[insert] = r;
         }
 
+		size_t reserved = 0;
         HeapBlock *spanningBlock = NULL;
         for(int i=0; i < numRegions; i++)
         {
             r = regions[i];
-            GCLog("0x%p -  0x%p/0x%p\n", r->baseAddr, r->commitTop, r->reserveTop);
+			ptrdiff_t regionSize = (r->reserveTop - r->baseAddr);
+            GCLog("0x%p -  0x%p/0x%p [%llu]\n", r->baseAddr, r->commitTop, r->reserveTop, (unsigned long long)regionSize);
+			reserved += regionSize;
+			
             char c;
             char *addr = r->baseAddr;
 
@@ -2809,7 +2893,7 @@ namespace MMgc
                 if(end > r->reserveTop)
                     end = r->reserveTop;
 
-                LogChar(spanningBlock->inUse() ? '1' : '0', (end - addr)/kBlockSize);
+                heap->LogChar(spanningBlock->inUse() ? '1' : '0', (end - addr)/kBlockSize);
                 addr = end;
 
                 if(addr == spanningBlock->baseAddr + (spanningBlock->size * kBlockSize))
@@ -2834,15 +2918,33 @@ namespace MMgc
                     }
                 }
 
-                LogChar(c, i);
+                heap->LogChar(c, i);
             }
 
-            LogChar('-', (r->reserveTop - addr) / kBlockSize);
+            heap->LogChar('-', (r->reserveTop - addr) / kBlockSize);
 
             GCLog("\n");
         }
         VMPI_free(regions);
+		GCLog("%llu bytes reserved\n", (unsigned long long)reserved);
+		return reserved;
     }
+	
+void GCHeap::DumpHeapRep()
+{
+	GCLog("Heap representation format: \n");
+	GCLog("region base address - commitTop/reserveTop\n");
+	GCLog("[0 == free, 1 == committed, - = uncommitted]*\n");
+	
+	size_t reserved = 0;
+	for (int i = 0; i < kNumHeapPartitions; i++)
+	{
+		GCLog("PARTITION %d\n", i);
+		reserved += GetPartition(i)->DumpPartitionRep();
+	}
+	
+	GCLog("Total heap reservation: %llu bytes\n", (unsigned long long)reserved);
+}
 
 #ifdef MMGC_MEMORY_PROFILER
 
@@ -2878,9 +2980,9 @@ namespace MMgc
 #endif //MMGC_USE_SYSTEM_MALLOC
 #endif // MMGC_MEMORY_PROFILER
 
-    void GCHeap::ReleaseMemory(char *address, size_t size)
+    void GCHeap::Partition::ReleaseMemory(char *address, size_t size)
     {
-        if(config.useVirtualMemory) {
+        if(heap->config.useVirtualMemory) {
             bool success = AVMPI_releaseMemoryRegion(address, size);
             GCAssert(success);
             (void)success;
@@ -3000,7 +3102,7 @@ namespace MMgc
         return false;
     }
 
-    bool GCHeap::IsAddressInHeap(void *addr)
+    bool GCHeap::Partition::IsAddressInHeap(void *addr)
     {
         void *block = (void*)(uintptr_t(addr) & kBlockMask);
         return SafeSize(block) != (size_t)-1;
@@ -3051,7 +3153,7 @@ namespace MMgc
             callbacks.Remove(p);
     }
 
-    bool GCHeap::EnsureFreeRegion(bool allowExpansion)
+    bool GCHeap::Partition::EnsureFreeRegion(bool allowExpansion)
     {
         if(!HaveFreeRegion()) {
             bool zero = false;
@@ -3068,7 +3170,7 @@ namespace MMgc
         return true;
     }
 
-    GCHeap::Region *GCHeap::NewRegion(char *baseAddr, char *rTop, char *cTop, size_t blockId)
+    GCHeap::Region *GCHeap::Partition::NewRegion(char *baseAddr, char *rTop, char *cTop, size_t blockId)
     {
         Region *r = freeRegion;
         if(r) {
@@ -3082,7 +3184,7 @@ namespace MMgc
         return r;
     }
 
-    void GCHeap::FreeRegion(Region *r)
+    void GCHeap::Partition::FreeRegion(Region *r)
     {
         if(r == lastRegion)
             lastRegion = r->prev;
@@ -3109,14 +3211,14 @@ namespace MMgc
         instanceEnterLockInitialized = false;
     }
 
-    GCHeap::Region::Region(GCHeap *heap, char *baseAddr, char *rTop, char *cTop, size_t blockId)
-        : prev(heap->lastRegion),
+    GCHeap::Region::Region(GCHeap::Partition *partition, char *baseAddr, char *rTop, char *cTop, size_t blockId)
+        : prev(partition->lastRegion),
           baseAddr(baseAddr),
           reserveTop(rTop),
           commitTop(cTop),
           blockId(blockId)
     {
-        heap->lastRegion = this;
+        partition->lastRegion = this;
     }
 
 #ifdef GCDEBUG

@@ -124,7 +124,7 @@ namespace MMgc
     {
     }
 
-    GCAlloc::GCAlloc(GC* _gc, int _itemSize, bool _containsPointers, bool _isRC, bool _isFinalized, int _sizeClassIndex, uint8_t _bibopTag) :
+    GCAlloc::GCAlloc(GC* _gc, int _itemSize, bool _containsPointers, bool _isRC, bool _isFinalized, int _sizeClassIndex, int _sliceIndex, int _partitionIndex, uint8_t _bibopTag) :
         m_firstBlock(NULL),
         m_lastBlock(NULL),
         m_firstFree(NULL),
@@ -142,6 +142,8 @@ namespace MMgc
         m_numBitmapBytes(((m_itemsPerBlock * sizeof(gcbits_t))+3)&~3), // round up to 4 bytes so we can go through the bits several items at a time
     #endif
         m_sizeClassIndex(_sizeClassIndex),
+		m_sliceIndex(_sliceIndex),
+		m_partitionIndex(_partitionIndex),
     #ifdef MMGC_MEMORY_PROFILER
         m_totalAskSize(0),
     #endif
@@ -194,12 +196,12 @@ namespace MMgc
 
         // Get bitmap space; this may trigger OOM handling.
 
-        gcbits_t* bits = m_bitsInPage ? NULL : (gcbits_t*)m_gc->AllocBits(m_numBitmapBytes, m_sizeClassIndex);
+        gcbits_t* bits = m_bitsInPage ? NULL : (gcbits_t*)m_gc->AllocBits(m_numBitmapBytes, m_sizeClassIndex, m_sliceIndex);
 
         // Allocate a new block; this may trigger OOM handling (though that
         // won't affect the bitmap space, which is not GC'd individually).
 
-        GCBlock* b = (GCBlock*) m_gc->AllocBlock(1, PageMap::kGCAllocPage, /*zero*/true,  (flags&GC::kCanFail) != 0);
+        GCBlock* b = (GCBlock*) m_gc->AllocBlock(1, m_partitionIndex, PageMap::kGCAllocPage, /*zero*/true,  (flags&GC::kCanFail) != 0);
 
         if (b)
         {
@@ -305,7 +307,7 @@ namespace MMgc
         }
         else {
             if (bits)
-                m_gc->FreeBits((uint32_t*)(void *)bits, m_sizeClassIndex);
+                m_gc->FreeBits((uint32_t*)(void *)bits, m_sizeClassIndex, m_sliceIndex);
         }
 
         return b;
@@ -346,7 +348,7 @@ namespace MMgc
         GCAssert(b->numFree == m_itemsPerBlock);
         if(!m_bitsInPage) {
             VMPI_memset(b->bits, 0, m_numBitmapBytes);
-            m_gc->FreeBits((uint32_t*)(void *)b->bits, m_sizeClassIndex);
+            m_gc->FreeBits((uint32_t*)(void *)b->bits, m_sizeClassIndex, m_sliceIndex);
             b->bits = NULL;
         } else {
             // Only free bits if they were in page, see CreateChunk.
@@ -356,7 +358,7 @@ namespace MMgc
         VALGRIND_MEMPOOL_FREE(b, b);
 
         // Free the memory
-        m_gc->FreeBlock(b, 1);
+        m_gc->FreeBlock(b, 1, m_partitionIndex);
 
         VALGRIND_DESTROY_MEMPOOL(b);
     }

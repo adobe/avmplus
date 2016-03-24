@@ -60,7 +60,7 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
 #else
     size_t nblocks = nbytes / MMgc::GCHeap::kBlockSize;
     heap->SignalCodeMemoryAllocation(nblocks, true);
-    return heap->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize/MMgc::GCHeap::kBlockSize);
+    return heap->GetPartition(MMgc::kCodePartition)->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize/MMgc::GCHeap::kBlockSize);
 #endif
 }
 
@@ -87,7 +87,7 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
 	size_t nblocks = 1;
     size_t actualBytes = nbytes;
 #else
-    size_t nblocks = heap->Size(address);
+    size_t nblocks = heap->GetPartition(MMgc::kCodePartition)->Size(address);
     size_t actualBytes = nblocks * MMgc::GCHeap::kBlockSize;
 #endif
 
@@ -110,7 +110,7 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
 	AVMPI_releaseMemoryRegion(address, nbytes);
     heap->SignalCodeMemoryDeallocated(nblocks, false);
 #else
-    heap->Free(address);
+    heap->GetPartition(MMgc::kCodePartition)->Free(address);
     heap->SignalCodeMemoryDeallocated(nblocks, true);
 #endif
 }

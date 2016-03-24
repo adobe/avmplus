@@ -27,7 +27,7 @@ namespace MMgc
         };
 
     public:
-        GCLargeAlloc(GC* gc);
+        GCLargeAlloc(GC* gc, int partitionIndex);
         ~GCLargeAlloc();
 
 #if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
@@ -109,6 +109,7 @@ namespace MMgc
 
     protected:
         GC *m_gc;
+		int m_partitionIndex;
 
     public:
         static LargeBlock* Next(LargeBlock* b);

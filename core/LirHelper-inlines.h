@@ -32,6 +32,11 @@ REALLY_INLINE LIns* LirHelper::InsConstPtr(const void *p)
 {
     return lirout->insImmP(p);
 }
+	
+REALLY_INLINE LIns* LirHelper::InsConstPtr(const void *p, bool blind)
+{
+    return lirout->insImmP(p, blind);
+}
 
 REALLY_INLINE LIns* LirHelper::InsConstAtom(Atom c)
 {
@@ -336,6 +341,17 @@ REALLY_INLINE LIns* LirHelper::lea(int32_t disp, LIns* base) {
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
 #endif
     return lirout->ins2(LIR_addp, base, InsConstPtr((void*)disp));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+}
+	
+REALLY_INLINE LIns* LirHelper::lea(int32_t disp, LIns* base, bool blind) {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+#endif
+    return lirout->ins2(LIR_addp, base, InsConstPtr((void*)disp, (blind && nanojit::shouldBlindDisplacement(disp))));
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

@@ -122,10 +122,10 @@ namespace MMgc
 
         const uint32_t numblocks = RCObject::ZCT_CAPACITY / CAPACITY(RCObject**) / CAPACITY(RCObject***);
 
-        blocktable = (RCObject***) GCHeap::GetGCHeap()->Alloc(numblocks);   // must succeed, so use default flags
+        blocktable = (RCObject***) GCHeap::GetGCHeap()->GetPartition(kZCTPartition)->Alloc(numblocks);   // must succeed, so use default flags
         for ( uint32_t i=0 ; i < CAPACITY(RCObject**)*numblocks ; i++ )
             blocktable[i] = NULL;
-        blocktable[0] = (RCObject**) GCHeap::GetGCHeap()->Alloc(1);         // must succeed, so use default flags
+        blocktable[0] = (RCObject**) GCHeap::GetGCHeap()->GetPartition(kZCTPartition)->Alloc(1);         // must succeed, so use default flags
         blocktop = blocktable + 1;
 
         budget = 0;
@@ -148,7 +148,7 @@ namespace MMgc
     {
         ClearBlockTable();
         ClearFreeList();
-        GCHeap::GetGCHeap()->Free(blocktable);
+        GCHeap::GetGCHeap()->GetPartition(kZCTPartition)->Free(blocktable);
     }
 
     void ZCT::StartCollecting()
@@ -624,7 +624,7 @@ namespace MMgc
         while (freeList != NULL) {
             void* item = (void*)freeList;
             freeList = (void**)*freeList;
-            GCHeap::GetGCHeap()->FreeNoOOM(item);
+            GCHeap::GetGCHeap()->GetPartition(kZCTPartition)->FreeNoOOM(item);
         }
     }
 
@@ -640,7 +640,7 @@ namespace MMgc
             freeList = (void**)*freeList;
         }
         else
-            block = (RCObject**)GCHeap::GetGCHeap()->AllocNoOOM(1, GCHeap::flags_Alloc|GCHeap::kCanFail);
+            block = (RCObject**)GCHeap::GetGCHeap()->GetPartition(kZCTPartition)->AllocNoOOM(1, GCHeap::flags_Alloc|GCHeap::kCanFail);
 #ifdef ZCT_TESTING
         if (block != NULL)
             --zct_allowance;

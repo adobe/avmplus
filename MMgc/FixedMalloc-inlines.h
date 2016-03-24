@@ -12,10 +12,10 @@
 namespace MMgc
 {
     /*static*/
-    REALLY_INLINE FixedMalloc* FixedMalloc::GetInstance() { return instance; }
+    REALLY_INLINE FixedMalloc* FixedMalloc::GetInstance(int partition) { GCAssert(partition < kNumFixedPartitions); return instances[partition]; }
 
     /*static*/
-    REALLY_INLINE FixedMalloc* FixedMalloc::GetFixedMalloc() { return instance; }
+    REALLY_INLINE FixedMalloc* FixedMalloc::GetFixedMalloc(int partition) { GCAssert(partition < kNumFixedPartitions); return instances[partition]; }
 
     REALLY_INLINE void* FixedMalloc::Alloc(size_t size, FixedMallocOpts flags)
     {

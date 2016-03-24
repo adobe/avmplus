@@ -48,7 +48,11 @@ typedef unsigned __int64 uint64_t;
 
 #define VMPI_abort abort
 #define VMPI_strlen strlen
-#define VMPI_strcat strcat
+#ifdef _MSC_VER
+#	define VMPI_strcat(d, n, s) strcat_s(d, n, s)
+#else
+#	define VMPI_strcat(d, n, s) strcat(d, s)
+#endif
 #define VMPI_strcmp strcmp
 #define VMPI_strncat strncat
 #define VMPI_strcpy strcpy

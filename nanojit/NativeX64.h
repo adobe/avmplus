@@ -38,6 +38,7 @@ namespace nanojit
 #define RA_PREFERS_LSREG                1
 #define NJ_USES_IMMF4_POOL              1   // Note: doesn't use IMMD pool!
 #define NJ_SAFEPOINT_POLLING_SUPPORTED  1
+#define NJ_BLIND_CONSTANTS				1
 
 // exclude R12 because ESP and R12 cannot be used as an index
 // (index=100 in SIB means "none")
@@ -78,6 +79,7 @@ namespace nanojit
     static const Register XMM15 = { 31 };   // scratch
 
     static const Register FP = RBP;
+	static const Register SP = RSP;
     static const Register RZero = { 0 };  // useful in a few places in codegen
 
     static const uint32_t FirstRegNum = 0;
@@ -359,6 +361,8 @@ namespace nanojit
     // single-byte GpReg except AH/CH/DH/BH".
     static const RegisterMask SingleByteStoreRegs = GpRegs & ~(1<<REGNUM(RSP) | 1<<REGNUM(RBP) |
                                                                1<<REGNUM(RSI) | 1<<REGNUM(RDI));
+	
+	static const RegisterMask SpecialRegs = 1<<REGNUM(FP) | 1<<REGNUM(SP);	// These are GpRegs that may be assumed live.
 
     static inline bool IsFpReg(Register r) {
         return ((1<<REGNUM(r)) & FpRegs) != 0;
@@ -371,6 +375,10 @@ namespace nanojit
     verbose_only( extern const char* gpRegNames32[]; )
     verbose_only( extern const char* gpRegNames8[]; )
     verbose_only( extern const char* gpRegNames8hi[]; )
+	
+	// Platforms that support NJ_BLIND_CONSTANTS must define SUBi as
+	// subtraction of an immediate 32-bit constant from a GpReg.
+	#define SUBi(r, i) SUBQRI(r, i)
 
     #define DECLARE_PLATFORM_STATS()
     #define DECLARE_PLATFORM_REGALLOC()                                     \
@@ -429,8 +437,8 @@ namespace nanojit
         void beginOp1Regs(LIns *ins, RegisterMask allow, Register &rr, Register &ra);\
         void beginOp2Regs(LIns *ins, RegisterMask allow, Register &rr, Register &ra, Register &rb);\
         void endOpRegs(LIns *ins, Register rr, Register ra);\
-        void beginLoadRegs(LIns *ins, RegisterMask allow, Register &rr, int32_t &d, Register &rb);\
-        void endLoadRegs(LIns *ins);\
+        void beginLoadRegs(LIns *ins, RegisterMask allow, Register &rr, int32_t &d, Register &rb, Register &orb);\
+        void endLoadRegs(LIns *ins, Register rb, Register orb);\
         void dis(NIns *p, int bytes);\
         void asm_pushstate(); \
         void asm_popstate(); \

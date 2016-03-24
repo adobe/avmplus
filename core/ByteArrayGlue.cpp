@@ -85,6 +85,8 @@ REALLY_INLINE uint32_t byteSwap32(uint32_t x)
 
 namespace avmplus
 {
+    VMPI_DEFINE_FAILFAST(ByteArrayValidationError)
+
     template <typename T> REALLY_INLINE T min(T a, T b) {
         return (a < b) ? a : b;
     }
@@ -156,6 +158,7 @@ namespace avmplus
         , m_position(0)
         , m_buffer(mmfx_new(Buffer()))
         , m_isShareable(false)
+		, m_isShareablePropReadOnly(false)
         , m_isLinkWrapper(false)
     {
         static_assert(uint64_t(MAX_BYTEARRAY_STORE_LENGTH) < 0x100000000ULL, "Constraint on MAX_BYTEARRAY_STORE_LENGTH");
@@ -163,10 +166,7 @@ namespace avmplus
         static_assert(uint64_t(MAX_BYTEARRAY_STORE_LENGTH) + uint64_t(MAX_BYTEARRAY_SHORT_ACCESS_LENGTH) < 0x100000000ULL, "Constraints on internal ByteArray constants");
         AvmAssert(m_gc != NULL);
 
-        m_buffer->array = NULL;
-        m_buffer->copyOnWrite = false;
-        m_buffer->capacity = 0;
-        m_buffer->length = 0;
+		m_buffer->initialize(/*array*/NULL, /*capacity*/0, /*length*/0, /*copyOnWrite*/false);
     }
 
 
@@ -181,27 +181,29 @@ namespace avmplus
         , m_position(0)
 		, m_buffer(other.m_isShareable ? other.m_buffer : mmfx_new(Buffer) )
         , m_isShareable(other.m_isShareable)
+		, m_isShareablePropReadOnly(false)
         , m_isLinkWrapper(false)
     {
         AvmAssert(m_gc != NULL);
         if (m_isShareable) {
             return;
         }
-        m_buffer->capacity = other.m_buffer->capacity;
-        m_buffer->length = other.m_buffer->length;
-        m_buffer->copyOnWrite = false;
+        m_buffer->setCapacity(other.m_buffer->getCapacity());
+        m_buffer->setLength(other.m_buffer->getLength());
+        m_buffer->setCopyOnWrite(false);
         // only allocate a new array if the other bytearray has data in it
-        if (other.m_buffer->array) {
-            m_buffer->array = ByteArrayBuffer_alloc_CanFailAndZero(m_buffer->capacity);
+        if (other.m_buffer->getArray()) {
+			uint8_t* newArray = ByteArrayBuffer_alloc_CanFailAndZero(m_buffer->getCapacity());
+            m_buffer->setArray(newArray);
 
-            if (!m_buffer->array)
+            if (!newArray)
                ThrowMemoryError();
 
-            TellGcNewBufferMemory(m_buffer->array, m_buffer->capacity);
-            VMPI_memcpy(m_buffer->array, other.m_buffer->array, m_buffer->length);
+            TellGcNewBufferMemory(newArray, m_buffer->getCapacity());
+            VMPI_memcpy(newArray, other.m_buffer->getArray(), m_buffer->getLength());
         }
         else {
-            m_buffer->array = NULL;
+            m_buffer->setArray(NULL);
         }
     }
 
@@ -217,16 +219,17 @@ namespace avmplus
         , m_position(0)
         , m_buffer(source)
         , m_isShareable(shareable) 
+		, m_isShareablePropReadOnly(false)
         , m_isLinkWrapper(false)
     {
 		// Note that this constructor is only used when receiving a ByteArray from another worker
         // We should not receive a buffer containing copy-on-write data from another worker.
         // It is our caller's responsibility to assure that the Buffer object owns its data array.
-        AvmAssert(!source->copyOnWrite);
+        AvmAssert(!source->getCopyOnWrite());
 		if (!m_isShareable) {
 			// If we made a copy of the ByteArray (i.e. it's not sharable), then we should account for the memory that we're about to receive.
 			// (until now, it's been sitting in the message queue, not assigned to any GC)
-			TellGcNewBufferMemory(m_buffer->array, m_buffer->capacity);
+			TellGcNewBufferMemory(m_buffer->getArray(), m_buffer->getCapacity());
 		}
     }
 
@@ -272,17 +275,15 @@ namespace avmplus
 
     void ByteArray::UnprotectedClear()
     {
-        if (m_buffer->array && !m_buffer->copyOnWrite)
+        if (m_buffer->getArray() && !m_buffer->getCopyOnWrite())
         {
-            AvmAssert(m_buffer->capacity > 0);
+            AvmAssert(m_buffer->getCapacity() > 0);
             // Note that TellGcXXX always expects capacity, not (logical) length.
-            TellGcDeleteBufferMemory(m_buffer->array, m_buffer->capacity);
-            ByteArrayBuffer_free(m_buffer->array);
+			uint8_t* array = m_buffer->getArray();
+            TellGcDeleteBufferMemory(array, m_buffer->getCapacity());
+            ByteArrayBuffer_free(array);
         }
-        m_buffer->array             = NULL;
-        m_buffer->copyOnWrite       = false;
-        m_buffer->capacity          = 0;
-        m_buffer->length            = 0;
+		m_buffer->initialize(NULL, 0, 0, false);
 #if defined(VMCFG_TELEMETRY_SAMPLER) && defined(DEBUGGER)
         if (m_gc->GetAttachedSampler())
         {
@@ -307,16 +308,13 @@ namespace avmplus
     void ByteArray::SetCopyOnWriteData(MMgc::GCObject* owner, const uint8_t* data, uint32_t length)
     {
         Clear();
-        m_buffer->array             = const_cast<uint8_t*>(data);
-        m_buffer->copyOnWrite		= true;
-        m_buffer->capacity          = length;
-        m_buffer->length            = length;
+		m_buffer->initialize(const_cast<uint8_t*>(data), length, length, true);
         SetCopyOnWriteOwner(owner);
     }
         
     REALLY_INLINE bool ByteArray::Grower::RequestWillReallocBackingStore() const
     {
-        return m_minimumCapacity > m_owner->m_buffer->capacity || m_owner->m_buffer->copyOnWrite;
+        return m_minimumCapacity > m_owner->m_buffer->getCapacity() || m_owner->m_buffer->getCopyOnWrite();
     }
 
     REALLY_INLINE bool ByteArray::Grower::RequestExceedsMemoryAvailable() const
@@ -331,14 +329,14 @@ namespace avmplus
 
         if (RequestWillReallocBackingStore())
         {
-            uint32_t newCapacity = m_owner->m_buffer->capacity << 1;
+            uint32_t newCapacity = m_owner->m_buffer->getCapacity() << 1;
             if (newCapacity < m_minimumCapacity)
                 newCapacity = m_minimumCapacity;
 
             // For bug 3628560
             // In case it's the first allocation and being called from a length setter,
             // do not set capacity to kGrowthIncr, but let it remain as set by the setter.
-            if(!(m_owner->m_buffer->capacity == 0 && calledFromLengthSetter))
+            if(!(m_owner->m_buffer->getCapacity() == 0 && calledFromLengthSetter))
             {
                 if (newCapacity < kGrowthIncr)
                     newCapacity = kGrowthIncr;
@@ -377,7 +375,7 @@ namespace avmplus
         // setter, can pass a newCapacity that is smaller (by design).
         // Therefore, eagerly return here only when the old and new
         // capacities are equal (or if the owner is copy-on-write).
-        if (!(newCapacity != m_owner->m_buffer->capacity || m_owner->m_buffer->copyOnWrite))
+        if (!(newCapacity != m_owner->m_buffer->getCapacity() || m_owner->m_buffer->getCopyOnWrite()))
         {
             return;
         }
@@ -388,16 +386,16 @@ namespace avmplus
         // For bug 3628560
         // In case it's the first allocation and being called from a length setter,
         // do not set capacity to kGrowthIncr, but let it remain as set by the setter.
-        if(!(m_owner->m_buffer->capacity == 0 && calledFromLengthSetter))
+        if(!(m_owner->m_buffer->getCapacity() == 0 && calledFromLengthSetter))
         {
             if (newCapacity < kGrowthIncr)
                 newCapacity = kGrowthIncr;
         }
         
-        m_oldArray = m_owner->m_buffer->array;
-        m_oldLength = m_owner->m_buffer->length;
-        m_oldCapacity = m_owner->m_buffer->capacity;
-        m_oldCopyOnWrite = m_owner->m_buffer->copyOnWrite;
+        m_oldArray = m_owner->m_buffer->getArray();
+        m_oldLength = m_owner->m_buffer->getLength();
+        m_oldCapacity = m_owner->m_buffer->getCapacity();
+        m_oldCopyOnWrite = m_owner->m_buffer->getCopyOnWrite();
         
         uint8_t* newArray = ByteArrayBuffer_alloc_CanFail(newCapacity);
         if (!newArray)
@@ -416,9 +414,9 @@ namespace avmplus
             VMPI_memset(newArray, 0, newCapacity);
         }
 
-        m_owner->m_buffer->array = newArray;
-        m_owner->m_buffer->capacity = newCapacity;
-        m_owner->m_buffer->copyOnWrite = false;
+        m_owner->m_buffer->setArray(newArray);
+        m_owner->m_buffer->setCapacity(newCapacity);
+        m_owner->m_buffer->setCopyOnWrite(false);
         if (m_oldCopyOnWrite)
         {
             // Set this to NULL so we don't attempt to delete it in our dtor.
@@ -454,12 +452,12 @@ namespace avmplus
     */
     ByteArray::Grower::~Grower()
     {
-        if (m_oldArray != m_owner->m_buffer->array || m_oldLength != m_owner->m_buffer->length)
+        if (m_oldArray != m_owner->m_buffer->getArray() || m_oldLength != m_owner->m_buffer->getLength())
         {
             m_owner->NotifySubscribers();
         }
         // m_oldArray could be NULL if we grew a copy-on-write ByteArray.
-        if (m_oldArray != NULL && m_oldArray != m_owner->m_buffer->array)
+        if (m_oldArray != NULL && m_oldArray != m_owner->m_buffer->getArray())
         {
             // Note that TellGcXXX always expects capacity, not (logical) length.
             m_owner->TellGcDeleteBufferMemory(m_oldArray, m_oldCapacity);
@@ -721,18 +719,15 @@ namespace avmplus
             ByteArray::Buffer* src = m_byteArray->getUnderlyingBuffer();
 
             AvmAssert((src != NULL) && (m_destination != NULL));
-            m_destination->array = src->array;
-            m_destination->copyOnWrite = src->copyOnWrite;
-            m_destination->capacity = src->capacity;
-            m_destination->length = src->length;
+			m_destination->initialize(src->getArray(), src->getCapacity(), src->getLength(), src->getCopyOnWrite());
 
             // we don't want to swap the sources array
             // value we just want to set it to null
             // as the compression method will notify
             // the GC and delete it after the safepoint
             // has completed
-            src->array = NULL;
-            src->copyOnWrite = false;
+            src->setArray(NULL);
+            src->setCopyOnWrite(false);
 
             m_byteArray->m_buffer = m_destination;
 
@@ -765,19 +760,19 @@ namespace avmplus
         // setlength is always called before using this
 		// so copyOnWrite is never truw here
         // we are asserting that to remain the case
-		AvmAssert(!m_buffer->copyOnWrite);
+		AvmAssert(!m_buffer->getCopyOnWrite());
 		// But in case something goes crazy
-		if (m_buffer->copyOnWrite) {
+		if (m_buffer->getCopyOnWrite()) {
 			// Should never reach here
-			EnsureCapacity(m_buffer->capacity);
+			EnsureCapacity(m_buffer->getCapacity());
 		}
 
-        return m_buffer->array;
+        return m_buffer->getArray();
     }
 
     uint8_t& ByteArray::operator[](uint32_t index)
     {
-        if (index >= m_buffer->length)
+        if (index >= m_buffer->getLength())
         {
             // Suppose index=2^32-1.  Then:
             //
@@ -805,7 +800,7 @@ namespace avmplus
                 ThrowMemoryError();
             SetLength(index + 1);
         }
-        return m_buffer->array[index];
+        return m_buffer->getArray()[index];
     }
 
     // Set the length to x+y, but check for overflow.
@@ -863,9 +858,9 @@ namespace avmplus
     {
         if (!calledFromLengthSetter ||
             (newLength < kHugeGrowthThreshold &&
-             m_owner->m_buffer->length < kHugeGrowthThreshold))
+             m_owner->m_buffer->getLength() < kHugeGrowthThreshold))
         {
-            if (newLength > m_owner->m_buffer->capacity)
+            if (newLength > m_owner->m_buffer->getCapacity())
             {
                 EnsureWritableCapacity(calledFromLengthSetter);
             } 
@@ -891,13 +886,13 @@ namespace avmplus
 
             AvmAssert(newCap >= newLength);
 
-            if (newCap != m_owner->m_buffer->capacity)
+            if (newCap != m_owner->m_buffer->getCapacity())
             {
                 ReallocBackingStore(newCap);
             } 
         }
         
-        m_owner->m_buffer->length = newLength;
+        m_owner->m_buffer->setLength(newLength);
         
         if (m_owner->m_position > newLength) {
             m_owner->m_position = newLength;
@@ -922,7 +917,7 @@ namespace avmplus
     void ByteArray::Read(void* buffer, uint32_t count)
     {
         CheckEOF(count);
-        move_or_copy(buffer, m_buffer->array + m_position, count);
+        move_or_copy(buffer, m_buffer->getArray() + m_position, count);
         m_position += count;
     }
 
@@ -951,7 +946,7 @@ namespace avmplus
 
         uint32_t writeEnd = m_position + count;
 
-		if (writeEnd > m_buffer->capacity || m_buffer->copyOnWrite)
+		if (writeEnd > m_buffer->getCapacity() || m_buffer->getCopyOnWrite())
 		{
 			// If the byte array is copy-on-write, we must break sharing with the original data source.
 
@@ -973,11 +968,11 @@ namespace avmplus
 		
 			EnsureCapacityAndWrite(writeEnd, buffer, count);
 		} else {
-			move_or_copy(m_buffer->array + m_position, buffer, count);
+			move_or_copy(m_buffer->getArray() + m_position, buffer, count);
 		}
         m_position += count;
-        if (m_buffer->length < m_position)
-            m_buffer->length = m_position;
+        if (m_buffer->getLength() < m_position)
+            m_buffer->setLength(m_position);
     }
 
 	void ByteArray::EnsureCapacityAndWrite(uint32_t capacity, const void* buffer, uint32_t count)
@@ -997,7 +992,7 @@ namespace avmplus
         grower.EnsureWritableCapacity();
 		// In the case of Write(), it's legal to call Write() on your own buffer, so if growth
 		// occurs, you must not discard the old buffer until copying takes place.
-		move_or_copy(m_buffer->array + m_position, buffer, count);
+		move_or_copy(m_buffer->getArray() + m_position, buffer, count);
     }
 
 	void ByteArray::EnsureCapacity(uint32_t capacity)
@@ -1061,7 +1056,7 @@ namespace avmplus
             DomainEnv* subscriber = m_subscribers.get(i);
             if (subscriber)
             {
-                subscriber->notifyGlobalMemoryChanged(m_buffer->array, m_buffer->length);
+                subscriber->notifyGlobalMemoryChanged(m_buffer->getArray(), m_buffer->getLength());
             }
             else
             {
@@ -1074,12 +1069,12 @@ namespace avmplus
  
     bool ByteArray::addSubscriber(DomainEnv* subscriber)
     {
-        if (m_buffer->length >= DomainEnv::GLOBAL_MEMORY_MIN_SIZE)
+        if (m_buffer->getLength() >= DomainEnv::GLOBAL_MEMORY_MIN_SIZE)
         {
             removeSubscriber(subscriber);
             m_subscribers.add(subscriber);
             // notify the new "subscriber" of the current state of the world
-            subscriber->notifyGlobalMemoryChanged(m_buffer->array, m_buffer->length);
+            subscriber->notifyGlobalMemoryChanged(m_buffer->getArray(), m_buffer->getLength());
             return true;
         }
         return false;
@@ -1103,7 +1098,7 @@ namespace avmplus
     {
         // If copyOnWrite is set, then we don't own the buffer, so the profiler
         // should not attribute it to us.
-        return m_buffer ? (m_buffer->copyOnWrite ? 0 : m_buffer->capacity) : 0;
+        return m_buffer ? (m_buffer->getCopyOnWrite() ? 0 : m_buffer->getCapacity()) : 0;
     }
 #endif
 
@@ -1127,19 +1122,13 @@ namespace avmplus
     }
 
 	void ByteArray::ResetBufferMembers(){
-		m_buffer->array			= NULL;
-        m_buffer->copyOnWrite	= false;
-        m_buffer->length		= 0;
-        m_buffer->capacity		= 0;
+		m_buffer->initialize(NULL, 0, 0, false);
         m_position				= 0;
         m_copyOnWriteOwner		= NULL;
 	}
 
 	void ByteArray::RestoreOrigData(uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner){
-		m_buffer->array			= origData;
-        m_buffer->copyOnWrite	= origCopyOnWrite;
-        m_buffer->length		= origLen;
-        m_buffer->capacity		= origCap;
+		m_buffer->initialize(origData, origCap, origLen, origCopyOnWrite);
         m_position				= origPos;
         SetCopyOnWriteOwner(origCopyOnWriteOwner);
 	}
@@ -1152,10 +1141,10 @@ namespace avmplus
 
 		// Snarf the data and give ourself some empty data
         // (remember, existing data might be copy-on-write so don't dance on it)
-        uint8_t* origData                       = m_buffer->array;
-        bool origCopyOnWrite                    = m_buffer->copyOnWrite;
-        uint32_t origCap                        = m_buffer->capacity;
-        uint32_t origLen                        = m_buffer->length;
+        uint8_t* origData                       = m_buffer->getArray();
+        bool origCopyOnWrite                    = m_buffer->getCopyOnWrite();
+        uint32_t origCap                        = m_buffer->getCapacity();
+        uint32_t origLen                        = m_buffer->getLength();
         uint32_t origPos                        = m_position;
         MMgc::GCObject* origCopyOnWriteOwner    = m_copyOnWriteOwner;
 
@@ -1266,8 +1255,8 @@ namespace avmplus
             m_toplevel->core()->throwException(exn);
         }
 
-        destOverlay = (struct lzma_compressed*) m_buffer->array;
-        destLen = m_buffer->capacity - lzmaHeaderSize;
+        destOverlay = (struct lzma_compressed*) m_buffer->getArray();
+        destLen = m_buffer->getCapacity() - lzmaHeaderSize;
 
         // if this bytearray's data is being shared then we have to
         // snap shot it before we run any compression algorithm otherwise
@@ -1295,7 +1284,7 @@ namespace avmplus
 
         switch (retcode) {
         case SZ_OK:
-            if (destLen > (m_buffer->capacity - lzmaHeaderSize)) {
+            if (destLen > (m_buffer->getCapacity() - lzmaHeaderSize)) {
                 AvmAssertMsg(false, "LZMA broke its contract.");
 
                 // Belt-and-suspenders: If control gets here,
@@ -1315,7 +1304,7 @@ namespace avmplus
                       && destOverlay->unpackedSizeHighBits[2] == 0
                       && destOverlay->unpackedSizeHighBits[3] == 0);
 
-            m_buffer->length = uint32_t(lzmaHeaderSize + destLen);
+			m_buffer->setLength(uint32_t(lzmaHeaderSize + destLen));
             break;
         case SZ_ERROR_OUTPUT_EOF:
             // Our guessed target length was not conservative enough.
@@ -1337,28 +1326,25 @@ namespace avmplus
             // Even though we set length to 0 (effectively clearing
             // the state), we set array back to origData so that its
             // memory will be properly managed.
-            m_buffer->array    = origData;
-            m_buffer->copyOnWrite = origCopyOnWrite;
-            m_buffer->length   = 0;
-            m_buffer->capacity = origCap;
+			m_buffer->initialize(origData, origCap, 0, origCopyOnWrite);
             break;
         }
 
         // Analogous to zlib, maintain policy that Compress() sets
         // position == length (while Uncompress() sets position == 0).
-        m_position = m_buffer->length;
+        m_position = m_buffer->getLength();
 
         if (cShared) {
             ByteArraySwapBufferTask task(this, origBuffer);
             task.exec();
 		}
 
-		if (origLen != m_buffer->length || origData != m_buffer->array)
+		if (origLen != m_buffer->getLength() || origData != m_buffer->getArray())
 		{
 			NotifySubscribers();
 		}
 
-        if (origData && origData != m_buffer->array && !origCopyOnWrite)
+        if (origData && origData != m_buffer->getArray() && !origCopyOnWrite)
         {
             // Note that TellGcXXX always expects capacity, not (logical) length.
             TellGcDeleteBufferMemory(origData, origCap);
@@ -1446,19 +1432,19 @@ namespace avmplus
 		
         stream.next_in = dataSnapshot;
         stream.avail_in = origLen;
-        stream.next_out = m_buffer->array;
-        stream.avail_out = m_buffer->capacity;
+        stream.next_out = m_buffer->getArray();
+        stream.avail_out = m_buffer->getCapacity();
 
         error = deflate(&stream, Z_FINISH);
         AvmAssert(error == Z_STREAM_END);
 
-        m_buffer->length = stream.total_out;
-        AvmAssert(m_buffer->length <= m_buffer->capacity);
+        m_buffer->setLength(stream.total_out);
+        AvmAssert(m_buffer->getLength() <= m_buffer->getCapacity());
 
         // Note that Compress() has always ended with position == length,
         // but Uncompress() has always ended with position == 0.
         // Weird, but we must maintain it.
-        m_position = m_buffer->length;
+        m_position = m_buffer->getLength();
 
         deflateEnd(&stream);
 
@@ -1469,7 +1455,7 @@ namespace avmplus
             task.exec();
 		}
 
-		if (origLen != m_buffer->length || origData != m_buffer->array)
+		if (origLen != m_buffer->getLength() || origData != m_buffer->getArray())
 		{
 			NotifySubscribers();
 		}
@@ -1477,7 +1463,7 @@ namespace avmplus
         // Note: the Compress() method has never reported an error for corrupted data,
         // so we won't start now. (Doing so would probably require a version check,
         // to avoid breaking content that relies on misbehavior.)
-        if (origData && origData != m_buffer->array && !origCopyOnWrite)
+        if (origData && origData != m_buffer->getArray() && !origCopyOnWrite)
         {
             // Note that TellGcXXX always expects capacity, not (logical) length.
             TellGcDeleteBufferMemory(origData, origCap);
@@ -1493,10 +1479,10 @@ namespace avmplus
 
 		// Snarf the data and give ourself some empty data
         // (remember, existing data might be copy-on-write so don't dance on it)
-        uint8_t* origData                       = m_buffer->array;
-        bool origCopyOnWrite                    = m_buffer->copyOnWrite;
-        uint32_t origCap                        = m_buffer->capacity;
-        uint32_t origLen                        = m_buffer->length;
+        uint8_t* origData                       = m_buffer->getArray();
+        bool origCopyOnWrite                    = m_buffer->getCopyOnWrite();
+        uint32_t origCap                        = m_buffer->getCapacity();
+        uint32_t origLen                        = m_buffer->getLength();
         uint32_t origPos                        = m_position;
         MMgc::GCObject* origCopyOnWriteOwner    = m_copyOnWriteOwner;
 
@@ -1522,8 +1508,9 @@ namespace avmplus
 	void ByteArray::HandleErrorInUncompressFn(FixedHeapRef<Buffer> origBuffer, uint8_t *origData, bool origCopyOnWrite, uint32_t origLen, uint32_t origCap, uint32_t origPos, MMgc::GCObject* origCopyOnWriteOwner, const bool cShared)
 	{
 		// 1) free the new buffer
-        TellGcDeleteBufferMemory(m_buffer->array, m_buffer->capacity);
-        ByteArrayBuffer_free(m_buffer->array);
+		uint8_t* array = m_buffer->getArray();
+        TellGcDeleteBufferMemory(array, m_buffer->getCapacity());
+        ByteArrayBuffer_free(array);
 		ResetBufferMembers();
 
         if (cShared) {
@@ -1559,7 +1546,7 @@ namespace avmplus
 		// If you are changing anything in this routine, be sure to 
 		// update the other functions as well.
 
-        if (!m_buffer->array || m_buffer->length < lzmaHeaderSize)
+        if (!m_buffer->getArray() || m_buffer->getLength() < lzmaHeaderSize)
             return;
 
         // if this bytearray's data is being shared then we have to
@@ -1631,7 +1618,7 @@ namespace avmplus
         int retcode = SZ_OK;
         size_t destLen = unpackedLen;
 
-        retcode = LzmaUncompress(m_buffer->array, &destLen,
+        retcode = LzmaUncompress(m_buffer->getArray(), &destLen,
                                  srcOverlay->compressedPayload, &srcLen,
                                  srcOverlay->lzmaProps, LZMA_PROPS_SIZE);
 
@@ -1650,19 +1637,19 @@ namespace avmplus
                 goto error_cases;
             }
 
-            m_buffer->length = uint32_t(destLen);
+			m_buffer->setLength(uint32_t(destLen));
 
             if (cShared) {
                 ByteArraySwapBufferTask task(this, origBuffer);
                 task.exec();
 			}
 
-			if (origLen != m_buffer->length || origData != m_buffer->array)
+			if (origLen != m_buffer->getLength() || origData != m_buffer->getArray())
 			{
 				NotifySubscribers();
 			}
 
-            if (origData && origData != m_buffer->array && !origCopyOnWrite)
+            if (origData && origData != m_buffer->getArray() && !origCopyOnWrite)
             {
                 // Note that TellGcXXX always expects capacity, not (logical) length.
                 TellGcDeleteBufferMemory(origData, origCap);
@@ -1784,13 +1771,13 @@ namespace avmplus
                 task.exec();
 			}
 
-			if (origLen != m_buffer->length || origData != m_buffer->array)
+			if (origLen != m_buffer->getLength() || origData != m_buffer->getArray())
 			{
 				NotifySubscribers();
 			}
 
             // everything is cool
-            if (origData && origData != m_buffer->array && !origCopyOnWrite)
+            if (origData && origData != m_buffer->getArray() && !origCopyOnWrite)
             {
                 // Note that TellGcXXX always expects capacity, not (logical) length.
                 TellGcDeleteBufferMemory(origData, origCap);
@@ -1824,8 +1811,8 @@ namespace avmplus
 
     REALLY_INLINE uint8_t* ByteArray::requestBytesForShortRead(uint32_t nbytes)
     {
-        AvmAssert(m_buffer->length <= m_buffer->capacity);
-        AvmAssert(m_buffer->capacity <= MAX_BYTEARRAY_STORE_LENGTH);
+        AvmAssert(m_buffer->getLength() <= m_buffer->getCapacity());
+        AvmAssert(m_buffer->getCapacity() <= MAX_BYTEARRAY_STORE_LENGTH);
         AvmAssert(nbytes > 0 && nbytes <= MAX_BYTEARRAY_SHORT_ACCESS_LENGTH);
 
         // m_position + nbytes does not overflow uint32_t in the second disjunct because:
@@ -1834,9 +1821,10 @@ namespace avmplus
         //   nbytes <= MAX_BYTEARRAY_SHORT_ACCESS_LENGTH                            (global invariant)
         //   MAX_BYTEARRAY_STORE_LENGTH + MAX_BYTEARRAY_SHORT_ACCESS_LENGTH < 2^32  (global invariant)
 
-        if (m_position >= m_buffer->length || m_position + nbytes > m_buffer->length)
+		uint32_t buflen = m_buffer->getLength();
+        if (m_position >= buflen || m_position + nbytes > buflen)
             ThrowEOFError();      // Does not return
-        uint8_t *b = m_buffer->array + m_position;
+        uint8_t *b = m_buffer->getArray() + m_position;
         m_position += nbytes;
         return b;
     }
@@ -1853,26 +1841,28 @@ namespace avmplus
         //   nbytes <= MAX_BYTEARRAY_SHORT_ACCESS_LENGTH                           (global invariant)
         //   MAX_BYTEARRAY_STORE_LENGTH + MAX_BYTEARRAY_SHORT_ACCESS_LENGTH < 2^32 (global invariant)
 
-        if (m_position >= m_buffer->length || m_position + nbytes > m_buffer->length)
+		uint32_t buflen = m_buffer->getLength();
+        if (m_position >= buflen || m_position + nbytes > buflen)
             SetLength(m_position, nbytes);  // The addition would *not* be safe against overflow here
     
-        AvmAssert(m_buffer->length <= m_buffer->capacity);
-        AvmAssert(m_buffer->capacity <= MAX_BYTEARRAY_STORE_LENGTH);
-        AvmAssert(m_buffer->length >= nbytes && m_position <= m_buffer->length - nbytes);
+        AvmAssert(m_buffer->getLength() <= m_buffer->getCapacity());
+        AvmAssert(m_buffer->getCapacity() <= MAX_BYTEARRAY_STORE_LENGTH);
+        AvmAssert(m_buffer->getLength() >= nbytes && m_position <= m_buffer->getLength() - nbytes);
 
-        uint8_t *b = m_buffer->array + m_position;
+        uint8_t *b = m_buffer->getArray() + m_position;
         m_position += nbytes;
         return b;
     }
 
     int32_t ByteArray::CAS(uint32_t index, int32_t expected, int32_t next)
     {
-        if (m_buffer->length == 0) {
+        if (m_buffer->getLength() == 0) {
             m_toplevel->throwRangeError(kInvalidRangeError);
         }
 
         const size_t minLength = sizeof(int32_t);
-        if ((m_buffer->length < minLength) || (index > (m_buffer->length - minLength))) {
+		uint32_t buflen = m_buffer->getLength();
+        if ((buflen < minLength) || (index > (buflen - minLength))) {
             m_toplevel->throwRangeError(kInvalidRangeError);
         }
 
@@ -1881,7 +1871,7 @@ namespace avmplus
             m_toplevel->throwRangeError(kInvalidRangeError);
         }
 
-        uint8_t* wordptr = &m_buffer->array[index];
+        uint8_t* wordptr = &m_buffer->getArray()[index];
         return vmbase::AtomicOps::compareAndSwap32WithBarrierPrev(expected, next, (int32_t*)wordptr);
     }
 
@@ -2789,7 +2779,16 @@ namespace avmplus
 
     void ByteArrayObject::set_shareable(bool val)
     {
-        m_byteArray.setShareable(val);
+		// https://watsonexp.corp.adobe.com/#bug=4063414
+		// Loader.loadBytes does not allow shared ByteArrays, but it is possible 
+		// to bypass the check by initially having a non-shared bytearray but 
+		// then having the 'shareable' property set to true in a event handler 
+		// when an event is dispatched in the middle of loadBytes.		
+		
+		if (m_byteArray.isShareablePropReadOnly())
+			toplevel()->argumentErrorClass()->throwError(kAPICannotAcceptSharedByteArray);
+		else
+			m_byteArray.setShareable(val);
     }
     
     bool ByteArrayObject::get_shareable()
@@ -2838,32 +2837,38 @@ namespace avmplus
 		if (!cIsShareable)
 		{
 			ByteArray::Buffer* copy = mmfx_new(ByteArray::Buffer);
-			copy->capacity = buffer->capacity;
-			copy->length = buffer->length;
-			if (buffer->array) {
-				copy->array = ByteArrayBuffer_alloc_CanFailAndZero(buffer->capacity);
-                if (copy->array) {
-					GetByteArray().TellGcNewBufferMemory(copy->array, copy->capacity);
-					VMPI_memcpy(copy->array, buffer->array, buffer->length);
+			uint8_t* array = buffer->getArray();
+			uint32_t capacity = buffer->getCapacity();
+			uint32_t length = buffer->getLength();
+			copy->setCapacity(capacity);
+			copy->setLength(length);
+			if (array) {
+				uint8_t* newArray = ByteArrayBuffer_alloc_CanFailAndZero(capacity);
+				copy->setArray(newArray);
+                if (newArray) {
+					GetByteArray().TellGcNewBufferMemory(newArray, capacity);
+					VMPI_memcpy(newArray, array, length);
 				}
 			} else {
-				copy->array = NULL;
+				copy->setArray(NULL);
 			}
-            copy->copyOnWrite = false;
+		   copy->setCopyOnWrite(false);
             item = mmfx_new(ByteArrayChannelItem(copy, cIsShareable));
 		} else {
             // If the byte array is copy-on-write, we must break sharing with the original data source.
             // We cannot otherwise guarantee the lifetime of the underlying array since the receiving Isolate
             // cannot hold a copy of the m_copyOnWriteOwner member of the sender.
-			if (buffer->array && buffer->copyOnWrite) {
-                uint8_t* newArray = ByteArrayBuffer_alloc_CanFailAndZero(buffer->capacity);
+			uint8_t* array = buffer->getArray();
+			uint32_t capacity = buffer->getCapacity();
+			if (array && buffer->getCopyOnWrite()) {
+                uint8_t* newArray = ByteArrayBuffer_alloc_CanFailAndZero(capacity);
                 if (newArray) {
-					GetByteArray().TellGcNewBufferMemory(buffer->array, buffer->capacity);
-					VMPI_memcpy(newArray, buffer->array, buffer->length);
-					buffer->array = newArray;
+					GetByteArray().TellGcNewBufferMemory(array, capacity);
+					VMPI_memcpy(newArray, array, buffer->getLength());
+					buffer->setArray(newArray);
 				}
             }
-            buffer->copyOnWrite = false;
+            buffer->setCopyOnWrite(false);
             GetByteArray().m_copyOnWriteOwner = NULL;
             item = mmfx_new(ByteArrayChannelItem(buffer, cIsShareable));
 		}

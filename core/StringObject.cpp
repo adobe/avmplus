@@ -444,13 +444,13 @@ namespace avmplus
 
         // First, use PleaseAlloc(), and if the call fails, reduce the amount of extra data
         // to TSTR_MAX_EXTRA_BYTES_IN_LOW_MEMORY and do an Alloc(), which may fail.
-        void* buffer = gc->PleaseAlloc(int32ShlChecked(alloc, w), 0);
+        void* buffer = gc->PleaseAlloc(int32ShlChecked(alloc, w), 0, MMgc::kStringObjectContentPartition);
         if (buffer == NULL)
         {
             if (extra > (TSTR_MAX_LOMEM_EXTRABYTES >> w))
                 extra = TSTR_MAX_LOMEM_EXTRABYTES >> w;
             alloc = len + extra;                    // This is safe because the new value of 'extra' is smaller than the old, and the old was checked
-            buffer = gc->Alloc(alloc << w, 0);      // Ditto
+            buffer = gc->Alloc(alloc << w, 0, MMgc::kStringObjectContentPartition);      // Ditto
         }
 
         int32_t bufLen = (int32_t) (GC::Size(buffer) >> w);     // Note bufLen may be larger than (alloc << w)
@@ -646,7 +646,7 @@ namespace avmplus
         int32_t bytes = m_length << getWidth();         // No overflow by definition
         GC* gc = _gc(this);
         MMGC_MEM_TYPE( this );
-        void* buf = gc->Alloc(bytes, 0);
+        void* buf = gc->Alloc(bytes, 0, MMgc::kStringObjectContentPartition);
         VMPI_memcpy(buf, Pointers(this).pv, bytes);
         WB(gc, this, &this->m_buffer.pv, buf);
         if (isDependent())
@@ -2890,7 +2890,7 @@ namespace avmplus
 
             // Deliberately using gc'ed memory here (not mmfx, unmanaged memory)
             // so that longjmp's past our dtor won't cause a long-term leak
-            char* dstBuf = (char*)gc->Alloc(uint32_t(len)+1, 0);
+            char* dstBuf = (char*)gc->Alloc(uint32_t(len)+1, 0, MMgc::kStringObjectContentPartition);
             // can't re-use the Pointers from 7BIT above; gc->Alloc may have invalidated it
             const uint8_t* srcBuf = String::Pointers(str).p8;
             m_buffer = dstBuf;
@@ -2923,7 +2923,7 @@ namespace avmplus
             len = UnicodeUtils::Utf16ToUtf8(String::Pointers(str).p16, str->length(), NULL, 0);
             if (len < 0)
                 len = 0;
-            char* dstBuf = (char*) gc->Alloc(uint32_t(len)+1, 0);
+            char* dstBuf = (char*) gc->Alloc(uint32_t(len)+1, 0, MMgc::kStringObjectContentPartition);
             m_buffer = dstBuf;
             m_length = len;
             dstBuf[len] = 0;
@@ -2956,7 +2956,7 @@ namespace avmplus
         m_length = str->m_length;
         // Deliberately using gc'ed memory here (not mmfx, unmanaged memory)
         // so that longjmp's past our dtor won't cause a long-term leak
-        wchar* dst = (wchar*) gc->Alloc(uint32ShlChecked(uint32_t(m_length)+1, String::k16), 0);
+        wchar* dst = (wchar*) gc->Alloc(uint32ShlChecked(uint32_t(m_length)+1, String::k16), 0, MMgc::kStringObjectContentPartition);
         m_buffer = dst;
         dst[m_length] = 0;
         String::Pointers ptrs(str);

@@ -64,25 +64,25 @@
 #endif
 #endif // _MSC_VER
 
-#define VMPI_memcpy         ::memcpy
-#define VMPI_memset         ::memset
-#define VMPI_memcmp         ::memcmp
-#define VMPI_memmove        ::memmove
-#define VMPI_memchr         ::memchr
-#define VMPI_strcmp         ::strcmp
-#define VMPI_strcat         ::strcat
-#define VMPI_strchr         ::strchr
-#define VMPI_strrchr        ::strrchr
-#define VMPI_strcpy         ::strcpy
-#define VMPI_strlen         ::strlen
-#define VMPI_strncat        ::strncat
-#define VMPI_strncmp        ::strncmp
-#define VMPI_strncpy        ::strncpy
-#define VMPI_strtol         ::strtol
-#define VMPI_strstr         ::strstr
+#define VMPI_memcpy						::memcpy
+#define VMPI_memset						::memset
+#define VMPI_memcmp						::memcmp
+#define VMPI_memmove					::memmove
+#define VMPI_memchr						::memchr
+#define VMPI_strcmp						::strcmp
+#define VMPI_strcat(d, n, s)			::strcat_s(d, n, s)			// change to secure API
+#define VMPI_strchr						::strchr
+#define VMPI_strrchr					::strrchr
+#define VMPI_strcpy						::strcpy
+#define VMPI_strlen						::strlen
+#define VMPI_strncat					::strncat
+#define VMPI_strncmp					::strncmp
+#define VMPI_strncpy(d, nd, s, ns)		::strncpy_s(d, nd, s, ns)  // change to secure API
+#define VMPI_strtol						::strtol
+#define VMPI_strstr						::strstr
 
-#define VMPI_sprintf        ::sprintf
-#define VMPI_sscanf         ::sscanf
+#define VMPI_sprintf					::sprintf
+#define VMPI_sscanf						::sscanf
 
 // Print rest args into s according to format.  The size of s is n.  A NUL
 // terminator is always written.  Returns the number of characters written,
@@ -222,8 +222,19 @@ typedef void *maddr_ptr;
     #pragma intrinsic(memset)
     #pragma intrinsic(strlen)
     #pragma intrinsic(strcpy)
-    #pragma intrinsic(strcat)
-#endif
+#if !defined(_CRT_SECURE_NO_WARNINGS)
+/*
+To remove warning C4162: no function with C linkage
+strcat is not defined in string.h which is a part of ucrt headers in VS 2015.
+This causes C4162 warning.
+*/
+	#pragma warning(disable: 4162)
+#endif // #if !defined(_CRT_SECURE_NO_WARNINGS)
+	#pragma intrinsic(strcat)
+#if !defined(_CRT_SECURE_NO_WARNINGS)
+	#pragma warning(default: 4162)
+#endif // #if !defined(_CRT_SECURE_NO_WARNINGS)
+#endif // #if defined _MSC_VER && !defined DEBUG
 
 #if _MSC_VER
     #define REALLY_INLINE __forceinline

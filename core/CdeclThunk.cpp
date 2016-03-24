@@ -779,6 +779,8 @@ __asm__("_"#N": ");
         // -- env is the MethodEnv we're calling (used to get argument traits -- does not make callee redundant as env may have >1 impl)
         // -- calleeArgDesc is an opaque description of the types of variadic arguments in callerAp
         // -- callerAp represents the arguments to coerce
+#ifndef FR_SDK_COCOA_TOUCH_SIMULATOR
+        
         ASM_FUNC_BEGIN(Atom, coerce32CdeclShim,
                        (void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp))
 #ifdef AVMPLUS_ARM
@@ -1058,7 +1060,38 @@ __asm__("_"#N": ");
         ASM1(       ret)
 #endif
         ASM_FUNC_END(returnCoercer32)
+#else //FR_SDK_COCOA_TOUCH_SIMULATOR
+ //[TODO] ios9 SDK update. currently failing with xcode 7 command line tools.
+ //SDK target for simulator for x86 architecture failing bcoz of assembly code with new command line tools.
+        double coerceNCdeclShim(void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp)
+        {
+            return 0.0;
+        }
         
+        Atom coerce32CdeclShim(void* callee, unsigned calleeArgDescBufSize, ArgCoercer argCoercer, MethodEnv* env, Traits* retTraits, uintptr_t callerArgDesc, void* callerAp)
+        {
+            return 0;
+        }
+        
+       Atom returnCoercerN(Traits* retTraits, MethodEnv* env)
+        {
+            return 0;
+        }
+       double returnCoercerN32(Traits* retTraits, MethodEnv* env)
+        {
+            return 0;
+        }
+        Atom returnCoercer32(Traits* retTraits, MethodEnv* env)
+        {
+            return 0;
+        }
+        
+        Atom returnCoercerNPop(Traits* retTraits, MethodEnv* env)
+        {
+            return 0;
+        }
+        
+#endif
     }
 
     

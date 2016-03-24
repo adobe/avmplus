@@ -333,6 +333,7 @@ const int kBufferPadding = 16;
 			kSWF28,             // SWF28 (Flash Player 17.0 Octavia)
 			kSWF29,             // SWF29 (Flash Player 18.0 Presidio)
 			kSWF30,             // SWF30 (Flash Player 19.0 Quint)
+			kSWF31,             // SWF31 (Flash Player 20.0 Rankin)
 //ADD_PREVIOUS_VERSIONED_LINE_WITH_FPINFO
 
             VersionCount,
@@ -440,6 +441,18 @@ const int kBufferPadding = 16;
 
         LivePoolNode(MMgc::GC* gc) : GCRoot(gc, MMgc::kExact) {}
     };
+    
+#ifdef VMCFG_CODE_METRICS
+    class CodeMetricsListener
+    {
+        // Invoked for each class reference in currently-loaded ABC blocks.
+        // No guarantee is made against duplicates.
+    public:
+        virtual void classReferenced(Stringp name) = 0;
+        
+        // We could add listener methods for other code metrics here.
+    };
+#endif
 
     /**
      * The main class of the AVM+ virtual machine.  This is the
@@ -1000,6 +1013,10 @@ const int kBufferPadding = 16;
 
     public:
         void addLivePool(PoolObject* pool);
+
+#ifdef VMCFG_CODE_METRICS
+        bool collectStaticCodeMetrics(CodeMetricsListener& listener);
+#endif
 
     public:
         /**
@@ -2149,7 +2166,11 @@ const int kBufferPadding = 16;
 
         static bool getIndexFromAtom(Atom a, uint32_t *result);
 
+#if defined(AVMSHELL_BUILD) || defined(VMCFG_HALFMOON_AOT_COMPILER)
+		// Flash Player provides its own script buffer storage.
         ScriptBufferImpl* newScriptBuffer(size_t size);
+#endif
+
         VTable* newVTable(Traits* traits, VTable* base, Toplevel* toplevel);
 
         RegExpObject* newRegExp(RegExpClass* regExpClass,

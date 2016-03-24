@@ -974,7 +974,7 @@ namespace avmplus
         , m_replacerFunction(replacer)
         , m_gap(gap)
         , m_exception(NULL)
-        , m_fixedmalloc(MMgc::FixedMalloc::GetFixedMalloc())
+	, m_fixedmalloc(MMgc::FixedMalloc::GetFixedMalloc(MMgc::kJSONSerializerPartition))
         , m_rope(m_fixedmalloc)
     {
         m_indent = emptyString();

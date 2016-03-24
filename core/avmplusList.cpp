@@ -10,6 +10,9 @@
 
 namespace avmplus
 {
+    VMPI_DEFINE_FAILFAST(DataListLengthValidationError)
+    VMPI_DEFINE_FAILFAST(TracedListLengthValidationError)
+
     // Force explicit instantiations for various non-inlined ListImpl methods;
     // some compilers don't need this, but some do. (I'm looking at you, XCode.)
 

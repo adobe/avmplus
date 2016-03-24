@@ -516,7 +516,7 @@ namespace avmplus
         {
             CallStackNode* trace = locateTrace(frameNbr);
             if (trace)
-                frame = new (core->GetGC()) DebugStackFrame(frameNbr, trace, this);
+                frame = new (core->GetGC()) DebugStackFrame(frameNbr, trace, this); //### FIXME: should be allocated in kDebugStackFramePartition
         }
         return frame;
     }
@@ -943,7 +943,7 @@ namespace avmplus
             if ((count > 0) && debugger)
             {
                 // pull the args into an array -- skip [0] which is [this]
-                ar = (Atom*) debugger->core->GetGC()->Calloc(count, sizeof(Atom), GC::kContainsPointers|GC::kZero);
+                ar = (Atom*) debugger->core->GetGC()->Calloc(count, sizeof(Atom), GC::kContainsPointers|GC::kZero, MMgc::kDebugStackFramePartition);
                 MethodInfo* info = trace->info();
                 info->boxLocals(trace->framep(), firstArgument, trace->types(), ar, 0, count);
             }
@@ -991,7 +991,7 @@ namespace avmplus
             if ((count > 0) && debugger)
             {
                 // frame looks like [this][param0...paramN][local0...localN]
-                ar = (Atom*) debugger->core->GetGC()->Calloc(count, sizeof(Atom), GC::kContainsPointers|GC::kZero);
+                ar = (Atom*) debugger->core->GetGC()->Calloc(count, sizeof(Atom), GC::kContainsPointers|GC::kZero, MMgc::kDebugStackFramePartition);
                 MethodInfo* info = trace->info();
                 info->boxLocals(trace->framep(), firstLocal, trace->types(), ar, 0, count);
 

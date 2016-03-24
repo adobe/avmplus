@@ -48,16 +48,35 @@ namespace MMgc
     }
 
 #endif // MMGC_USE_SYSTEM_MALLOC
+	
+	// There are calls to these baked into binary modules such as DRM.
+	// Some third-party code is given an abbreviated version of the allocation macros
+	// and their dependencies that duplicates code in AllocationMacros.h.
+	// We leave these alone in implementing partitioning, and direct all such
+	// allocations to kExternalAllocPartition.
 
     void *AllocCall(size_t s, FixedMallocOpts opts)
     {
-        return AllocCallInline(s, opts);
+        return AllocCallInline(s, opts, kExternalAllocPartition);
     }
 
-    void DeleteCall( void* p )
+    void DeleteCall(void* p)
     {
-        DeleteCallInline(p);
+        DeleteCallInline(p, kExternalAllocPartition);
     }
+	
+	// We define new variants here to support partitioning in AllocationMacros.h.
+	
+    void *MMFXAllocCall(size_t s, FixedMallocOpts opts, int partition)
+    {
+        return AllocCallInline(s, opts, partition);
+    }
+
+    void MMFXDeleteCall(void* p, int partition)
+    {
+        DeleteCallInline(p, partition);
+    }
+
 };
 
 #ifdef MMGC_OVERRIDE_GLOBAL_NEW
@@ -79,7 +98,7 @@ void* operator new(size_t size, MMgc::NewDummyOperand /*ignored*/, MMgc::FixedMa
 namespace MMgc
 {
     // Return NULL iff ((opts & kCanFail) != 0)
-    REALLY_INLINE void *TaggedAlloc(size_t size, FixedMallocOpts opts, uint32_t guard)
+    REALLY_INLINE void *TaggedAlloc(size_t size, FixedMallocOpts opts, uint32_t guard, int partition)
     {
         (void)guard;
 
@@ -89,7 +108,7 @@ namespace MMgc
         size = GCHeap::CheckForAllocSizeOverflow(size, MMGC_GUARDCOOKIE_SIZE);
 #endif //MMGC_DELETE_DEBUGGING
 
-        char* mem = (char*)AllocCallInline(size, opts);
+        char* mem = (char*)AllocCallInline(size, opts, partition);
 
 #ifdef MMGC_DELETE_DEBUGGING
         if (mem != NULL)
@@ -106,10 +125,10 @@ namespace MMgc
     {
         GCAssertMsg(GCHeap::GetGCHeap()->IsStackEntered() || (opts&kCanFail) != 0, "MMGC_ENTER macro must exist on the stack");
 
-        return TaggedAlloc(size, opts, GCHeap::MMScalarTag);
+        return TaggedAlloc(size, opts, GCHeap::MMScalarTag, kMMFXNewScalarPartition);
     }
 
-    void* NewTaggedArray(size_t count, size_t elsize, FixedMallocOpts opts, bool isPrimitive)
+    void* NewTaggedArray(size_t count, size_t elsize, FixedMallocOpts opts, bool isPrimitive, int partition)
     {
         GCAssertMsg(GCHeap::GetGCHeap()->IsStackEntered() || (opts&kCanFail) != 0, "MMGC_ENTER macro must exist on the stack");
 
@@ -135,20 +154,27 @@ namespace MMgc
         }
         
         size_t size = GCHeap::CheckForCallocSizeOverflow(count, elsize);
-        if(!isPrimitive)
+
+		void *p;
+        if (isPrimitive)
+		{
+			p = TaggedAlloc(size, opts, GCHeap::MMNormalArrayTag + uint32_t(isPrimitive), partition);
+		}
+		else
+		{
             size = GCHeap::CheckForAllocSizeOverflow(size, MMGC_ARRAYHEADER_SIZE);
-
-        void *p = TaggedAlloc(size, opts, GCHeap::MMNormalArrayTag + uint32_t(isPrimitive));
-
-        if (!isPrimitive && p != NULL)
-        {
-            *(size_t*)p = count;
-            p = (char*)p + MMGC_ARRAYHEADER_SIZE;
-        }
+			p = TaggedAlloc(size, opts, GCHeap::MMNormalArrayTag + uint32_t(isPrimitive), partition);
+			
+			if (p != NULL)
+			{
+				*(size_t*)p = count;
+				p = (char*)p + MMGC_ARRAYHEADER_SIZE;
+			}
+		}
 
         return p;
     }
-
+	
 #ifdef MMGC_DELETE_DEBUGGING
     // Helper functions to check the guard.
     // The guard is an uin32_t stored in locations preceding the object.
@@ -176,7 +202,23 @@ namespace MMgc
 
     REALLY_INLINE bool IsGCHeapAllocation(void* p)
     {
-        return (GCHeap::GetGCHeap() && GCHeap::GetGCHeap()->IsAddressInHeap(p));
+		GCHeap* heap = GCHeap::GetGCHeap();
+		if (!heap)
+			return false;
+		for (int i = 0; i < MMgc::kNumHeapPartitions; i++)
+		{
+			if (heap->GetPartition(i)->IsAddressInHeap(p))
+				return true;
+		}
+		return false;
+    }
+	
+    REALLY_INLINE bool IsGCHeapAllocation(void* p, int partition)
+    {
+		GCHeap* heap = GCHeap::GetGCHeap();
+		if (!heap)
+			return false;
+		return heap->GetPartition(partition)->IsAddressInHeap(p);
     }
 
     void VerifyTaggedScalar(void* p)
@@ -198,7 +240,7 @@ namespace MMgc
         }
     }
 
-    void VerifyTaggedArray(void* p, bool primitive)
+    void VerifyTaggedArray(void* p, bool primitive, int partition)
     {
         if (!IsArrayAllocation(p, primitive))
         {
@@ -209,6 +251,10 @@ namespace MMgc
             if (IsScalarAllocation(p))
             {
                 GCAssertMsg(0, "Trying to release scalar pointer with vector destructor! Check the allocation and free calls for this object!");
+            }
+            else if (!IsGCHeapAllocation(p, partition))
+            {
+                GCAssertMsg(0, "Trying to release pointer from wrong partition with vector deletefunc! Check the allocation and free calls for this object!");
             }
             else if (!IsGCHeapAllocation(p))
             {
@@ -224,56 +270,64 @@ namespace MMgc
     // Functions to actually release the memory through FixedMalloc.
     // Non-debug versions of these functions are always inlined.
 
-    void DeleteTaggedScalar( void* p )
+    void DeleteTaggedScalar(void* p)
     {
 #ifdef MMGC_DELETE_DEBUGGING
         // we need to adjust the pointer to release also the guard.
         p = (char*)p - MMGC_GUARDCOOKIE_SIZE;
 #endif //MMGC_DELETE_DEBUGGING
 
-        DeleteCallInline(p);
+        DeleteCallInline(p, kMMFXNewScalarPartition);
     }
 
     void DeleteTaggedArrayWithHeader( void* p )
     {
-        if( p )
+        if (p)
         {
 #ifdef MMGC_DELETE_DEBUGGING
             p = ((char*)p - (MMGC_ARRAYHEADER_SIZE + MMGC_GUARDCOOKIE_SIZE));
 #else
             p = ((char*)p - MMGC_ARRAYHEADER_SIZE);
 #endif //MMGC_DELETE_DEBUGGING
-            DeleteCallInline(p);
+            DeleteCallInline(p, kMMFXNewArrayPartition);
         }
     }
 
     void DeleteTaggedScalarChecked(void* p)
     {
-        if( p )
+        if (p)
         {
 #ifdef MMGC_DELETE_DEBUGGING
-            VerifyTaggedScalar( p );
+            VerifyTaggedScalar(p);
 #endif
-            DeleteTaggedScalar( p );
+            DeleteTaggedScalar(p);
         }
     }
 
-    void DeleteTaggedArrayWithHeaderChecked(void* p, bool primitive)
+    void DeleteTaggedArrayWithHeaderChecked(void* p, bool primitive, int partition)
     {
         if (p)
         {
 #ifdef MMGC_DELETE_DEBUGGING
-            VerifyTaggedArray(p, primitive);
+            VerifyTaggedArray(p, primitive, partition);
 #endif
             if (primitive)
-                DeleteTaggedScalar(p);
+			{
+#ifdef MMGC_DELETE_DEBUGGING
+				// we need to adjust the pointer to release also the guard.
+				p = (char*)p - MMGC_GUARDCOOKIE_SIZE;
+#endif //MMGC_DELETE_DEBUGGING
+				
+				DeleteCallInline(p, partition);
+			}
             else
+			{
                 DeleteTaggedArrayWithHeader(p);
+			}
         }
     }
 
 #endif //MMGC_DELETE_DEBUGGING
-
 
 } // namespace MMgc
 

@@ -321,6 +321,7 @@ namespace MMgc
          * Referenced directly from JIT-compiled code.  It must be a static variable, and cannot go in the GCHeap singleton.
          */
 		static uint32_t secret;
+		static uint32_t secret_uintptr;
 
         /**
          * Init must be called to set up the GCHeap singleton
@@ -421,9 +422,72 @@ namespace MMgc
          */
         static void SignalExternalFreeMemory(size_t bytesToFree = kMaxObjectSize);
 
+		/**
+		 * Signal that code memory is about to be allocated (accounting).  May invoke
+		 * OOM handling in order to make memory available if we're pushing up against
+		 * preset limits.
+		 * @param size the number of blocks
+		 * @param gcheap_memory   true if the memory will be allocated from GCHeap and
+		 * will be accounted for there, and we're just tracking that it is code memory;
+		 * false if an external native API will be used.
+		 */
+		void SignalCodeMemoryAllocation(size_t size, bool gcheap_memory);
 
-        FixedMalloc* GetFixedMalloc();
-
+		/**
+		 * Signal that code memory was deallocated (accounting).
+		 * @param size           the number of blocks
+		 * @param gcheap_memory  true if the memory was allocated from GCHeap and has
+		 * been accounted for and we're just tracking that it is code memory.
+		 */
+		void SignalCodeMemoryDeallocated(size_t size, bool gcheap_memory);
+		
+		
+        FixedMalloc* GetFixedMalloc(int partition);
+		
+		class Partition; // forward
+		
+        // Heap regions
+        // (ought to be private but some VMPI implementations
+        // currently need to peek at it)
+        class Region
+        {
+        public:
+            Region(GCHeap::Partition *partition, char *baseAddr, char *rTop, char *cTop, size_t blockId);
+            Region *prev;
+            char *baseAddr;
+            char *reserveTop;
+            char *commitTop;
+            size_t blockId;
+        };
+		
+        // Block struct used for free lists and memory traversal
+        class HeapBlock
+        {
+        public:
+            char *baseAddr;   // base address of block's memory
+            size_t size;         // size of this block
+            size_t sizePrevious; // size of previous block
+            HeapBlock *prev;      // prev entry on free list
+            HeapBlock *next;      // next entry on free list
+            bool committed;   // is block fully committed?
+            bool dirty;       // needs zero'ing, only valid if committed
+#if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
+            StackTrace *allocTrace;
+            StackTrace *freeTrace;
+#endif
+            bool inUse() const;
+			
+            bool isSentinel() const;
+			
+            char *endAddr() const;
+			
+            void Clear();
+			
+            void Init(char *baseAddr, size_t size, bool dirty);
+			
+            void FreelistInit();
+        };
+		
         /**
         * flags to be passed as second argument to alloc
         */
@@ -438,78 +502,267 @@ namespace MMgc
 
         // Default flags for Alloc, AllocNoOOM
         static const uint32_t flags_Alloc = kExpand | kZero | kProfile;
-
-        /**
-         * Allocates a block from the heap.
-         * @param size the number of pages (kBlockSize bytes apiece)
-         *             to allocate.
-         * @param flags  The allocation flags
-         * @param alignment  The alignment expressed in the number of pages.
-         *             This must not be zero and it should be greater than 1 only when
-         *             absolutely necessary.  (The VMPI layer may require greater alignment
-         *             for code memory on some platforms.
-         *
-         * @return pointer to beginning of block, or NULL if kCanFail was in flags
-         * and the allocation failed.
-         */
-        void *Alloc(size_t size, uint32_t flags=flags_Alloc, size_t alignment=1);
-
-        /**
-         * Allocates a block from the heap, but is guaranteed never to run OOM handling.
-         * You can call this without kCanFail but a failed allocation will result in
-         * an immediate abort.
-         */
-        void *AllocNoOOM(size_t size, uint32_t flags=flags_Alloc);
-
-        /**
-         * Signal that code memory is about to be allocated (accounting).  May invoke
-         * OOM handling in order to make memory available if we're pushing up against
-         * preset limits.
-         * @param size the number of blocks
-         * @param gcheap_memory   true if the memory will be allocated from GCHeap and
-         * will be accounted for there, and we're just tracking that it is code memory;
-         * false if an external native API will be used.
-         */
-        void SignalCodeMemoryAllocation(size_t size, bool gcheap_memory);
-
-        /**
-         * Frees a block.
-         * @param item the block to free.  This must be the same
-         *             pointer that was previously returned by
-         *             a call to Alloc.
-         */
-        void Free(void *item);
-
-        /**
-         * Frees a block, but is guaranteed never to run OOM handling (which could
-         * happen if internal data structures are shuffled in response to
-         * a large part of the heap becoming free and being decommitted, say).
-         */
-        void FreeNoOOM(void* item);
-
-        /**
-         * Frees a block; does not record the deallocation even if profiler enabled.
-         */
-        void FreeNoProfile(void *item);
-
-        /**
-         * Signal that code memory was deallocated (accounting).
-         * @param size           the number of blocks
-         * @param gcheap_memory  true if the memory was allocated from GCHeap and has
-         * been accounted for and we're just tracking that it is code memory.
-         */
-        void SignalCodeMemoryDeallocated(size_t size, bool gcheap_memory);
-
-        /**
-         * Added for NJ's portability needs cause it doesn't always MMgc
-         */
-        void Free(void *item, size_t /*ignore*/);
-
-        // Return the size (in blocks) of a valid item
-        size_t Size(const void *item);
-
-        // Return the size (in blocks) of an item, or (size_t)-1 if the item is not valid.
-        size_t SafeSize(const void *item);
+		
+		/**
+		 * GCHeap::Partition is a partition of the GCHeap.
+		 *
+		 * Allocations and deallocations always take place within a specific partition.
+		 */
+		class Partition
+		{
+			friend class GCHeap;
+			
+		public:
+			/**
+			 * Allocates a block from the heap.
+			 * @param size the number of pages (kBlockSize bytes apiece)
+			 *             to allocate.
+			 * @param flags  The allocation flags
+			 * @param alignment  The alignment expressed in the number of pages.
+			 *             This must not be zero and it should be greater than 1 only when
+			 *             absolutely necessary.  (The VMPI layer may require greater alignment
+			 *             for code memory on some platforms.
+			 *
+			 * @return pointer to beginning of block, or NULL if kCanFail was in flags
+			 * and the allocation failed.
+			 */
+			void *Alloc(size_t size, uint32_t flags=flags_Alloc, size_t alignment=1);
+			
+			/**
+			 * Allocates a block from the heap, but is guaranteed never to run OOM handling.
+			 * You can call this without kCanFail but a failed allocation will result in
+			 * an immediate abort.
+			 */
+			void *AllocNoOOM(size_t size, uint32_t flags=flags_Alloc);
+			
+			/**
+			 * Frees a block.
+			 * @param item the block to free.  This must be the same
+			 *             pointer that was previously returned by
+			 *             a call to Alloc.
+			 */
+			void Free(void *item);
+			
+			/**
+			 * Frees a block, but is guaranteed never to run OOM handling (which could
+			 * happen if internal data structures are shuffled in response to
+			 * a large part of the heap becoming free and being decommitted, say).
+			 */
+			void FreeNoOOM(void* item);
+			
+			/**
+			 * Frees a block; does not record the deallocation even if profiler enabled.
+			 */
+			void FreeNoProfile(void *item);
+			
+			
+			/**
+			 * Added for NJ's portability needs cause it doesn't always MMgc
+			 */
+			void Free(void *item, size_t /*ignore*/);
+			
+			bool IsAddressInHeap(void *);
+			
+			// Return the size (in blocks) of a valid item
+			size_t Size(const void *item);
+			
+			// Return the size (in blocks) of an item, or (size_t)-1 if the item is not valid.
+			size_t SafeSize(const void *item);
+			
+			size_t GetPartitionSize() const;
+			
+			// These members really should be private, as they are not for the use of MMgc clients.
+			// They are referenced from outside class GCHeap, however, by classes GC and FixedMalloc.
+			// MMgc classes rather freely friend each other, which should allow presenting a more
+			// controlled interface to the world outside MMgc.  Unfortunately, it is not possible to
+			// friend a member class of an incomplete class, which is what happens from FixedMalloc.
+			// GCHeap embeds an instance of FixedMalloc, thus the complete definition of FixedMalloc
+			// must precede that of GCHeap.  This circularity could be eliminated with a bit of
+			// refactoring and an extra level of indirection. (insert David Wheeler quote here)
+			
+			void FreeInternal(const void *item, bool profile, bool oomHandling);
+			HeapBlock *InteriorAddrToBlock(const void *item) const;
+			
+		private:
+			// Accessible to GCHeap class via friend declaration above.
+			
+			// data section
+			GCHeap* heap;
+			int index;
+			Region *freeRegion;
+			Region *nextRegion;
+			Region *lastRegion;
+			HeapBlock *blocks;
+			size_t blocksLen;
+			size_t numDecommitted;
+			size_t numRegionBlocks;
+			HeapBlock freelists[kNumFreeLists];
+			// number of blocks in LargeAlloc allocations
+			size_t largeAllocation;
+			// running total of number of blocks allocated and not freed (this partition only)
+			size_t numAlloc;
+			
+			Partition()
+				: index(0), freeRegion(NULL), nextRegion(NULL), lastRegion(NULL), blocks(NULL),
+				  blocksLen(0), numDecommitted(0), numRegionBlocks(0), largeAllocation(0), numAlloc(0)
+				{}
+			
+			void *AllocHelper(size_t size, bool expand, bool& zero, size_t alignment);
+			HeapBlock *AllocBlock(size_t size, bool& zero, size_t alignment);
+			
+			void FreeBlock(HeapBlock *block);
+			void FreeAll();
+			
+			HeapBlock *Split(HeapBlock *block, size_t size);
+			
+			void Commit(HeapBlock *block);
+			
+			// Large* handle allocations larger than kOSAllocThreshold.
+			void *LargeAlloc(size_t size, size_t alignment);
+			void LargeFree(const void *item);
+			
+			size_t LargeAllocSize(const void *item);
+			
+			HeapBlock *BaseAddrToBlock(const void *item) const;
+			Region *AddrToRegion(const void *item) const;
+			void RemoveRegion(Region *r, bool release=true);
+			
+			bool BlocksAreContiguous(void *item1, void *item2);
+			
+			// debug only freelist consistency checks
+			void CheckFreelist();
+			
+			// Remove a block from a free list (inlined for speed)
+			void RemoveFromList(HeapBlock *block);
+			
+			// Map a number of blocks to the appropriate large block free list index
+			uint32_t GetFreeListIndex(size_t size);
+			
+			// abandon a block of memory that may maps completely to the committed portion of region
+			void RemoveBlock(HeapBlock *block, bool release=true);
+			
+			// Add a block to the free list, coalescing committed blocks with adjacent
+			// committed blocks.  The coalesced block is marked dirty if makeDirty is true
+			// or if any of the blocks that were coalesced were dirty.
+			void AddToFreeList(HeapBlock *block, bool makeDirty=false);
+			
+			// Add a block to the free list, prior to pointToInsert.
+			void AddToFreeList(HeapBlock *block, HeapBlock* pointToInsert);
+			
+			HeapBlock* AllocCommittedBlock(HeapBlock* block, size_t size, bool& zero, size_t alignment);
+			HeapBlock* CreateCommittedBlock(HeapBlock* block, size_t size, size_t alignment);
+			void PruneDecommittedBlock(HeapBlock* block, size_t available, size_t request);
+			
+#ifdef MMGC_MAC
+			// Abandon a block of memory that may be in the middle of a
+			// region.  On mac decommit is a two step process, release and
+			// reserve, another thread could steal the memory between the
+			// two operations so we have to be prepared to ditch a block
+			// we try to decommit.  This is a horrible hack that can go
+			// away if OS X fixes its mmap impl to be like windows, linux
+			// and solaris (atomic decommit with VirtualFree/mmap)
+			void RemoveLostBlock(HeapBlock *block);
+#endif
+			
+			void ValidateHeapBlocks();
+			
+			/**
+			 * Expands the heap by size pages.
+			 *
+			 * Expands the heap by "size" blocks, such that a single contiguous
+			 * allocation of "size" blocks can be performed.  This method is
+			 * also called to create the initial heap.
+			 *
+			 * On Windows, this uses the VirtualAlloc API to obtain memory.
+			 * VirtualAlloc can _reserve_ memory, _commit_ memory or both at
+			 * the same time.  Reserved memory is just virtual address space.
+			 * It consumes the address space of the process but isn't really
+			 * allocated yet; there are no pages committed to it yet.
+			 * Memory allocation really occurs when reserved pages are
+			 * committed.  Our strategy in GCHeap is to reserve a fairly large
+			 * chunk of address space, and then commit pages from it as needed.
+			 * By doing this, we're more likely to get contiguous regions in
+			 * memory for our heap.
+			 *
+			 * By default, we reserve 16MB (4096 pages) per heap region.
+			 * The amount to reserve by default is controlled by kDefaultReserve.
+			 * That shouldn't be a big deal, as the process address space is 2GB.
+			 * As we're usually a plug-in, however, we don't want to make it too
+			 * big because it's not all our memory.
+			 *
+			 * The goal of reserving so much address space is so that subsequent
+			 * expansions of the heap are able to obtain contiguous memory blocks.
+			 * If we can keep the heap contiguous, that reduces fragmentation
+			 * and the possibility of many small "Balkanized" heap regions.
+			 *
+			 * Algorithm: When an allocation is requested,
+			 * 1. If there is enough reserved but uncommitted memory in the
+			 *    last-created region to satisfy the request, commit that memory
+			 *    and exit with success, also check decommitted list
+			 * 2. Try to reserve a new region contiguous with the last-created
+			 *    region.  Go for a 16MB reservation or the requested size,
+			 *    whichever is bigger.
+			 * 3. If we tried for 16MB reserved space and it didn't work, try
+			 *    to reserve again, but for the requested size.
+			 * 4. If we were able to retrieve a contiguous region in Step 2 or 3,
+			 *    commit any leftover memory from the last-created region,
+			 *    commit the remainer from the newly created region, and exit
+			 *    with success.
+			 * 5. OK, the contiguous region didn't work out, so allocate a
+			 *    non-contiguous region.  Go for 16MB or the requested size
+			 *    again, whichever is bigger.
+			 * 6. If we tried for 16MB reserved space and it didn't work, try
+			 *    to reserve again, but for the requested size.
+			 * 7. Commit the requested size out of the newly created region
+			 *    and exit with success.
+			 *
+			 * If we are able to reserve memory but can't commit it, then, well
+			 * there isn't enough memory.  We free the reserved memory and
+			 * exit with failure.
+			 *
+			 * @param size the number of pages to expand the heap by
+			 */
+			bool ExpandHeap(size_t size);
+			bool ExpandHeapInternal(size_t size);
+			
+			/**
+			 * Regions are allocated from the blocks GCHeap manages
+			 * similar to the HeapBlocks.  Regions can come and go so we
+			 * maintain a freelist although in practice they come and go
+			 * rarely we want don't want any longevity bugs
+			 */
+			Region *NewRegion(char *baseAddr, char *rTop, char *cTop, size_t blockId);
+			void FreeRegion(Region *r);
+			
+			// Used to allocate a Region outside ExpandHeap.
+			bool EnsureFreeRegion(bool allowExpansion);
+			
+			bool HaveFreeRegion() const;
+			
+			/**
+			 * Reserves region(s) of memory in system's virtual address space.
+			 *
+			 * Treat as synonymous with VMPI_reserveMemoryRegion(NULL,---);
+			 * when debugging, this exercises areas of specification that are
+			 * hard to reach otherwise.
+			 *
+			 * @see VMPI_reserveMemoryRegion
+			 */
+			char* ReserveSomeRegion(size_t sizeInBytes);
+			
+			void ReleaseMemory(char *address, size_t size);
+			
+			void Destroy();
+			
+			// Send textual partition representation to GCLog.
+			// Returns the total number of bytes reserved for the partition.
+			size_t DumpPartitionRep();
+		};
+		
+		/**
+		 * @return a pointer to a the partition of the heap indexed by parameter partition.
+		 */
+		Partition* GetPartition(int partition);
 
         /**
          * Returns the used heap size, that is, the total
@@ -563,9 +816,6 @@ namespace MMgc
 
         void PreventDestruct();
         void AllowDestruct();
-
-
-
 
         static size_t SizeToBlocks(size_t bytes);
 
@@ -723,24 +973,8 @@ namespace MMgc
         // remove this and make them always enabled once its possible
         void SetEntryChecks(bool to);
 
-        // Heap regions
-        // (ought to be private but some VMPI implementations
-        // currently need to peek at it)
-        class Region
-        {
-        public:
-            Region(GCHeap *heap, char *baseAddr, char *rTop, char *cTop, size_t blockId);
-            Region *prev;
-            char *baseAddr;
-            char *reserveTop;
-            char *commitTop;
-            size_t blockId;
-        };
-        Region *lastRegion;
-
         static bool ShouldNotEnter();
 
-        bool IsAddressInHeap(void *);
 
 #ifdef GCDEBUG
         /** illegal to perform an allocation during OOM status notifications
@@ -770,168 +1004,13 @@ namespace MMgc
         static bool IsProfilerInitialized();
 #endif
 
-        /**
-         * Expands the heap by size pages.
-         *
-         * Expands the heap by "size" blocks, such that a single contiguous
-         * allocation of "size" blocks can be performed.  This method is
-         * also called to create the initial heap.
-         *
-         * On Windows, this uses the VirtualAlloc API to obtain memory.
-         * VirtualAlloc can _reserve_ memory, _commit_ memory or both at
-         * the same time.  Reserved memory is just virtual address space.
-         * It consumes the address space of the process but isn't really
-         * allocated yet; there are no pages committed to it yet.
-         * Memory allocation really occurs when reserved pages are
-         * committed.  Our strategy in GCHeap is to reserve a fairly large
-         * chunk of address space, and then commit pages from it as needed.
-         * By doing this, we're more likely to get contiguous regions in
-         * memory for our heap.
-         *
-         * By default, we reserve 16MB (4096 pages) per heap region.
-         * The amount to reserve by default is controlled by kDefaultReserve.
-         * That shouldn't be a big deal, as the process address space is 2GB.
-         * As we're usually a plug-in, however, we don't want to make it too
-         * big because it's not all our memory.
-         *
-         * The goal of reserving so much address space is so that subsequent
-         * expansions of the heap are able to obtain contiguous memory blocks.
-         * If we can keep the heap contiguous, that reduces fragmentation
-         * and the possibility of many small "Balkanized" heap regions.
-         *
-         * Algorithm: When an allocation is requested,
-         * 1. If there is enough reserved but uncommitted memory in the
-         *    last-created region to satisfy the request, commit that memory
-         *    and exit with success, also check decommitted list
-         * 2. Try to reserve a new region contiguous with the last-created
-         *    region.  Go for a 16MB reservation or the requested size,
-         *    whichever is bigger.
-         * 3. If we tried for 16MB reserved space and it didn't work, try
-         *    to reserve again, but for the requested size.
-         * 4. If we were able to retrieve a contiguous region in Step 2 or 3,
-         *    commit any leftover memory from the last-created region,
-         *    commit the remainer from the newly created region, and exit
-         *    with success.
-         * 5. OK, the contiguous region didn't work out, so allocate a
-         *    non-contiguous region.  Go for 16MB or the requested size
-         *    again, whichever is bigger.
-         * 6. If we tried for 16MB reserved space and it didn't work, try
-         *    to reserve again, but for the requested size.
-         * 7. Commit the requested size out of the newly created region
-         *    and exit with success.
-         *
-         * If we are able to reserve memory but can't commit it, then, well
-         * there isn't enough memory.  We free the reserved memory and
-         * exit with failure.
-         *
-         * @param size the number of pages to expand the heap by
-         */
-        bool ExpandHeap(size_t size);
-        bool ExpandHeapInternal(size_t size);
-
-        // Block struct used for free lists and memory traversal
-        class HeapBlock
-        {
-        public:
-            char *baseAddr;   // base address of block's memory
-            size_t size;         // size of this block
-            size_t sizePrevious; // size of previous block
-            HeapBlock *prev;      // prev entry on free list
-            HeapBlock *next;      // next entry on free list
-            bool committed;   // is block fully committed?
-            bool dirty;       // needs zero'ing, only valid if committed
-#if defined(MMGC_MEMORY_PROFILER) && defined(MMGC_MEMORY_INFO)
-            StackTrace *allocTrace;
-            StackTrace *freeTrace;
-#endif
-            bool inUse() const;
-
-            bool isSentinel() const;
-
-            char *endAddr() const;
-
-            void Clear();
-
-            void Init(char *baseAddr, size_t size, bool dirty);
-
-            void FreelistInit();
-        };
-
         // Core methods
-
-        // Add a block to the free list, coalescing committed blocks with adjacent
-        // committed blocks.  The coalesced block is marked dirty if makeDirty is true
-        // or if any of the blocks that were coalesced were dirty.
-        void AddToFreeList(HeapBlock *block, bool makeDirty=false);
-
-        // Add a block to the free list, prior to pointToInsert.
-        void AddToFreeList(HeapBlock *block, HeapBlock* pointToInsert);
-
-        void *AllocHelper(size_t size, bool expand, bool& zero, size_t alignment);
-        HeapBlock *AllocBlock(size_t size, bool& zero, size_t alignment);
-        HeapBlock* AllocCommittedBlock(HeapBlock* block, size_t size, bool& zero, size_t alignment);
-        HeapBlock* CreateCommittedBlock(HeapBlock* block, size_t size, size_t alignment);
-        void PruneDecommittedBlock(HeapBlock* block, size_t available, size_t request);
-        void FreeBlock(HeapBlock *block);
-        void FreeAll();
-
-        void FreeInternal(const void *item, bool profile, bool oomHandling);
-
-        HeapBlock *Split(HeapBlock *block, size_t size);
-
-        /**
-         * Reserves region(s) of memory in system's virtual address space.
-         *
-         * Treat as synonymous with VMPI_reserveMemoryRegion(NULL,---);
-         * when debugging, this exercises areas of specification that are
-         * hard to reach otherwise.
-         *
-         * @see VMPI_reserveMemoryRegion
-         */
-        char* ReserveSomeRegion(size_t sizeInBytes);
-
-        // abandon a block of memory that may maps completely to the committed portion of region
-        void RemoveBlock(HeapBlock *block, bool release=true);
-
-        // Large* handle allocations larger than kOSAllocThreshold.
-        void *LargeAlloc(size_t size, size_t alignment);
-        void LargeFree(const void *item);
-        size_t LargeAllocSize(const void *item);
-
-#ifdef MMGC_MAC
-        // Abandon a block of memory that may be in the middle of a
-        // region.  On mac decommit is a two step process, release and
-        // reserve, another thread could steal the memory between the
-        // two operations so we have to be prepared to ditch a block
-        // we try to decommit.  This is a horrible hack that can go
-        // away if OS X fixes its mmap impl to be like windows, linux
-        // and solaris (atomic decommit with VirtualFree/mmap)
-        void RemoveLostBlock(HeapBlock *block);
-#endif
-
-        void Commit(HeapBlock *block);
-
-        HeapBlock *InteriorAddrToBlock(const void *item) const;
-        HeapBlock *BaseAddrToBlock(const void *item) const;
-        Region *AddrToRegion(const void *item) const;
-        void RemoveRegion(Region *r, bool release=true);
-
-        // debug only freelist consistency checks
-        void CheckFreelist();
-
-        bool BlocksAreContiguous(void *item1, void *item2);
 
         // textual heap representation, very nice!
         void DumpHeapRep();
 
         //log a character for "count" times
         void LogChar(char c, size_t count);
-
-        // Remove a block from a free list (inlined for speed)
-        void RemoveFromList(HeapBlock *block);
-
-        // Map a number of blocks to the appropriate large block free list index
-        uint32_t GetFreeListIndex(size_t size);
 
         bool HardLimitExceeded(size_t additionalAllocationAmt = 0);
         bool SoftLimitExceeded(size_t additionalAllocationAmt = 0);
@@ -942,10 +1021,6 @@ namespace MMgc
         void CheckForHardLimitExceeded();
         void CheckForSoftLimitExceeded(size_t request);
         bool FreeMemoryExceedsDecommitThreshold();
-
-        void ValidateHeapBlocks();
-
-        void ReleaseMemory(char *address, size_t size);
 
         void Enter(EnterFrame *frame);
         void Leave();
@@ -958,37 +1033,26 @@ namespace MMgc
 
         void CheckForNewMaxTotalHeapSize();
 
-        /**
-         * Regions are allocated from the blocks GCHeap manages
-         * similar to the HeapBlocks.  Regions can come and go so we
-         * maintain a freelist although in practice they come and go
-         * rarely we want don't want any longevity bugs
-         */
-        Region *NewRegion(char *baseAddr, char *rTop, char *cTop, size_t blockId);
-        void FreeRegion(Region *r);
-
-        // Used to allocate a Region outside ExpandHeap.
-        bool EnsureFreeRegion(bool allowExpansion);
-        bool HaveFreeRegion() const;
-
         bool newPagesDirty();
 
+
         // data section
+
         static GCHeap *instance;
         static size_t leakedBytes;
 
         static vmpi_spin_lock_t instanceEnterLock;
         static bool instanceEnterLockInitialized;
+		
+        Partition partitions[kNumHeapPartitions];
+		
+		size_t totalBlocksLen;
+		size_t totalNumDecommitted;
+		size_t totalLargeAllocs;
+        size_t totalNumAlloc;				// running total of number of blocks allocated and not freed (entire heap)
 
-        FixedMalloc fixedMalloc;
-        Region *freeRegion;
-        Region *nextRegion;
-        HeapBlock *blocks;
-        size_t blocksLen;
-        size_t numDecommitted;
-        size_t numRegionBlocks;
-        HeapBlock freelists[kNumFreeLists];
-        size_t numAlloc;
+        FixedMalloc fixedMallocs[kNumFixedPartitions];
+
         size_t gcheapCodeMemory;
         size_t externalCodeMemory;
         size_t externalPressure;
@@ -1015,8 +1079,6 @@ namespace MMgc
 #ifdef MMGC_POLICY_PROFILING
         size_t maxPrivateMemory;    // in bytes
 #endif
-        // number of blocks in LargeAlloc allocations
-        size_t largeAllocs;
 
 #ifdef MMGC_HOOKS
         bool hooksEnabled;
@@ -1024,8 +1086,9 @@ namespace MMgc
 
         bool entryChecksEnabled;
         bool abortStatusNotificationSent;
+		
+		int nextDecommitPartition;	// round-robin partition index for Decommit
     };
-
 
 }
 

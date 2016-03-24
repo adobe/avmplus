@@ -2291,8 +2291,8 @@ namespace nanojit
             // relevant.
             for (int i = 0; i < EMB_NUM_USED_ACCS; i++) {
                 if (accSet & (1 << i)) {
-                    VMPI_strcat(b, ".");
-                    VMPI_strcat(b, accNames[i]);
+					VMPI_strcat(b, buf->len, ".");
+					VMPI_strcat(b, buf->len, accNames[i]);
                     accSet &= ~(1 << i);
                 }
             }

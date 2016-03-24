@@ -28,7 +28,6 @@ avmplus_CXXSRCS := $(avmplus_CXXSRCS) \
   $(curdir)/BooleanClass.cpp \
   $(curdir)/BuiltinTraits.cpp \
   $(curdir)/ByteArrayGlue.cpp \
-  $(curdir)/CdeclThunk.cpp \
   $(curdir)/ClassClass.cpp \
   $(curdir)/ClassClosure.cpp \
   $(curdir)/CodegenLIR.cpp \
@@ -79,6 +78,7 @@ avmplus_CXXSRCS := $(avmplus_CXXSRCS) \
   $(curdir)/PromiseChannelGlue.cpp \
   $(curdir)/ProxyGlue.cpp \
   $(curdir)/QCache.cpp \
+  $(curdir)/RegExp.cpp \
   $(curdir)/RegExpClass.cpp \
   $(curdir)/RegExpObject.cpp \
   $(curdir)/Sampler.cpp \

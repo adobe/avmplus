@@ -78,9 +78,13 @@ def _setSDKParams(sdk_version, os_ver, xcode_version):
         if xcode_version is None:
             xcode_version = '6'
     elif sdk_version == '1010':
-        os_ver,sdk_number = '10.10','10.10'
+        os_ver,sdk_number = '10.10','10.11'
         if xcode_version is None:
-            xcode_version = '6'
+            xcode_version = '7'
+    elif sdk_version == '1011':
+        os_ver,sdk_number = '10.11','10.11'
+        if xcode_version is None:
+            xcode_version = '7'        
     else:
         print'Unknown SDK version -> %s. Expected values are 104u, 105, 106, 107, 108, 109 or 1010.' % sdk_version
         sys.exit(2)
@@ -424,7 +428,7 @@ if config.getCompiler() == 'GCC':
 
     else:
         APP_CXXFLAGS += "-Wall -Wcast-align -Wdisabled-optimization -Wextra -Wformat=2 -Winit-self -Winvalid-pch -Wno-invalid-offsetof -Wno-switch "\
-                       "-Wparentheses -Wpointer-arith -Wreorder -Wsign-compare -Wunused-parameter -Wwrite-strings -Wno-ctor-dtor-privacy -Woverloaded-virtual "\
+                       "-Wparentheses -Wpointer-arith -Wreorder -Wsign-compare -Wunused-parameter -Wwrite-strings -Wno-ctor-dtor-privacy -Wno-unused-local-typedefs -Woverloaded-virtual "\
                        "-Wsign-promo -Wno-char-subscripts -fmessage-length=0 -fno-exceptions -fsigned-char  "
         APP_CXXFLAGS += _setGCCVersionedFlags(APP_CXXFLAGS, GCC_MAJOR_VERSION, GCC_MINOR_VERSION, cpu, clang_compiler)
 
@@ -544,7 +548,7 @@ if the_os == "darwin":
     os_ver = p.stdout.read()
     parts = os_ver.split('.')
     os_ver = parts[0] + '.' + parts[1]
-
+	
     AVMSHELL_LDFLAGS += " -exported_symbols_list $(topsrcdir)/platform/mac/avmshell/exports.exp"
     MMGC_DEFINES.update({'TARGET_API_MAC_CARBON': 1,
                          'DARWIN': 1,

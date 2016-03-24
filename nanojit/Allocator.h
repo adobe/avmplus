@@ -72,9 +72,8 @@ namespace nanojit
     };
 }
 
-#if _MSC_VER >= 1900
-	// _MSC_VER >= 1900 supports C++11 where "alignof" is defined
-#else
+// _MSC_VER >= 1900 supports C++11 where "alignof" is defined
+#if !defined(_MSC_VER) || (_MSC_VER < 1900)
 // function for computing type alignment
 template <typename T>
 inline size_t alignof1() {

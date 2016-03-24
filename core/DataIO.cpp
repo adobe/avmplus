@@ -282,14 +282,15 @@ namespace avmplus
                                     uint32_t offset,
                                     uint32_t count)
     {
-        if (offset > buffer.GetLength())
-            offset = buffer.GetLength();
+		uint32_t length = buffer.GetLength();
+        if (offset > length)
+            offset = length;
 
         if (count == 0) {
-            count = buffer.GetLength()-offset;
+            count = length-offset;
         }
 
-        if (count > buffer.GetLength()-offset) {
+        if (count > length-offset) {
             ThrowRangeError();
         }
 

@@ -186,7 +186,7 @@ namespace MMgc
 
         static void *operator new(size_t size, GC *gc) GNUC_ONLY(throw())
         {
-            return gc->Alloc(size, GC::kZero);
+            return gc->Alloc(size, GC::kZero, kLeafObjectNewPartition);
         }
         
         // On purpose! Forward thinking 
@@ -260,7 +260,7 @@ namespace MMgc
                 count--;
             size_t arraySize = GCHeap::CheckForCallocSizeOverflow(sizeof(T), count);
             size_t bytes = GCHeap::CheckForAllocSizeOverflow(size, arraySize);
-            return gc->Alloc(bytes, flags & GC::kZero);
+            return gc->Alloc(bytes, flags & GC::kZero, kLeafVectorNewPartition);
         }
 
         // Private ctor to prevent subclassing.
@@ -454,12 +454,12 @@ namespace MMgc
 
     REALLY_INLINE void *GCObject::operator new(size_t size, GC *gc, size_t extra) GNUC_ONLY(throw())
     {
-        return gc->AllocExtraPtrZero(size, extra);
+        return gc->AllocExtraPtrZero(size, extra, kGCObjectNewPartition);
     }
 
     REALLY_INLINE void *GCObject::operator new(size_t size, GC *gc) GNUC_ONLY(throw())
     {
-        return gc->AllocPtrZero(size);
+        return gc->AllocPtrZero(size, kGCObjectNewPartition);
     }
 
     REALLY_INLINE void GCObject::operator delete(void *gcObject)
@@ -474,22 +474,22 @@ namespace MMgc
 
     REALLY_INLINE void *GCTraceableObject::operator new(size_t size, GC *gc, size_t extra) GNUC_ONLY(throw())
     {
-        return gc->AllocExtraPtrZero(size, extra);
+        return gc->AllocExtraPtrZero(size, extra, kGCTraceableObjectNewPartition);
     }
     
     REALLY_INLINE void *GCTraceableObject::operator new(size_t size, GC *gc) GNUC_ONLY(throw())
     {
-        return gc->AllocPtrZero(size);
+        return gc->AllocPtrZero(size, kGCTraceableObjectNewPartition);
     }
     
     REALLY_INLINE void *GCTraceableObject::operator new(size_t size, GC *gc, GCExactFlag, size_t extra) GNUC_ONLY(throw())
     {
-        return gc->AllocExtraPtrZeroExact(size, extra);
+        return gc->AllocExtraPtrZeroExact(size, extra, kGCTraceableObjectNewPartition);
     }
     
     REALLY_INLINE void *GCTraceableObject::operator new(size_t size, GC *gc, GCExactFlag) GNUC_ONLY(throw())
     {
-        return gc->AllocPtrZeroExact(size);
+        return gc->AllocPtrZeroExact(size, kGCTraceableObjectNewPartition);
     }
     
     REALLY_INLINE void GCTraceableObject::operator delete(void *gcObject)
@@ -509,42 +509,42 @@ namespace MMgc
 
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, size_t extra)
     {
-        return gc->AllocExtraPtrZeroFinalized(size, extra);
+        return gc->AllocExtraPtrZeroFinalized(size, extra, kGCFinalizedObjectNewPartition);
     }
 
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc)
     {
-        return gc->AllocPtrZeroFinalized(size);
+        return gc->AllocPtrZeroFinalized(size, kGCFinalizedObjectNewPartition);
     }
 
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCExactFlag, size_t extra)
     {
-        return gc->AllocExtraPtrZeroFinalizedExact(size, extra);
+        return gc->AllocExtraPtrZeroFinalizedExact(size, extra, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCExactFlag)
     {
-        return gc->AllocPtrZeroFinalizedExact(size);
+        return gc->AllocPtrZeroFinalizedExact(size, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCNoFinalizeFlag, size_t extra)
     {
-        return gc->AllocExtraPtrZero(size, extra);
+        return gc->AllocExtraPtrZero(size, extra, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCNoFinalizeFlag)
     {
-        return gc->AllocPtrZero(size);
+        return gc->AllocPtrZero(size, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCExactFlag, GCNoFinalizeFlag, size_t extra)
     {
-        return gc->AllocExtraPtrZeroExact(size, extra);
+        return gc->AllocExtraPtrZeroExact(size, extra, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void* GCFinalizedObject::operator new(size_t size, GC *gc, GCExactFlag, GCNoFinalizeFlag)
     {
-        return gc->AllocPtrZeroExact(size);
+        return gc->AllocPtrZeroExact(size, kGCFinalizedObjectNewPartition);
     }
     
     REALLY_INLINE void GCFinalizedObject::operator delete (void *gcObject)
@@ -608,22 +608,22 @@ namespace MMgc
     public:
         REALLY_INLINE static void *operator new(size_t size, GC *gc, size_t extra)
         {
-            return gc->AllocExtraRCObject(size, extra);
+            return gc->AllocExtraRCObject(size, extra, kRCObjectNewPartition);
         }
 
         REALLY_INLINE static void *operator new(size_t size, GC *gc)
         {
-            return gc->AllocRCObject(size);
+            return gc->AllocRCObject(size, kRCObjectNewPartition);
         }
  
         REALLY_INLINE static void *operator new(size_t size, GC *gc, GCExactFlag, size_t extra)
         {
-            return gc->AllocExtraRCObjectExact(size, extra);
+            return gc->AllocExtraRCObjectExact(size, extra, kRCObjectNewPartition);
         }
         
         REALLY_INLINE static void *operator new(size_t size, GC *gc, GCExactFlag)
         {
-            return gc->AllocRCObjectExact(size);
+            return gc->AllocRCObjectExact(size, kRCObjectNewPartition);
         }
     public:
 

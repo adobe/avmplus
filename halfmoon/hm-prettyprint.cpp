@@ -29,7 +29,7 @@ FILE* openFile(MethodInfo* m, const char* phase, const char *ext) {
   size_t ext_length = VMPI_strlen(ext);
   size_t total_length = phase_length + ext_length;
   char* filename = new (alloc) char[1 + total_length];
-  VMPI_strncpy(filename, phase, phase_length); 
+  VMPI_strncpy(filename, 1 + total_length, phase, phase_length); 
   VMPI_strncat(filename, ext, ext_length);
   (void) m; // What do we do with method?
 #endif

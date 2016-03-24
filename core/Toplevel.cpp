@@ -1121,7 +1121,7 @@ namespace avmplus
     {
         StringIndexer chars(in);
         int length = in->length();
-        wchar *out = (wchar*) core->GetGC()->Alloc(length*2+1); // decoded result is at most length wchar chars long
+        wchar *out = (wchar*) core->GetGC()->Alloc(length*2+1, 0, MMgc::kStringObjectContentPartition); // decoded result is at most length wchar chars long
         int outLen = 0;
         
         bool bugzilla609416 = core->currentBugCompatibility()->bugzilla609416;

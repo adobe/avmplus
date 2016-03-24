@@ -35,7 +35,10 @@ namespace vmbase {
     {
         size_t nameLength = VMPI_strlen(name);
         char* buf = new char[nameLength + 1];
-        VMPI_strncpy(buf, name, nameLength + 1);
+		// In _MSC_VER, VMPI_strncpy refers to strncpy_s which takes 4 parameters.
+		// See win32-platform.h
+		// It doesn't look good but it is an easy way to do.
+		VMPI_strncpy(buf, nameLength + 1, name, nameLength + 1);
         m_name = buf;
     }
 

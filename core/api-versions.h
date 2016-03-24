@@ -66,13 +66,15 @@ enum ApiVersion {
 	kApiVersion_AIR_18_0 = 47,
 	kApiVersion_SWF_30 = 48,
 	kApiVersion_AIR_19_0 = 49,
+	kApiVersion_SWF_31 = 50,
+	kApiVersion_AIR_20_0 = 51,
 //ADD_PREVIOUS_2_VERSIONED_LINES_INCREMENT_LAST_VALUE
-    kApiVersion_VM_INTERNAL = 50
+    kApiVersion_VM_INTERNAL = 52
 //REPLACE_PREVIOUS_LINE_INCREMENT_LAST_VALUE_BY_2
 };
 
 enum {
-    kApiVersion_count = 51
+    kApiVersion_count = 53
 //REPLACE_PREVIOUS_LINE_INCREMENT_LAST_VALUE_BY_2
 };
 

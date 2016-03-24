@@ -94,6 +94,13 @@ namespace MMgc
     };
 
 #endif
+	
+const static int fixedPartitionMap[] = FIXMEDMALLOC_SLICE_TO_PARTITION_MAP;
+
+const static int kFixedPartitionMapSize = sizeof(fixedPartitionMap) / sizeof(int);
+	
+static inline int SmallFixedAllocHeapPartition(int index) { GCAssert(kFixedPartitionMapSize == kNumFixedPartitions); GCAssert(index < kNumFixedPartitions); return fixedPartitionMap[index]; }
+static inline int LargeFixedAllocHeapPartition(int index) { GCAssert(kFixedPartitionMapSize == kNumFixedPartitions); GCAssert(index < kNumFixedPartitions); return fixedPartitionMap[index]; }
 
 #if defined GCDEBUG
     // For debugging we track live large objects in a list.  If there are a lot
@@ -108,15 +115,18 @@ namespace MMgc
 #endif
     
     /*static*/
-    FixedMalloc *FixedMalloc::instance;
+    FixedMalloc *FixedMalloc::instances[kNumFixedPartitions];
 
-    void FixedMalloc::InitInstance(GCHeap* heap)
+    void FixedMalloc::InitInstance(GCHeap* heap, int partition)
     {
         // The size tables above are derived based on a block size of 4096; this
         // assert keeps us honest.  Talk to Lars if you get into trouble here.
         GCAssert(GCHeap::kBlockSize == 4096);
+		
+		GCAssert(partition < kNumFixedPartitions);
         
         m_heap = heap;
+		m_largeAllocHeapPartition = LargeFixedAllocHeapPartition(partition);
         numLargeBlocks = 0;
         VMPI_lockInit(&m_largeAllocInfoLock);
     #ifdef MMGC_MEMORY_PROFILER
@@ -128,17 +138,17 @@ namespace MMgc
     #endif
 
         for (int i=0; i<kNumSizeClasses; i++)
-            m_allocs[i].Init((uint32_t)kSizeClasses[i], heap);
+			m_allocs[i].Init((uint32_t)kSizeClasses[i], heap, SmallFixedAllocHeapPartition(partition));
 
         m_rootFindCache.Init();
 
-        FixedMalloc::instance = this;
+        FixedMalloc::instances[partition] = this;
     }
 
-    void FixedMalloc::DestroyInstance()
+    void FixedMalloc::DestroyInstance(int partition)
     {
         for (int i=0; i<kNumSizeClasses; i++)
-            m_allocs[i].Destroy();
+			m_allocs[i].Destroy();
 
         VMPI_lockDestroy(&m_largeAllocInfoLock);
     #if defined GCDEBUG && !defined AVMPLUS_SAMPLER
@@ -146,7 +156,7 @@ namespace MMgc
     #endif
         m_rootFindCache.Destroy();
 
-        FixedMalloc::instance = NULL;
+        FixedMalloc::instances[partition] = NULL;
     }
 
     void FixedMalloc::FindBeginningRootsCache::Init()
@@ -209,7 +219,7 @@ namespace MMgc
         if((flags & kZero) != 0)
             gcheap_flags |= GCHeap::kZero;
 
-        void *item = m_heap->Alloc(blocksNeeded, gcheap_flags);
+        void *item = m_heap->GetPartition(m_largeAllocHeapPartition)->Alloc(blocksNeeded, gcheap_flags);
         if(item)
         {
             VALGRIND_CREATE_MEMPOOL(item, 0,  (flags & kZero) != 0);
@@ -252,14 +262,14 @@ namespace MMgc
             m_heap->FreeHook(item, Size(item), uint8_t(GCHeap::FXFreedPoison));
         }
 #endif
-        m_heap->FreeNoProfile(GetRealPointer(item));
+        m_heap->GetPartition(m_largeAllocHeapPartition)->FreeNoProfile(GetRealPointer(item));
         VALGRIND_MEMPOOL_FREE(GetRealPointer(item), item);
         VALGRIND_DESTROY_MEMPOOL(GetRealPointer(item));
     }
 
     size_t FixedMalloc::LargeSize(const void *item)
     {
-        return m_heap->Size(GetRealPointer(item)) * GCHeap::kBlockSize;
+        return m_heap->GetPartition(m_largeAllocHeapPartition)->Size(GetRealPointer(item)) * GCHeap::kBlockSize;
     }
 
     void *FixedMalloc::Calloc(size_t count, size_t elsize, FixedMallocOpts opts)
@@ -349,7 +359,7 @@ namespace MMgc
         }
 
         // if its not small, then it must be large (if its any object at all).
-        GCHeap::HeapBlock *b = m_heap->InteriorAddrToBlock(addr);
+        GCHeap::HeapBlock *b = m_heap->GetPartition(m_largeAllocHeapPartition)->InteriorAddrToBlock(addr);
         if (b && b->inUse()) {
             GCAssert(b->size >= 1);
             obj = GetUserPointer(b->baseAddr);
@@ -382,8 +392,9 @@ namespace MMgc
             if (m_allocs[i].QueryOwnsObject(item))
                 return;
 
+		// Item had better be large fixed object.
 #ifdef AVMPLUS_SAMPLER
-        if (m_heap->SafeSize(GetRealPointer(item)) != (size_t)-1)
+        if (m_heap->GetPartition(m_largeAllocHeapPartition)->SafeSize(GetRealPointer(item)) != (size_t)-1)
             return;
 #else
         {

@@ -104,7 +104,7 @@
 
     // Internal: profile uses of the conservative marker
     //
-    // When MMGC_DELETION_PROFILER is enabled and MMGC_PROFILE=1 is defined in the
+    // When MMGC_CONSERVATIVE_PROFILER is enabled and MMGC_PROFILE=1 is defined in the
     // runtime environment the VM will record all uses of conservative marking and
     // dump the allocation sites that result in conservatively marked storage when
     // the GC is shut down.
@@ -230,9 +230,87 @@ namespace MMgc
     class GCAlloc;
     class GCHeap;
     class GCTraceableBase;
-}
 
 #define CAPACITY(T)  (uint32_t(GCHeap::kBlockSize) / uint32_t(sizeof(T)))
+
+// *** Set up heap partitioning structure ***
+	
+#ifndef AVMSHELL_BUILD
+
+// Include host-specific partition definitions for Flash Player.
+#include "../../../flash/avmglue/avmhost-partitions.h"
+
+#else
+
+// Define trivial partitioning scheme for avmshell build.
+
+// Define a single heap partition.
+const static int kNumHeapPartitions = 1;
+	
+// Slices of the GC arena.
+const static int kNumGCPartitions = 1;
+	
+#define GC_SLICE_TO_PARTITION_MAP { 0 }
+	
+// Slices of the FixedMalloc arena.
+const static int kNumFixedPartitions = 1;
+	
+#define FIXMEDMALLOC_SLICE_TO_PARTITION_MAP { 0 }
+	
+// Assign slices of the GC arena to allocation sites.
+// The partition argument is a "slice" of the arena, not the entire heap.  Slices are mapped to partitions via gcPartitionMap.
+	
+const static int kAVMShellGCPartition = 0;
+const static int kAVMShellScriptBufferPartition = 0;
+const static int kLeafObjectNewPartition = 0;
+const static int kLeafVectorNewPartition = 0;
+const static int kGCObjectNewPartition = 0;
+const static int kGCTraceableObjectNewPartition = 0;
+const static int kGCFinalizedObjectNewPartition = 0;
+const static int kRCObjectNewPartition = 0;
+const static int kGCWeakRefNewPartition = 0;
+const static int kFixedBitSetPartition = 0;
+const static int kNativeInitializerPartition = 0;
+const static int kDebugStackFramePartition = 0;
+const static int kAOTDenseCopyPartition = 0;
+const static int kTracedListPartition = 0;
+const static int kStringBufferPartition = 0;
+const static int kBoxedDoublePartition = 0;
+const static int kStringObjectContentPartition = 0;
+
+// Assign slices of the FixedMalloc arena to allocation sites.
+// The partition argument is a "slice" of the arena, not the entire heap.  Slices are mapped to partitions via fixedPartitionMap.
+
+const static int kAVMShellFixedPartition = 0;
+const static int kLargeObjectTrackerPartition = 0;
+const static int kGCRootNewPartition = 0;
+const static int kFastAllocatorPartition = 0;
+const static int kMMFXNewScalarPartition = 0;
+const static int kMMFXNewArrayPartition = 0;
+const static int kMMFXNewPrimitivePointerArrayPartition = 0;
+const static int kJSONSerializerPartition = 0;
+const static int kExternalAllocPartition = 0;
+const static int kMMFXAllocPartition = 0;
+const static int kMMFXNewPrimitiveNonPointerArrayPartition = 0;
+const static int kDataListPartition = 0;
+const static int kByteArrayPartition = 0;
+	
+// Assign block-level allocation sites directly to heap partitions.
+
+const static int kAVMShellHeapPartition = 0;
+const static int kGCBitmapPartition = 0;
+const static int kPageMapPartition = 0;
+const static int kZCTPartition = 0;
+const static int kBibopPartition = 0;
+	
+const static int kStackPartition = 0;
+const static int kMMGCMetaDataPartition = 0;
+const static int kCodePartition = 0;
+
+#endif // AVMSHELL_BUILD
+
+}; // namepsace MMgc
+
 
 #include "StaticAssert.h"
 #include "GCTypes.h"

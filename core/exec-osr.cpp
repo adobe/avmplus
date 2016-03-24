@@ -86,9 +86,17 @@ namespace avmplus
     {
          // parse the commandline threshold
          int32_t threshold;
-         if (VMPI_sscanf(str, "%d", &threshold) != 1 ||
+
+// Visual Studio complains warnging 4996 as sscanf is not secure.
+#if defined(_MSC_VER)
+#pragma warning(disable: 4996)
+#endif
+		 if (VMPI_sscanf(str, "%d", &threshold) != 1 ||
              threshold < 0)
              return -1;
+#if defined(_MSC_VER)
+#pragma warning(default: 4996)
+#endif
          return threshold;
     }
 

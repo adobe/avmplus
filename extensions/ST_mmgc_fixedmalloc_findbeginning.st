@@ -83,7 +83,7 @@ using namespace MMgc;
 %%methods
 
 %%prologue
-    fm = MMgc::FixedMalloc::GetFixedMalloc();
+	fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kAVMShellFixedPartition);
 
 %%test findbeginnings_small0
     {

@@ -748,4 +748,25 @@ struct VMPI_TimerData
     VMPI_TimerClient    *client;    // a object containing a function we must call on every tick
 };
 
+#if defined (_MSC_VER)
+	#if _MSC_VER >= 1900 // VS2015
+		// This assumes we don't ship a player built with VS2015 or later to run on Windows XP or Vista.
+		// The RaiseFailFastException() API was introduced in Windows 7.
+		#include <windows.h>
+		#define VMPI_failFast() do { ::DebugBreak(); ::RaiseFailFastException(NULL, NULL, FAIL_FAST_GENERATE_EXCEPTION_ADDRESS); } while(0)
+	#else
+		#define VMPI_failFast() do { ::DebugBreak(); volatile unsigned* crash = 0; *crash = 0xdeadbeef; } while(0)
+	#endif
+	#define VMPI_DECLARE_FAILFAST(name) extern __declspec(noinline) void name();
+	#define VMPI_DEFINE_FAILFAST(name) __declspec(noinline) void name() { VMPI_failFast(); }
+#elif defined (__GNUC__) || defined (__clang__)
+	#define VMPI_failFast() do { volatile unsigned* crash = 0; *crash = 0xdeadbeef; } while(0)
+	#define VMPI_DECLARE_FAILFAST(name) extern void name() __attribute__((noinline));
+	#define VMPI_DEFINE_FAILFAST(name)  __attribute__((noinline)) void name() { VMPI_failFast(); }
+#else
+	#define VMPI_failFast() do { volatile unsigned* crash = 0; *crash = 0xdeadbeef; } while(0)
+	#define VMPI_DECLARE_FAILFAST(name) extern void name();
+	#define VMPI_DEFINE_FAILFAST(name) void name() { VMPI_failFast(); }
+#endif
+
 #endif /* __avmplus_VMPI__ */

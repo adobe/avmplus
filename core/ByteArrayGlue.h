@@ -8,26 +8,11 @@
 #ifndef BYTEARRAYGLUE_INCLUDED
 #define BYTEARRAYGLUE_INCLUDED
 
-#ifdef VMCFG_PARTITION_BYTEARRAY_DATA
-
-// TODO
-// We should arguably track allocations here with MMgc::GCHeap::SignalExternalAllocation().
-// The difficulty is that we need to track deallocations as well, and the size of the allocation
-// is not available from the pointer.  This will require some refactoring to keep track of the
-// size in the ByteArray::Buffer object.  Furthermore, we are tracking dependent allocations via
-// TellGcNewBufferMemory() and TellGcDeleteBufferMemory, and need to be careful to avoid double
-// counting.  As it is, we're handling DataList (Vector) buffers in a similar way, and no serious
-// issues have so far arisen.
-
 static inline uint8_t* ByteArrayBuffer_alloc(size_t count)
 {
     size_t size = MMgc::GCHeap::CheckForNewSizeOverflow(count, sizeof(uint8_t), /*canFail*/false);  // abort on bad size
-    void* mem = ::malloc(size);
-    if (!mem)
-    {
-        MMgc::GCHeap::GetGCHeap()->Abort();  // size was OK, but no memory
-    }
-    return (uint8_t*) mem;
+	MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kByteArrayPartition);
+    return (uint8_t*) fm->Alloc(size);
 }
 
 static inline uint8_t* ByteArrayBuffer_alloc_CanFail(size_t count)
@@ -37,7 +22,8 @@ static inline uint8_t* ByteArrayBuffer_alloc_CanFail(size_t count)
     {
         return NULL;
     }
-    return (uint8_t*) ::malloc(size);
+	MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kByteArrayPartition);
+    return (uint8_t*) fm->Alloc(size, MMgc::kCanFail);
 }
 
 static inline uint8_t* ByteArrayBuffer_alloc_CanFailAndZero(size_t count)
@@ -47,25 +33,20 @@ static inline uint8_t* ByteArrayBuffer_alloc_CanFailAndZero(size_t count)
     {
         return NULL;
     }
-    return (uint8_t*) ::calloc(size, 1);
+	MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kByteArrayPartition);
+    return (uint8_t*) fm->Alloc(size, MMgc::kCanFailAndZero);
 }
 
 static inline void ByteArrayBuffer_free(void* p)
 {
-    ::free(p);
+	MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kByteArrayPartition);
+    fm->Free(p);
 }
-
-#else
-
-#define ByteArrayBuffer_alloc(n)					mmfx_new_array(uint8_t, n)
-#define ByteArrayBuffer_alloc_CanFail(n)			mmfx_new_array_opt(uint8_t, n, MMgc::kCanFail)
-#define ByteArrayBuffer_alloc_CanFailAndZero(n)		mmfx_new_array_opt(uint8_t, n, MMgc::kCanFailAndZero)
-#define ByteArrayBuffer_free(p)						mmfx_delete_array(p)
-
-#endif
 
 namespace avmplus
 {
+    VMPI_DECLARE_FAILFAST(ByteArrayValidationError)
+
     class ByteArray : public DataInput,
                       public DataOutput
     {
@@ -84,8 +65,79 @@ namespace avmplus
         class Buffer : public FixedHeapRCObject
         {
         public:
+
+			// Default-constructed objects will generate checksum failures
+			// if we access any member without first calling its setter.
+
             virtual void destroy();
             virtual ~Buffer();
+			
+			void initialize(uint8_t* a, uint32_t c, uint32_t l, bool b)
+			{
+				setArray(a);
+				setCapacity(c);
+				setLength(l);
+				setCopyOnWrite(b);
+			}
+
+            REALLY_INLINE uint8_t* getArray() const
+            {
+			#ifdef AVMPLUS_64BIT
+                if ((uint32_t(uint64_t(array) >> 32) ^ uint32_t(uint64_t(array) & 0xffffffff) ^ MMgc::GCHeap::secret) != check_array) ByteArrayValidationError();
+			#else
+                if ((uint32_t(array) ^ MMgc::GCHeap::secret) != check_array) ByteArrayValidationError();
+			#endif
+                return array;
+            }
+
+            REALLY_INLINE void setArray(uint8_t* a)
+            {
+                array = a;
+			#ifdef AVMPLUS_64BIT
+				check_array = uint32_t(uint64_t(array) >> 32) ^ uint32_t(uint64_t(array) & 0xffffffff) ^ MMgc::GCHeap::secret;
+			#else
+				check_array = uint32_t(array) ^ MMgc::GCHeap::secret;
+			#endif
+            }
+
+            REALLY_INLINE uint32_t getCapacity() const
+            {
+                if ((capacity ^ MMgc::GCHeap::secret) != check_capacity) ByteArrayValidationError();
+                return capacity;
+            }
+
+            REALLY_INLINE void setCapacity(uint32_t c)
+            {
+                capacity = c;
+				check_capacity = c ^ MMgc::GCHeap::secret;
+            }
+
+            REALLY_INLINE uint32_t getLength() const
+            {
+                if ((length ^ MMgc::GCHeap::secret) != check_length) ByteArrayValidationError();
+                return length;
+            }
+
+            REALLY_INLINE void setLength(uint32_t l)
+            {
+                length = l;
+				check_length = l ^ MMgc::GCHeap::secret;
+            }
+
+            REALLY_INLINE bool getCopyOnWrite() const
+            {
+                if ((copyOnWrite ^ MMgc::GCHeap::secret) != check_copyOnWrite) ByteArrayValidationError();
+                return copyOnWrite != 0;
+            }
+
+            REALLY_INLINE void setCopyOnWrite(bool b)
+            {
+                copyOnWrite = b ? 0xffffffff : 0x00000000;
+				check_copyOnWrite = copyOnWrite ^ MMgc::GCHeap::secret;
+            }
+			
+        private:
+
             uint8_t* array;
             uint32_t capacity;
             uint32_t length;
@@ -96,7 +148,15 @@ namespace avmplus
             // Buffer class to guarantee that the pointer remains valid.  If at any time
             // that guarantee can no longer be made, a copy of the array data must be
             // created and copyOnWrite set to false.
-            bool copyOnWrite;
+            uint32_t copyOnWrite;  // effectively bool: 0x00000000 false, 0xffffffff true.
+			// We expect only a small number of Buffer objects to be in use at a time,
+			// and for their storage cost to be dominated by the buffer data itself.
+			// There is little reason to be concerned with the size of the metadata defined
+			// here, so we use a separate checksum for each field to lower the time for each check.
+            uint32_t check_array;
+            uint32_t check_capacity;
+            uint32_t check_length;
+            uint32_t check_copyOnWrite;
         };
 
 
@@ -108,10 +168,10 @@ namespace avmplus
 
         void Clear();
         
-        REALLY_INLINE uint8_t operator[](uint32_t index) const { AvmAssert(index < m_buffer->length); return (index < m_buffer->length) ? m_buffer->array[index] : 0; }
+        REALLY_INLINE uint8_t operator[](uint32_t index) const { AvmAssert(index < m_buffer->getLength()); return (index < m_buffer->getLength()) ? m_buffer->getArray()[index] : 0; }
         uint8_t& operator[](uint32_t index);
 
-        REALLY_INLINE uint32_t GetLength() const { return m_buffer->length; }
+        REALLY_INLINE uint32_t GetLength() const { return m_buffer->getLength(); }
         REALLY_INLINE bool IsShared() const { return m_isShareable && (m_buffer->RefCount() > 1); }
 
 		/* Normally at this point hasCurrent() should always return TRUE. However, if we have the following sequence:
@@ -170,7 +230,7 @@ namespace avmplus
         // which is provided solely for compatibility with existing code paths;
         // it's highly recommend you not use this method for new code.
         //
-        REALLY_INLINE const uint8_t* GetReadableBuffer() const { return m_buffer->array; }
+        REALLY_INLINE const uint8_t* GetReadableBuffer() const { return m_buffer->getArray(); }
 
         // You can use this call to get a WRITABLE pointer into the ByteArray.
         // The pointer starts at offset zero (regardless of the value of GetPosition())
@@ -207,7 +267,7 @@ namespace avmplus
                                   enum CatchAction, Exception **exn_recv);
 
         // overrides from DataInput
-        /*virtual*/ uint32_t Available() { return (m_position <= m_buffer->length) ? (m_buffer->length - m_position) : 0; }
+        /*virtual*/ uint32_t Available() { uint32_t length = m_buffer->getLength(); return (m_position <= length) ? (length - m_position) : 0; }
         /*virtual*/ void Read(void* buffer, uint32_t count);
 
         // overrides from DataOutput
@@ -217,7 +277,9 @@ namespace avmplus
 
         bool isShareable () const;
         bool setShareable (bool value);
-        
+
+		bool isShareablePropReadOnly() { return m_isShareablePropReadOnly; }
+		void setShareablePropReadOnly(bool value) { m_isShareablePropReadOnly = value; }
              
         bool addSubscriber(DomainEnv* subscriber);
         bool removeSubscriber(DomainEnv* subscriber);
@@ -283,10 +345,10 @@ namespace avmplus
         public:
             Grower(ByteArray* owner, uint32_t minimumCapacity)
                 : m_owner(owner)
-                , m_oldArray(owner->m_buffer->array)
-                , m_oldLength(owner->m_buffer->length)
-                , m_oldCapacity(owner->m_buffer->capacity)
-                , m_oldCopyOnWrite(owner->m_buffer->copyOnWrite)
+                , m_oldArray(owner->m_buffer->getArray())
+                , m_oldLength(owner->m_buffer->getLength())
+                , m_oldCapacity(owner->m_buffer->getCapacity())
+                , m_oldCopyOnWrite(owner->m_buffer->getCopyOnWrite())
                 , m_minimumCapacity(minimumCapacity)
             {
             }
@@ -326,7 +388,7 @@ namespace avmplus
         void TellGcNewBufferMemory(const uint8_t* buf, uint32_t numberOfBytes);
         void TellGcDeleteBufferMemory(const uint8_t* buf, uint32_t numberOfBytes);
         
-        REALLY_INLINE bool IsCopyOnWrite() const { return m_buffer->copyOnWrite; }
+        REALLY_INLINE bool IsCopyOnWrite() const { return m_buffer->getCopyOnWrite(); }
         void SetCopyOnWriteOwner(MMgc::GCObject* owner);
 
         ByteArray(const ByteArray& lhs);        // unimplemented
@@ -368,6 +430,7 @@ namespace avmplus
         uint32_t                m_position;
         FixedHeapRef<Buffer>    m_buffer;
         bool                    m_isShareable;
+		bool					m_isShareablePropReadOnly;
     public: // FIXME permissions
         bool                    m_isLinkWrapper;
     };

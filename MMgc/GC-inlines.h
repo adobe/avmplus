@@ -17,7 +17,7 @@ namespace MMgc
 
     REALLY_INLINE void *GCRoot::operator new(size_t size)
     {
-        FixedMalloc *fm = FixedMalloc::GetFixedMalloc();
+        FixedMalloc *fm = FixedMalloc::GetFixedMalloc(kGCRootNewPartition);
         void *retval = fm->OutOfLineAlloc(size, MMgc::kZero);
         // Bugzilla 664137, 681388: speed up imminent FindBeginning invocation.
         fm->m_rootFindCache.Stash(retval, size);
@@ -26,7 +26,7 @@ namespace MMgc
 
     REALLY_INLINE void GCRoot::operator delete (void *object)
     {
-        FixedMalloc* fm = FixedMalloc::GetFixedMalloc();
+        FixedMalloc* fm = FixedMalloc::GetFixedMalloc(kGCRootNewPartition);
         fm->m_rootFindCache.Clear(object);
         fm->OutOfLineFree(object);
     }
@@ -77,22 +77,22 @@ namespace MMgc
         policy.signalFreeWork(size);
     }
 
-    REALLY_INLINE void *GC::PleaseAlloc(size_t size, int flags)
+    REALLY_INLINE void *GC::PleaseAlloc(size_t size, int flags, int partition)
     {
-        return Alloc(size, flags | kCanFail);
+        return Alloc(size, (flags | kCanFail), partition);
     }
 
     // Normally extra will not be zero (overloaded 'new' operators take care of that)
     // so the overflow check is not actually redundant.
 
-    REALLY_INLINE void *GC::AllocExtra(size_t size, size_t extra, int flags)
+    REALLY_INLINE void *GC::AllocExtra(size_t size, size_t extra, int flags, int partition)
     {
-        return Alloc(GCHeap::CheckForAllocSizeOverflow(size, extra), flags);
+        return Alloc(GCHeap::CheckForAllocSizeOverflow(size, extra), flags, partition);
     }
 
-    REALLY_INLINE void *GC::Calloc(size_t count, size_t elsize, int flags)
+    REALLY_INLINE void *GC::Calloc(size_t count, size_t elsize, int flags, int partition)
     {
-        return Alloc(GCHeap::CheckForCallocSizeOverflow(count, elsize), flags);
+        return Alloc(GCHeap::CheckForCallocSizeOverflow(count, elsize), flags, partition);
     }
 
 #if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
@@ -104,66 +104,72 @@ namespace MMgc
     // See comments around GC::Alloc that explain why the guard and table lookup for the
     // small-allocator cases are correct.
 
-    REALLY_INLINE void *GC::AllocPtrZero(size_t size)
+    REALLY_INLINE void *GC::AllocPtrZero(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
+            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero);
+        return Alloc(size, GC::kContainsPointers|GC::kZero, partition);
     }
 
-    REALLY_INLINE void *GC::AllocPtrZeroExact(size_t size)
+    REALLY_INLINE void *GC::AllocPtrZeroExact(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
+            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kInternalExact);
+        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kInternalExact, partition);
     }
     
-    REALLY_INLINE void *GC::AllocPtrZeroFinalized(size_t size)
+    REALLY_INLINE void *GC::AllocPtrZeroFinalized(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
+            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kFinalize);
+        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kFinalize, partition);
     }
 
-    REALLY_INLINE void *GC::AllocPtrZeroFinalizedExact(size_t size)
+    REALLY_INLINE void *GC::AllocPtrZeroFinalizedExact(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
+            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact);
+        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact, partition);
     }
     
-    REALLY_INLINE void *GC::AllocRCObject(size_t size)
+    REALLY_INLINE void *GC::AllocRCObject(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
+            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize);
+        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize, partition);
     }
 
-    REALLY_INLINE void *GC::AllocRCObjectExact(size_t size)
+    REALLY_INLINE void *GC::AllocRCObjectExact(size_t size, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if (size <= kLargestAlloc)
-            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
+            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
 #endif
-        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact);
+        return Alloc(size, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact, partition);
     }
     
     REALLY_INLINE void* GC::AllocDouble()
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER && !defined MMGC_MEMORY_PROFILER
-        return GetUserPointer(noPointersNonfinalizedAllocs[0]->Alloc(/*flags*/0));
+        return GetUserPointer(noPointersNonfinalizedAllocs[0][kBoxedDoublePartition]->Alloc(/*flags*/0));
 #else
-        return Alloc(8,0);
+        return Alloc(8,0,kBoxedDoublePartition);
 #endif
     }
 
@@ -200,70 +206,76 @@ namespace MMgc
     // As 'extra' won't usually be known at compile time the fallback case won't usually compile away,
     // though, so we risk bloating the code slightly here.
 
-    REALLY_INLINE void *GC::AllocExtraPtrZero(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraPtrZero(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
-            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
+            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero, partition);
     }
 
-    REALLY_INLINE void *GC::AllocExtraPtrZeroExact(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraPtrZeroExact(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
-            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
+            return GetUserPointer(containsPointersNonfinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kInternalExact));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kInternalExact);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kInternalExact, partition);
     }
     
-    REALLY_INLINE void *GC::AllocExtraPtrZeroFinalized(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraPtrZeroFinalized(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
-            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
+            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kFinalize);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kFinalize, partition);
     }
 
-    REALLY_INLINE void *GC::AllocExtraPtrZeroFinalizedExact(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraPtrZeroFinalizedExact(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= (kLargestAlloc/2 & ~7)) {
             size += extra;
-            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
+            return GetUserPointer(containsPointersFinalizedAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kFinalize|GC::kInternalExact, partition);
     }
     
-    REALLY_INLINE void *GC::AllocExtraRCObject(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraRCObject(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= kLargestAlloc/2) {
             size += extra;
-            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
+            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize, partition);
     }
 
-    REALLY_INLINE void *GC::AllocExtraRCObjectExact(size_t size, size_t extra)
+    REALLY_INLINE void *GC::AllocExtraRCObjectExact(size_t size, size_t extra, int partition)
     {
 #if !defined GCDEBUG && !defined AVMPLUS_SAMPLER
+		GCAssert(partition < kNumGCPartitions);
         if ((size|extra) <= kLargestAlloc/2) {
             size += extra;
-            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
+            return GetUserPointer(containsPointersRCAllocs[sizeClassIndex[(size-1)>>3]][partition]->Alloc(SIZEARG GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact));
         }
 #endif
-        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact);
+        return OutOfLineAllocExtra(size, extra, GC::kContainsPointers|GC::kZero|GC::kRCObject|GC::kFinalize|GC::kInternalExact, partition);
     }
     
 #undef SIZEARG
@@ -586,14 +598,14 @@ namespace MMgc
         return VMPI_currentThread() == m_gcThread;
     }
 
-    REALLY_INLINE void GC::FreeBits(uint32_t *bits, int sizeClass)
+    REALLY_INLINE void GC::FreeBits(uint32_t *bits, int sizeClass, int partition)
     {
 #ifdef GCDEBUG
-        for(int i=0, n=noPointersNonfinalizedAllocs[sizeClass]->m_numBitmapBytes; i<n;i++)
+        for(int i=0, n=noPointersNonfinalizedAllocs[sizeClass][partition]->m_numBitmapBytes; i<n;i++)
             GCAssert(((uint8_t*)bits)[i] == 0);
 #endif
-        *(uint32_t**)bits = m_bitsFreelists[sizeClass];
-        m_bitsFreelists[sizeClass] = bits;
+        *(uint32_t**)bits = m_bitsFreelists[sizeClass][partition];
+        m_bitsFreelists[sizeClass][partition] = bits;
     }
 
     REALLY_INLINE bool GC::IsMarkedThenMakeQueued(const void* userptr)

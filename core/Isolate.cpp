@@ -475,17 +475,21 @@ throw_terminated_error:
                 // FIXME: The code below is essentially duplicated from ByteArrayObject::makeChannelItem().
 		        ByteArray::Buffer* buffer = ba->GetByteArray().getUnderlyingBuffer();
 			    ByteArray::Buffer* copy = mmfx_new(ByteArray::Buffer);
-			    copy->capacity = buffer->capacity;
-			    copy->length = buffer->length;
-			    if (buffer->array) {
-				    copy->array = ByteArrayBuffer_alloc_CanFailAndZero(buffer->capacity);
-                    if (copy->array) {
-				        VMPI_memcpy(copy->array, buffer->array, buffer->length);
+				uint8_t* array = buffer->getArray();
+				uint32_t capacity = buffer->getCapacity();
+				uint32_t length = buffer->getLength();
+			    copy->setCapacity(capacity);
+			    copy->setLength(length);
+			    if (array) {
+					uint8_t* newArray = ByteArrayBuffer_alloc_CanFailAndZero(capacity);
+				    copy->setArray(newArray);
+                    if (newArray) {
+				        VMPI_memcpy(newArray, array, length);
                     }
 			    } else {
-				    copy->array = NULL;
+				    copy->setArray(NULL);
 			    }
-                copy->copyOnWrite = false;
+                copy->setCopyOnWrite(false);
                 m_value = copy;
             }
 

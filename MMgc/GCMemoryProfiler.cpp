@@ -328,7 +328,7 @@ namespace MMgc
             len = 99;
             buff = tmp;
         }
-        VMPI_strncpy(buff, name, len);
+        VMPI_strncpy(buff, len+1, name, len);
         buff[len]='\0';
         char *iname = (char*)stringsTable.get(buff);
         if(iname)
@@ -681,17 +681,13 @@ namespace MMgc
             PrintStackTrace(traces[i].trace);
         }
     }
-
+	
     void MemoryProfiler::DumpAllocationProfile()
     {
-        // No particular reason this has to be AVMSHELL_BUILD only, but that's
-        // what we've tested so far.  Environment variables are not kosher in
-        // all settings.
-        //
         // Note you may want to inspect the implementation of AVMPI_setupPCResolution
         // to make sure symbol resolution is available and enabled, otherwise
         // the profiles won't make a lot of sense.
-#ifdef AVMSHELL_BUILD
+		//
         // Ad-hoc configuration.  If MMGC_PROFILE_CONFIG is present we try to
         // interpret it.  Its presence means we want allocation site profiling,
         // not leak profiling.  The string additionally can be empty, but if not
@@ -709,7 +705,11 @@ namespace MMgc
             unsigned limit;
             int len;
             MemoryProfiler::SortMode s;
-            if (VMPI_sscanf(x, "%u,%s%n", &limit, buf, &len) == 2 && unsigned(len) == VMPI_strlen(x)) {
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
+			if (VMPI_sscanf(x, "%u,%s%n", &limit, buf, &len) == 2 && unsigned(len) == VMPI_strlen(x))
+			{
                 if (VMPI_strcmp(buf, "count") == 0)
                     s = MemoryProfiler::BY_COUNT;
                 else
@@ -722,9 +722,11 @@ namespace MMgc
                 limit=40;
                 s = MemoryProfiler::BY_VOLUME;
             }
-            DumpSimpleByTotal(limit, s);
-        }
+#ifdef _MSC_VER
+#pragma warning(default: 4996)
 #endif
+			DumpSimpleByTotal(limit, s);
+        }
     }
 
     void SetMemTag(const char *s)

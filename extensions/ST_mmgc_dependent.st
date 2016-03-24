@@ -22,12 +22,12 @@ class DependentAllocHolder : public GCFinalizedObject {
 public:
 
   DependentAllocHolder() {
-    memory = (char*)FixedMalloc::GetFixedMalloc()->Alloc(nbytes);
+    memory = (char*)FixedMalloc::GetFixedMalloc(MMgc::kAVMShellFixedPartition)->Alloc(nbytes);
     GC::GetGC(this)->SignalDependentAllocation(nbytes);
   }
 
   virtual ~DependentAllocHolder() {
-    FixedMalloc::GetFixedMalloc()->Free(memory);
+    FixedMalloc::GetFixedMalloc(MMgc::kAVMShellFixedPartition)->Free(memory);
     memory = NULL;
     GC::GetGC(this)->SignalDependentDeallocation(nbytes);
   }

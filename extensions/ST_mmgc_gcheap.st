@@ -13,18 +13,18 @@ using namespace MMgc;
 %%test largeAlloc
        GCHeap *heap = GCHeap::GetGCHeap();
        for(int i=1;i<4;i++) {
-          void *item = heap->Alloc(GCHeap::kOSAllocThreshold*i);
-          %%verify heap->Size(item) == GCHeap::kOSAllocThreshold*i
-          heap->Free(item);
+          void *item = heap->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(GCHeap::kOSAllocThreshold*i);
+          %%verify heap->GetPartition(MMgc::kAVMShellHeapPartition)->Size(item) == GCHeap::kOSAllocThreshold*i
+          heap->GetPartition(MMgc::kAVMShellHeapPartition)->Free(item);
        }
        %%verify true
 
 %%test largeAllocAlignment
        GCHeap *heap = GCHeap::GetGCHeap();
        for(int i=1;i<10;i++) {
-          void *item = heap->Alloc(GCHeap::kOSAllocThreshold*i, GCHeap::flags_Alloc, 1<<i);
-          %%verify heap->Size(item) == GCHeap::kOSAllocThreshold*i
+          void *item = heap->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(GCHeap::kOSAllocThreshold*i, GCHeap::flags_Alloc, 1<<i);
+          %%verify heap->GetPartition(MMgc::kAVMShellHeapPartition)->Size(item) == GCHeap::kOSAllocThreshold*i
           %%verify uintptr_t(((GCHeap::kBlockSize<<(i-1))-1) & uintptr_t(item)) == 0
-          heap->Free(item);
+          heap->GetPartition(MMgc::kAVMShellHeapPartition)->Free(item);
        }
 

@@ -124,7 +124,9 @@ inline Register nextMsReg(RegisterMask& mask,Register r)
         // where the instruction itself provides no clue as to what kind of register is desired
         Register            allocReg(LIns* ins, RegisterMask allow, Register regClass = UnspecifiedReg );
         // Allocates temporary register; see also the implementation notes
-        Register            allocTempReg(RegisterMask allow, Register regClass = UnspecifiedReg);   
+        Register            allocTempReg(RegisterMask allow, Register regClass = UnspecifiedReg);
+		// Allocates a pair of temporary registers; see also the implemntation notes.
+		void				allocTempReg2(RegisterMask allow1, Register& r1, RegisterMask allow2, Register& r2, Register regClass1 = UnspecifiedReg,  Register regClass2 = UnspecifiedReg);
         // Allocates temporary register; see also the implementation notes
         Register            allocTempRegIfAvailable(RegisterMask allow, Register regClass = UnspecifiedReg);   
         // Used to assign a register to an instruction
@@ -237,7 +239,21 @@ inline Register nextMsReg(RegisterMask& mask,Register r)
         retire(r);
         return r;
      }
-    // Finds a register in 'allow' to store a temporary value (one not associated with a 
+
+	// Allocate a pair of temporaries.
+	// This cannot be done with successive calls to allocTempReg().
+    inline void RegAlloc::allocTempReg2(RegisterMask allow1, Register& r1, RegisterMask allow2, Register& r2, Register regClass1, Register regClass2)
+    {
+        LIns dummyIns1, dummyIns2;
+        dummyIns1.initLInsOp0(LIR_label);
+        dummyIns2.initLInsOp0(LIR_label);
+        r1 = allocReg(&dummyIns1, allow1, regClass1);
+        r2 = allocReg(&dummyIns2, allow2 & ~rmask(r1), regClass2);
+        retire(r1);
+        retire(r2);
+	}
+	
+    // Finds a register in 'allow' to store a temporary value (one not associated with a
     // particular LIns). Never evicts instructions. Returns UnspecifiedRegister on failure.
     // PARTIAL IMPLEMENTATION. ONLY WORKS ON GPRs. ASSUMES GPRs ARE NON-OVERLAPPING.
     inline Register RegAlloc::allocTempRegIfAvailable(RegisterMask allow, Register regClass){

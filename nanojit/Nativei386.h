@@ -81,6 +81,7 @@ namespace nanojit
     #define RA_PREFERS_LSREG                1
     #define NJ_JTBL_ALLOWED_IDX_REGS        GpRegs
     #define NJ_SAFEPOINT_POLLING_SUPPORTED  1
+	#define NJ_BLIND_CONSTANTS				1
 
         // Preserve a 16-byte stack alignment, to support the use of
         // SSE instructions like MOVDQA (if not by Tamarin itself,
@@ -148,6 +149,8 @@ namespace nanojit
 
     static const RegisterMask AllowableByteRegs = 1<<REGNUM(rEAX) | 1<<REGNUM(rECX) |
                                                   1<<REGNUM(rEDX) | 1<<REGNUM(rEBX);
+	
+	static const RegisterMask SpecialRegs = 1<<REGNUM(FP) | 1<<REGNUM(SP);	// These are GpRegs that may be assumed live.
 
     static inline bool IsGpReg(Register r) {
         return ((1<<REGNUM(r)) & GpRegs) != 0;
@@ -265,7 +268,23 @@ namespace nanojit
             MODRMr(d, REGNUM(s)); \
             OPCODE(opc); \
         }; \
-        void ALUi(int32_t c, Register r, int32_t i); \
+		void ALUi(int32_t opc, Register r, int32_t i) { \
+			underrunProtect(6); \
+			NanoAssert(REGNUM(r) < 8); \
+			if (isS8(i)) { \
+				IMM8(i); \
+				MODRMr(opc >> 3, REGNUM(r)); \
+				OPCODE(0x83); \
+			} else { \
+				IMM32(i); \
+				if (r == rEAX) { \
+					OPCODE(opc); \
+				} else { \
+					MODRMr(opc >> 3, REGNUM(r)); \
+					OPCODE(0x81); \
+				} \
+			} \
+		}; \
         void ALUmi(int32_t c, int32_t d, Register b, int32_t i); \
         void ALU2(int32_t c, Register d, Register s); \
         Register AL2AHReg(Register r); \
@@ -287,7 +306,11 @@ namespace nanojit
         void SHRi(Register r, int32_t i); \
         void SARi(Register r, int32_t i); \
         void MOVZX8(Register d, Register s); \
-        void SUBi(Register r, int32_t i); \
+		void SUBi(Register r, int32_t i) { \
+			count_alu(); \
+			ALUi(0x2d, r, i); \
+			asm_output("sub %s,%d", gpn(r), i); \
+		}; \
         void ADDi(Register r, int32_t i); \
         void ANDi(Register r, int32_t i); \
         void ORi(Register r, int32_t i); \

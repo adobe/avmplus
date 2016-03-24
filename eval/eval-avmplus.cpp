@@ -77,7 +77,7 @@ namespace avmplus
     void AvmplusHostContext::doubleToString(double d, char* buf, size_t bufsiz)
     {
         StUTF8String s(MathUtils::convertDoubleToString(core, d));
-        VMPI_strncpy(buf, s.c_str(), bufsiz);
+        VMPI_strncpy(buf, bufsiz, s.c_str(), bufsiz-1);
         buf[bufsiz-1] = 0;
     }
 

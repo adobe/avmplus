@@ -6,7 +6,7 @@
 
 
 #include "avmplus.h"
-#include "pcre.h"
+#include "RegExp.h"
 
 //#define DOPROF
 //#include "../vprof/vprof.h"
@@ -1114,28 +1114,28 @@ namespace avmplus
     MethodNameRegExRecognizer::MethodNameRegExRecognizer(const char* pattern, size_t length)
     {
         char* str = new char[length + 1];
-        VMPI_strncpy(str, pattern, length);
+        VMPI_strncpy(str, length + 1, pattern, length);
         str[length]='\0';
         _pattern = str;
         _invalid = false;
 
-        int options = PCRE_UTF8;
-        int error, errOffset;
+        int options = RegExp::kUtfOption;
+        int errOffset;
         const char* errStr;
-        _regex = (void*)pcre_compile2(_pattern, options, &error, &errStr, &errOffset, NULL);
-
+        _regex = mmfx_new(RegExp());
         // effective but not so pretty error handling.
-        if (_regex == NULL)
+        if (!((RegExp *)_regex)->compile(_pattern, length, options, &errStr, &errOffset, NULL))
         {
             delete[] _pattern;
 
             size_t errLen = (errStr == NULL) ? 0 : VMPI_strlen(errStr);
             const char* msg = "*** REGULAR EXPRESSION PARSE ERROR *** : ";
             const char* msgcont = " in : ";
-            str = new char[VMPI_strlen(msg) + errLen + VMPI_strlen(msgcont) + length + 1];
+			size_t bufferLen = VMPI_strlen(msg) + errLen + VMPI_strlen(msgcont) + length + 1;
+            str = new char[bufferLen];
             VMPI_strcpy(str, msg);
-            (errLen) ? VMPI_strcat(str, errStr) : 0;
-            VMPI_strcat(str, msgcont);
+			(errLen) ? VMPI_strcat(str, bufferLen, errStr) : 0;
+			VMPI_strcat(str, bufferLen, msgcont);
             VMPI_strncat(str, pattern, length);
             _pattern = str;
             _invalid = true;
@@ -1146,14 +1146,15 @@ namespace avmplus
     {
         delete[] _pattern;
         _pattern = NULL;
-        (pcre_free)((pcre*)_regex);
+        mmfx_delete((RegExp *)_regex);
         _regex = NULL;
     }
 
     bool MethodNameRegExRecognizer::matches(const MethodInfo* m) const
     {
         StUTF8String nm( m->getMethodName() );
-        int matches = (_invalid) ? -1 : pcre_exec((pcre*)_regex, NULL, nm.c_str(), nm.length(), 0, PCRE_NO_UTF8_CHECK, NULL, 0);
+        RegExpSizeType offset;
+        int matches = (_invalid) ? -1 : ((RegExp *)_regex)->exec(nm.c_str(), nm.length(), 0, RegExp::kNoUtfOption, offset);
         return (matches >= 0);
     }
 

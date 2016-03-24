@@ -90,7 +90,8 @@ don't change existing definitions of PCRE_EXP_DECL and PCRECPP_EXP_DECL. */
 #  endif
 #endif
 
-#define EXPORT
+// Commneting EXPORT as it is not getting used and it causes redefinition on MAC AIR
+//#define EXPORT
     
 /* Allow for C++ users */
 

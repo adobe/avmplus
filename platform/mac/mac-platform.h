@@ -7,27 +7,31 @@
 #ifndef __avmplus_mac_platform__
 #define __avmplus_mac_platform__
 
-#define VMPI_memcpy         ::memcpy
-#define VMPI_memset         ::memset
-#define VMPI_memcmp         ::memcmp
-#define VMPI_memmove        ::memmove
-#define VMPI_memchr         ::memchr
-#define VMPI_strcmp         ::strcmp
-#define VMPI_strcat         ::strcat
-#define VMPI_strchr         ::strchr
-#define VMPI_strrchr        ::strrchr
-#define VMPI_strcpy         ::strcpy
-#define VMPI_strlen         ::strlen
-#define VMPI_strncat        ::strncat
-#define VMPI_strncmp        ::strncmp
-#define VMPI_strncpy        ::strncpy
-#define VMPI_strtol         ::strtol
-#define VMPI_strstr         ::strstr
+#define VMPI_memcpy					::memcpy
+#define VMPI_memset					::memset
+#define VMPI_memcmp					::memcmp
+#define VMPI_memmove				::memmove
+#define VMPI_memchr					::memchr
+#define VMPI_strcmp					::strcmp
+// As VMPI_strcat(i.e strcat_s) in Windows takes 3 arguments, 
+// VMPI_strcat in Mac has also been changed to take 3 arguments
+#define VMPI_strcat(d, n, s)        ::strcat(d, s)
+#define VMPI_strchr					::strchr
+#define VMPI_strrchr				::strrchr
+#define VMPI_strcpy					::strcpy
+#define VMPI_strlen					::strlen
+#define VMPI_strncat				::strncat
+#define VMPI_strncmp				::strncmp
+// As VMPI_strncpy(i.e strncpy_s) in Windows takes 4 arguments, 
+// VMPI_strncpy in Mac has also been changed to take 4 arguments
+#define VMPI_strncpy(d, nd, s, ns)  ::strncpy(d, s, ns)
+#define VMPI_strtol					::strtol
+#define VMPI_strstr					::strstr
 
-#define VMPI_sprintf        ::sprintf
-#define VMPI_snprintf       ::snprintf
-#define VMPI_vsnprintf      ::vsnprintf
-#define VMPI_sscanf         ::sscanf
+#define VMPI_sprintf				::sprintf
+#define VMPI_snprintf				::snprintf
+#define VMPI_vsnprintf				::vsnprintf
+#define VMPI_sscanf					::sscanf
 
 #define VMPI_atoi   ::atoi
 #define VMPI_tolower ::tolower
@@ -219,56 +223,32 @@ REALLY_INLINE bool VMPI_lockTestAndAcquire(vmpi_spin_lock_t* lock)
 
 REALLY_INLINE int32_t VMPI_atomicIncAndGet32WithBarrier(volatile int32_t* value)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicIncrement32Barrier(const_cast<int32_t*>(value));
-#else
     return OSAtomicIncrement32Barrier(value);
-#endif
 }
 
 REALLY_INLINE int32_t VMPI_atomicIncAndGet32(volatile int32_t* value)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicIncrement32(const_cast<int32_t*>(value));
-#else
     return OSAtomicIncrement32(value);
-#endif
 }
 
 REALLY_INLINE int32_t VMPI_atomicDecAndGet32WithBarrier(volatile int32_t* value)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicDecrement32Barrier(const_cast<int32_t*>(value));
-#else
     return OSAtomicDecrement32Barrier(value);
-#endif
 }
 
 REALLY_INLINE int32_t VMPI_atomicDecAndGet32(volatile int32_t* value)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicDecrement32(const_cast<int32_t*>(value));
-#else
     return OSAtomicDecrement32(value);
-#endif
 }
 
 REALLY_INLINE bool VMPI_compareAndSwap32(int32_t oldValue, int32_t newValue, volatile int32_t* address)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicCompareAndSwap32(oldValue, newValue, const_cast<int32_t*>(address));
-#else
     return OSAtomicCompareAndSwap32(oldValue, newValue, address);
-#endif
 }
 
 REALLY_INLINE bool VMPI_compareAndSwap32WithBarrier(int32_t oldValue, int32_t newValue, volatile int32_t* address)
 {
-#if MACOSX_DEPLOYMENT_TARGET == MACOSX_DEPLOYMENT_TARGET_10_4
-    return OSAtomicCompareAndSwap32Barrier(oldValue, newValue, const_cast<int32_t*>(address));
-#else
     return OSAtomicCompareAndSwap32Barrier(oldValue, newValue, address);
-#endif
 }
 
 REALLY_INLINE void VMPI_memoryBarrier()

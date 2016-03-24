@@ -9,27 +9,31 @@
 
 #include <assert.h>
 
-#define VMPI_memcpy         ::memcpy
-#define VMPI_memset         ::memset
-#define VMPI_memcmp         ::memcmp
-#define VMPI_memmove        ::memmove
-#define VMPI_memchr         ::memchr
-#define VMPI_strcmp         ::strcmp
-#define VMPI_strcat         ::strcat
-#define VMPI_strchr         ::strchr
-#define VMPI_strrchr        ::strrchr
-#define VMPI_strcpy         ::strcpy
-#define VMPI_strlen         ::strlen
-#define VMPI_strncat        ::strncat
-#define VMPI_strncmp        ::strncmp
-#define VMPI_strncpy        ::strncpy
-#define VMPI_strtol         ::strtol
-#define VMPI_strstr         ::strstr
+#define VMPI_memcpy					::memcpy
+#define VMPI_memset					::memset
+#define VMPI_memcmp					::memcmp
+#define VMPI_memmove				::memmove
+#define VMPI_memchr					::memchr
+#define VMPI_strcmp					::strcmp
+// As VMPI_strcat(i.e strcat_s) in Windows takes 3 arguments, 
+// VMPI_strcat in Unix has also been changed to take 3 arguments
+#define VMPI_strcat(d, n, s)        ::strcat(d, s)
+#define VMPI_strchr					::strchr
+#define VMPI_strrchr				::strrchr
+#define VMPI_strcpy					::strcpy
+#define VMPI_strlen					::strlen
+#define VMPI_strncat				::strncat
+#define VMPI_strncmp				::strncmp
+// As VMPI_strncpy(i.e strncpy_s) in Windows takes 4 arguments, 
+// VMPI_strncpy in Unix has also been changed to take 4 arguments
+#define VMPI_strncpy(d, nd, s, ns)  ::strncpy(d, s, ns)
+#define VMPI_strtol					::strtol
+#define VMPI_strstr					::strstr
 
-#define VMPI_sprintf        ::sprintf
-#define VMPI_snprintf       ::snprintf
-#define VMPI_vsnprintf      ::vsnprintf
-#define VMPI_sscanf         ::sscanf
+#define VMPI_sprintf				::sprintf
+#define VMPI_snprintf				::snprintf
+#define VMPI_vsnprintf				::vsnprintf
+#define VMPI_sscanf					::sscanf
 
 #define VMPI_atoi   ::atoi
 #define VMPI_tolower ::tolower

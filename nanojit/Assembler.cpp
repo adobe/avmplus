@@ -174,10 +174,12 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
         , vtuneHandle(NULL)
     #endif
         , _mdWriter(mdWriter)
+	#if NJ_BLIND_CONSTANTS
         , _blindMask32(0)
     #ifdef NANOJIT_64BIT
         , _blindMask64(0L)
     #endif
+	#endif
         , _config(config)
     {
         (void)logc;
@@ -414,6 +416,108 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
         }
     }
     #endif /* _DEBUG */
+	
+// For debugging: Define this symbol to force blinding of all tainted displacements.
+//#define NANOJIT_STRESS_BLINDING
+// For debugging: Always use a temporary, e.g., to diagnose cases where we fail to do so improperly.
+//#define NANOJIT_BLINDING_FORCE_TEMPORARY
+	
+#if NJ_BLIND_CONSTANTS
+	
+#ifdef DEBUG
+	static int disp_blind_getbase = 0;
+	static int disp_blind_blindbase = 0;
+	static int disp_blind_needmove = 0;
+#endif
+	
+	bool Assembler::forceDisplacementBlinding(bool tainted) {
+        (void)tainted;
+	#ifdef NANOJIT_STRESS_BLINDING
+		return tainted;
+	#else
+		return false;
+	#endif
+	}
+	
+	Register Assembler::getBaseRegWithBlinding(LIns* base, int &d, RegisterMask allow, bool tainted, bool force, Register* rbp)
+	{
+		#ifdef NANOJIT_BLINDING_FORCE_TEMPORARY
+		bool lastUseOfBase = false;
+		#else
+		bool lastUseOfBase = !(base->isInReg() || base->isInAr());
+		#endif
+		Register rb = getBaseReg(base, d, allow);
+		if (force || (tainted && shouldBlindDisplacement(d))) {
+			d += _blindMask32;
+			// If rb is live after this insn, we need a temporary that we can clobber for blinding.
+			*rbp = rb;
+			// Note: If rb is not in GpRegs, it may be a special register such as FP and may be live even if lastUseOfBase is true.
+			return (lastUseOfBase && !(rmask(rb) & SpecialRegs)) ? rb : _allocator.allocTempReg(allow & ~rmask(rb));
+        } else {
+			*rbp = UnspecifiedReg;
+			return rb;
+		}
+	}
+	
+	Register Assembler::getBaseRegWithBlindingUsingSpecifiedTemp(LIns* base, int &d, RegisterMask allow, bool tainted, bool force, Register* rbp, Register temp)
+	{
+		NanoAssert(rmask(temp) & allow);
+		#ifdef NANOJIT_BLINDING_FORCE_TEMPORARY
+		bool lastUseOfBase = false;
+		#else
+		bool lastUseOfBase = !(base->isInReg() || base->isInAr());
+		#endif
+		Register rb = getBaseReg(base, d, allow);
+		if (force || (tainted && shouldBlindDisplacement(d))) {
+			d += _blindMask32;
+			// If rb is live after this insn, we need a temporary that we can clobber for blinding.
+			*rbp = rb;
+			// Note: If rb is not in GpRegs, it may be a special register such as FP and may be live even if lastUseOfBase is true.
+			return (lastUseOfBase && !(rmask(rb) & SpecialRegs)) ? rb : temp;
+		} else {
+			*rbp = UnspecifiedReg;
+			return rb;
+		}
+	}
+	
+	void Assembler::getBaseReg2WithBlinding(RegisterMask allowValue, LIns* value, Register& rv,
+											RegisterMask allowBase, LIns* base, Register& rb, int &d, bool tainted, bool force, Register* rbp)
+	{
+		#ifdef NANOJIT_BLINDING_FORCE_TEMPORARY
+		bool lastUseOfBase = false;
+		#else
+		bool lastUseOfBase = !(base->isInReg() || base->isInAr());
+		#endif
+		getBaseReg2(allowValue, value, rv, allowBase, base, rb, d);
+		if (force || (tainted && shouldBlindDisplacement(d))) {
+			d += _blindMask32;
+			// If rb is live after this insn, we need a temporary that we can clobber for blinding.
+			*rbp = rb;
+			// Note: If rb is not in GpRegs, it may be a special register such as FP and may be live even if lastUseOfBase is true.
+			rb = (lastUseOfBase && !(rmask(rb) & SpecialRegs)) ? rb : _allocator.allocTempReg(allowBase & ~rmask(rb) & ~rmask(rv));
+		} else {
+			*rbp = UnspecifiedReg;
+			// leave rb alone
+		}
+	}
+
+	void Assembler::adjustBaseRegForBlinding(Register trb, Register rb)
+	{
+		debug_only(disp_blind_getbase++;)
+		if (rb != UnspecifiedReg)
+		{
+			debug_only(disp_blind_blindbase++;)
+			// Platforms that support NJ_BLIND_CONSTANTS must define SUBi as
+			// subtraction of an immediate 32-bit constant from a GpReg.
+			SUBi(trb, _blindMask32);
+			if (trb != rb)
+			{
+				debug_only(disp_blind_needmove++;)
+				MR(trb, rb);
+			}
+		}
+	}
+#endif
 
     void Assembler::findRegFor2(RegisterMask allowa, LIns* ia, Register& ra,
                                 RegisterMask allowb, LIns* ib, Register& rb)
@@ -591,7 +695,7 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
         float4_t* p = _immF4Pool.get(q);
         if (!p)
         {
-#if _MSC_VER >= 1900
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
 			p = new (_dataAlloc, alignof(float4_t)) float4_t;
 #else
             p = new (_dataAlloc, alignof1<float4_t>()) float4_t;
@@ -1046,6 +1150,7 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
 
         reset();
 
+#if NJ_BLIND_CONSTANTS
         // Set up per-function constant blinding masks.
         if (_config.harden_blind_constants && _noise) {
             _blindMask32 = _noise->getValue32();
@@ -1053,6 +1158,7 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
             _blindMask64 = uint64_t(_noise->getValue32()) << 32 | uint64_t(_noise->getValue32());
 #endif
         }
+#endif
 
         // JIT hardening requires a source of random noise.
         // If configured, check that we've provided one.
@@ -2106,7 +2212,11 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
                     countlir_st();
                     ins->oprnd1()->setResultLive();
                     ins->oprnd2()->setResultLive();
-                    asm_store32(op, ins->oprnd1(), ins->disp(), ins->oprnd2());
+					#if NJ_BLIND_CONSTANTS
+						asm_store32(op, ins->oprnd1(), ins->disp(), ins->oprnd2(), ins->isTainted());
+					#else
+						asm_store32(op, ins->oprnd1(), ins->disp(), ins->oprnd2());
+					#endif
                     break;
 
                 CASE64(LIR_stq:)
@@ -2123,13 +2233,22 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
                     if (value->isop(LIR_ii2d) && op == LIR_std)
                     {
                         // This is correct for little-endian only.
-                        asm_store32(LIR_sti, value->oprnd1(), dr, base);
-                        asm_store32(LIR_sti, value->oprnd2(), dr+4, base);
+						#if NJ_BLIND_CONSTANTS
+							asm_store32(LIR_sti, value->oprnd1(), dr, base, ins->isTainted());
+							asm_store32(LIR_sti, value->oprnd2(), dr+4, base, ins->isTainted());
+						#else
+							asm_store32(LIR_sti, value->oprnd1(), dr, base);
+							asm_store32(LIR_sti, value->oprnd2(), dr+4, base);
+						#endif
                     }
                     else
 #endif
                     {
-                        asm_store64(op, value, dr, base);
+						#if NJ_BLIND_CONSTANTS
+                        	asm_store64(op, value, dr, base, ins->isTainted());
+						#else
+                        	asm_store64(op, value, dr, base);
+						#endif
                     }
                     break;
                 }
@@ -2141,7 +2260,11 @@ typedef void* (*decode_instructions_ftype) (void* start, void* end,
                     LIns* value = ins->oprnd1();
                     LIns* base = ins->oprnd2();
                     int dr = ins->disp();
-                    asm_store128(op, value, dr, base);
+					#if NJ_BLIND_CONSTANTS
+                    	asm_store128(op, value, dr, base, ins->isTainted());
+					#else
+	                    asm_store128(op, value, dr, base);
+					#endif
                     break;
                 }
 

@@ -26,8 +26,8 @@ namespace avmplus
         versioned_uris(_versioned_uris),
         abcData(_abcData),
         abcDataLen(_abcDataLen),
-        methods((MethodType*)core->GetGC()->Calloc(_methodCount, sizeof(MethodType), GC::kZero)),
-        classes((ClassType*)core->GetGC()->Calloc(_classCount, sizeof(ClassType), GC::kZero)),
+		methods((MethodType*)core->GetGC()->Calloc(_methodCount, sizeof(MethodType), GC::kZero, MMgc::kNativeInitializerPartition)),
+		classes((ClassType*)core->GetGC()->Calloc(_classCount, sizeof(ClassType), GC::kZero, MMgc::kNativeInitializerPartition)),
         methodCount(_methodCount),
         classCount(_classCount)
     {
@@ -44,8 +44,8 @@ namespace avmplus
         versioned_uris(_versioned_uris),
         abcData(_aotInfo->abcBytes),
         abcDataLen(_aotInfo->nABCBytes),
-        methods((MethodType*)core->GetGC()->Calloc((_methodCount>0 ? _methodCount : 1), sizeof(MethodType), GC::kZero)),
-        classes((ClassType*)core->GetGC()->Calloc((_classCount>0 ? _classCount : 1), sizeof(ClassType), GC::kZero)),
+		methods((MethodType*)core->GetGC()->Calloc((_methodCount>0 ? _methodCount : 1), sizeof(MethodType), GC::kZero, MMgc::kNativeInitializerPartition)),
+		classes((ClassType*)core->GetGC()->Calloc((_classCount>0 ? _classCount : 1), sizeof(ClassType), GC::kZero, MMgc::kNativeInitializerPartition)),
         methodCount(_methodCount),
         classCount(_classCount)
         , aotInfo(_aotInfo)

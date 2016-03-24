@@ -50,6 +50,9 @@ namespace avmplus
     
     // ----------------------------
 
+    VMPI_DECLARE_FAILFAST(DataListLengthValidationError)
+    VMPI_DECLARE_FAILFAST(TracedListLengthValidationError)
+
     // All Lists will be created with this as a minimum capacity, even if empty.
     // The current value (4) is based on the value from AtomArray, which used it as a minimum.
     const uint32_t kListMinCapacity = 4;
@@ -98,9 +101,6 @@ namespace avmplus
 		
 		LISTDATA*	data;
         MMgc::GC*   m_gc;
-		#ifdef VMCFG_PARTITION_LIST_DATA
-		uint32_t	capacity;
-		#endif
         uint32_t    len;            // Invariant: Must *never* exceed kListMaxLength
 
         // An empty, inlined ctor is needed to avoid spurious warnings in MSVC2008.
@@ -112,9 +112,6 @@ namespace avmplus
 			// See GC::RCObjectZeroCheck().
 			m_gc = NULL;
 			len = 0;
-			#ifdef VMCFG_PARTITION_LIST_DATA
-				capacity = 0;
-			#endif
 		}
 
         REALLY_INLINE MMgc::GC* gc() { return m_gc; }
@@ -122,16 +119,11 @@ namespace avmplus
 		
         REALLY_INLINE static LISTDATA* allocData(MMgc::GC* gc, size_t totalElements)
         {
-			using namespace MMgc;
-			size_t size = GCHeap::CheckForAllocSizeOverflow(sizeof(LISTDATA) + slop,
-															GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE)));
-			void* mem = ::malloc(size);
-			if (!mem)
-			{
-				GCHeap::SignalExternalFreeMemory(size);
-				mem = ::malloc(size);
-				if (!mem) GCHeap::GetGCHeap()->Abort();
-			}
+			size_t size = MMgc::GCHeap::CheckForAllocSizeOverflow(sizeof(LISTDATA) + slop,
+																  MMgc::GCHeap::CheckForCallocSizeOverflow(totalElements-1, sizeof(STORAGE)));
+			
+			MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kDataListPartition);
+            void* mem = fm->Alloc(size);
 			if (gc) gc->SignalDependentAllocation(size);
 			LISTDATA* newBuffer = ::new(mem)ListData<STORAGE>();
 			#ifdef VMCFG_VECTOR_SMASH_PROTECTION
@@ -142,28 +134,22 @@ namespace avmplus
 		
         REALLY_INLINE void freeData()
         {
-			if (m_gc) m_gc->SignalDependentDeallocation(getSize() + slop);
-			::free(data);
+            MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kDataListPartition);
+            if (m_gc) m_gc->SignalDependentDeallocation(fm->Size(data));
+            fm->Free(data);
 			data = NULL;
         }
 		
         REALLY_INLINE size_t getSize() const
         {
-			#ifdef VMCFG_PARTITION_LIST_DATA
-            	return sizeof(LISTDATA) + ((capacity - 1) * sizeof(STORAGE));
-			#else
-				return MMgc::GC::Size(data);
-			#endif
+            MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kDataListPartition);
+            return fm->Size(data) - slop;
         }
 		
 		REALLY_INLINE uint32_t getCapacity() const
 		{
-			#ifdef VMCFG_PARTITION_LIST_DATA
-				return capacity;
-			#else
-				return uint32_t((MMgc::GC::Size(data) - offsetof(LISTDATA, entries)) / sizeof(STORAGE));
-			#endif
-
+            MMgc::FixedMalloc* const fm = MMgc::FixedMalloc::GetFixedMalloc(MMgc::kDataListPartition);
+			return uint32_t((fm->Size(data) - offsetof(LISTDATA, entries)) / sizeof(STORAGE));
 		}
 		
 		REALLY_INLINE void setLength(uint32_t newlength)
@@ -188,7 +174,7 @@ namespace avmplus
 				AvmAssert(data != NULL);
 				if ((len ^ MMgc::GCHeap::secret) != data->cookie)
 				{
-					MMgc::GCHeap::GetGCHeap()->Abort();
+					DataListLengthValidationError();
 				}
 			#endif
 			return len;
@@ -214,6 +200,12 @@ namespace avmplus
 
         // An empty, inlined ctor is needed to avoid spurious warnings in MSVC2008.
         REALLY_INLINE explicit TracedListData() {}
+		
+		// We want to allocate these in a separate partition for variable-sized buffer data.
+		REALLY_INLINE void *operator new(size_t size, MMgc::GC *gc, MMgc::GCExactFlag, size_t extra)
+		{
+			return gc->AllocExtraPtrZeroExact(size, extra, MMgc::kTracedListPartition);
+		}
 
 		virtual bool gcTrace(MMgc::GC* gc, size_t cursor);
 	};
@@ -304,7 +296,7 @@ namespace avmplus
 				AvmAssert(data != NULL);			
 			    if ((len ^ MMgc::GCHeap::secret) != data->cookie)
 				{
-					MMgc::GCHeap::GetGCHeap()->Abort();
+					TracedListLengthValidationError();
 				}
 			#else
 				// Verify secondary length is correct.
@@ -363,7 +355,7 @@ namespace avmplus
         // Store the data at the address, using WB if necessary.
         // Any pointer already stored there will be overwritten (but not freed); the caller
         // must ensure that old pointers are freed.
-        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data);
         
         // Load the item and do any conversion necessary from STORAGE to TYPE.
         static TYPE load(LISTDATA* data, uint32_t index);
@@ -399,7 +391,7 @@ namespace avmplus
         typedef TracedListHeader<STORAGE> LISTHEADER;
 		typedef LISTHEADER::LISTDATA LISTDATA;
         
-        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
@@ -418,7 +410,7 @@ namespace avmplus
         typedef TracedListHeader<STORAGE> LISTHEADER;
 		typedef LISTHEADER::LISTDATA LISTDATA;
         
-        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);
@@ -438,7 +430,7 @@ namespace avmplus
         typedef TracedListHeader<STORAGE> LISTHEADER;
 		typedef LISTHEADER::LISTDATA LISTDATA;
 
-        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storePointer(LISTDATA* data, uint32_t index, TYPE value);
@@ -458,7 +450,7 @@ namespace avmplus
 		typedef TracedListHeader<STORAGE> LISTHEADER;
 		typedef LISTHEADER::LISTDATA LISTDATA;
 
-        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data, uint32_t capacity);
+        static void wbData(const void* container, LISTHEADER& header, LISTDATA* data);
         static TYPE load(LISTDATA* data, uint32_t index);
         static void store(LISTDATA* data, uint32_t index, TYPE value);
         static void storeInEmpty(LISTDATA* data, uint32_t index, TYPE value);

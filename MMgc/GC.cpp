@@ -83,6 +83,13 @@ namespace MMgc
         39, 39, 39, 39, 39, 39, 39, 39, 39, 39,
         39, 39, 39, 39, 39, 39
     };
+	
+const static int gcPartitionMap[] = GC_SLICE_TO_PARTITION_MAP;
+	
+const static int kGCPartitionMapSize = sizeof(gcPartitionMap) / sizeof(int);
+	
+static inline int SmallGCAllocHeapPartition(int index)	  { GCAssert(kGCPartitionMapSize == kNumGCPartitions); GCAssert(index < kNumGCPartitions); return gcPartitionMap[index]; }
+static inline int LargeGCAllocHeapPartition(int index)    { GCAssert(kGCPartitionMapSize == kNumGCPartitions); GCAssert(index < kNumGCPartitions); return gcPartitionMap[index]; }
 
 #ifdef _MSC_VER
 #  pragma warning(push)
@@ -217,17 +224,27 @@ namespace MMgc
         //
         // See comment in GCAlloc.cpp for more about the quick lists.
 
-        remainingQuickListBudget = (3*kNumSizeClasses) * 4 * GCHeap::kBlockSize;
+		//### FIXME: Need to adjust for partitions?  Many partitions will have only one size
+		//### of object, so providing for all the others inflates the budget.
+		
+        remainingQuickListBudget = (3*kNumSizeClasses*kNumGCPartitions) * 4 * GCHeap::kBlockSize;
+		
+		//### FIXME: Many partitions will not contain all types of storage or all size classes.
+		//### We should have a way to avoid creating the unnecessary GCAlloc instances.
+		//### This means at least being prepared for null entries in the allocator arrays, however,
+		//### which we are explicitly attempting to avoid here.
 
         // Create all the allocators up front (not lazy)
         // so that we don't have to check the pointers for
         // NULL on every allocation.
         for (int i=0; i<kNumSizeClasses; i++) {
-            containsPointersNonfinalizedAllocs[i] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, false, false, i, 0));
-            containsPointersFinalizedAllocs[i] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, false, true, i, 0));
-            containsPointersRCAllocs[i] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, true, true, i, 0));
-            noPointersNonfinalizedAllocs[i] = mmfx_new(GCAlloc(this, kSizeClasses[i], false, false, false, i, 0));
-            noPointersFinalizedAllocs[i] = mmfx_new(GCAlloc(this, kSizeClasses[i], false, false, true, i, 0));
+			for (int j=0; j<kNumGCPartitions; j++) {
+				containsPointersNonfinalizedAllocs[i][j] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, false, false, i, j, SmallGCAllocHeapPartition(j), 0));
+				containsPointersFinalizedAllocs[i][j] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, false, true, i, j, SmallGCAllocHeapPartition(j), 0));
+				containsPointersRCAllocs[i][j] = mmfx_new(GCAlloc(this, kSizeClasses[i], true, true, true, i, j, SmallGCAllocHeapPartition(j), 0));
+				noPointersNonfinalizedAllocs[i][j] = mmfx_new(GCAlloc(this, kSizeClasses[i], false, false, false, i, j, SmallGCAllocHeapPartition(j), 0));
+				noPointersFinalizedAllocs[i][j] = mmfx_new(GCAlloc(this, kSizeClasses[i], false, false, true, i, j, SmallGCAllocHeapPartition(j), 0));
+			}
         }
 
         /* Bibop allocators are a little tricky:
@@ -244,12 +261,29 @@ namespace MMgc
          * it's no worse than for double boxes, and anyway if the common case is fully typed code with Vector
          * (this will be true for float and float4 especially) then the box cost is not a big deal.
          */
+		
+		// Find a slice mapped to kBibopPartition.
+		// If none exists, just use slice 0 as a placeholder.
+		// Bibop allocations are only used when float/float4 are enabled.
+		// They are not used at present (2015.09.22), and we should probably just not create the allocators at all.
+		int bibopSlice = -1;
+		for (int i = 0; i < kNumGCPartitions; i++)
+		{
+			if (SmallGCAllocHeapPartition(i) == kBibopPartition)
+			{
+				bibopSlice = i;
+				break;
+			}
+		}
+		if (bibopSlice < 0)
+			bibopSlice = 0;
+		
 #if !defined MMGC_MEMORY_INFO
 #if USER_POINTER_WORDS != 0
     #error "GC::GC cannot handle this value of USER_POINTER_WORDS"
 #endif
-        bibopAllocFloat  = mmfx_new(GCAlloc(this,  8, false, false, false, /*sizeclass*/0, avmplus::AtomConstants::kBibopFloatType));
-        bibopAllocFloat4 = mmfx_new(GCAlloc(this, 16, false, false, false, /*sizeclass*/1, avmplus::AtomConstants::kBibopFloat4Type));
+        bibopAllocFloat  = mmfx_new(GCAlloc(this,  8, false, false, false, /*sizeclass*/0, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloatType));
+        bibopAllocFloat4 = mmfx_new(GCAlloc(this, 16, false, false, false, /*sizeclass*/1, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloat4Type));
 #else
 #if USER_POINTER_WORDS != 2 && USER_POINTER_WORDS != 4
     #error "GC::GC cannot handle this value of USER_POINTER_WORDS"
@@ -257,40 +291,40 @@ namespace MMgc
 #ifdef MMGC_64BIT
 #if USER_POINTER_WORDS == 2
         GCAssert(DebugSize() == 24);
-        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, avmplus::AtomConstants::kBibopFloatType));
-        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5 /*See above*/, avmplus::AtomConstants::kBibopFloat4Type));
+        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloatType));
+        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5 /*See above*/, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloat4Type));
 #else
         GCAssert(DebugSize() == 32);
-        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(40), false, false, false, /*sizeclass*/4, avmplus::AtomConstants::kBibopFloatType));
-        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5, avmplus::AtomConstants::kBibopFloat4Type));
+        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(40), false, false, false, /*sizeclass*/4, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloatType));
+        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloat4Type));
 #endif
 #else // !MMGC_64BIT
 #if USER_POINTER_WORDS == 2
         GCAssert(DebugSize() == 16);
-        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(24), false, false, false, /*sizeclass*/2, avmplus::AtomConstants::kBibopFloatType));
-        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, avmplus::AtomConstants::kBibopFloat4Type));
+        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(24), false, false, false, /*sizeclass*/2, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloatType));
+        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloat4Type));
 #else
         GCAssert(DebugSize() == 24);
-        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, avmplus::AtomConstants::kBibopFloatType));
-        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5 /*See above*/, avmplus::AtomConstants::kBibopFloat4Type));
+        bibopAllocFloat  = mmfx_new(GCAlloc(this, int(32), false, false, false, /*sizeclass*/3, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloatType));
+        bibopAllocFloat4 = mmfx_new(GCAlloc(this, int(48), false, false, false, /*sizeclass*/5 /*See above*/, bibopSlice, kBibopPartition, avmplus::AtomConstants::kBibopFloat4Type));
 #endif
 #endif
 #endif
-
-        largeAlloc = mmfx_new(GCLargeAlloc(this));
+		for (int i = 0; i < kNumGCPartitions; i++)
+			largeAllocs[i] = mmfx_new(GCLargeAlloc(this, LargeGCAllocHeapPartition(i)));
 
         // See comment in GC.h
-        allocsTable[kRCObject] = containsPointersRCAllocs;
-        allocsTable[kRCObject|kFinalize] = containsPointersRCAllocs;
-        allocsTable[kRCObject|kContainsPointers] = containsPointersRCAllocs;
-        allocsTable[kRCObject|kFinalize|kContainsPointers] = containsPointersRCAllocs;
-        allocsTable[kContainsPointers] = containsPointersNonfinalizedAllocs;
-        allocsTable[kContainsPointers|kFinalize] = containsPointersFinalizedAllocs;
-        allocsTable[kFinalize] = noPointersFinalizedAllocs;
-        allocsTable[0] = noPointersNonfinalizedAllocs;
+        allocsTable[kRCObject] = &containsPointersRCAllocs;
+        allocsTable[kRCObject|kFinalize] = &containsPointersRCAllocs;
+        allocsTable[kRCObject|kContainsPointers] = &containsPointersRCAllocs;
+        allocsTable[kRCObject|kFinalize|kContainsPointers] = &containsPointersRCAllocs;
+        allocsTable[kContainsPointers] = &containsPointersNonfinalizedAllocs;
+        allocsTable[kContainsPointers|kFinalize] = &containsPointersFinalizedAllocs;
+        allocsTable[kFinalize] = &noPointersFinalizedAllocs;
+        allocsTable[0] = &noPointersNonfinalizedAllocs;
 
-        VMPI_memset(m_bitsFreelists, 0, sizeof(uint32_t*) * kNumSizeClasses);
-        m_bitsNext = (uint32_t*)heapAlloc(1);
+        VMPI_memset(m_bitsFreelists, 0, sizeof(uint32_t*) * kNumSizeClasses * kNumGCPartitions);
+        m_bitsNext = (uint32_t*)heapAlloc(1, kGCBitmapPartition);
 
         // precondition for emptyPageList
         GCAssert(offsetof(GCLargeAlloc::LargeBlock, next) == offsetof(GCAlloc::GCBlock, next));
@@ -382,41 +416,47 @@ namespace MMgc
         }
 
         for (int i=0; i < kNumSizeClasses; i++) {
-            mmfx_delete(containsPointersNonfinalizedAllocs[i]);
-            mmfx_delete(containsPointersFinalizedAllocs[i]);
-            mmfx_delete(containsPointersRCAllocs[i]);
-            mmfx_delete(noPointersNonfinalizedAllocs[i]);
-            mmfx_delete(noPointersFinalizedAllocs[i]);
+			for (int j=0; j < kNumGCPartitions; j++) {
+				mmfx_delete(containsPointersNonfinalizedAllocs[i][j]);
+				mmfx_delete(containsPointersFinalizedAllocs[i][j]);
+				mmfx_delete(containsPointersRCAllocs[i][j]);
+				mmfx_delete(noPointersNonfinalizedAllocs[i][j]);
+				mmfx_delete(noPointersFinalizedAllocs[i][j]);
+			}
         }
 
         mmfx_delete(bibopAllocFloat);
         mmfx_delete(bibopAllocFloat4);
 
-        if (largeAlloc) {
-            mmfx_delete(largeAlloc);
-        }
+		for (int i = 0; i < kNumGCPartitions; i++) {
+			if (largeAllocs[i]) {
+				mmfx_delete(largeAllocs[i]);
+			}
+		}
 
-        // Go through m_bitsFreelist and collect list of all pointers
-        // that are on page boundaries into new list, pageList
-        void **pageList = NULL;
-        for(int i=0, n=kNumSizeClasses; i<n; i++) {
-            uint32_t* bitsFreelist = m_bitsFreelists[i];
-            while(bitsFreelist) {
-                uint32_t *next = *(uint32_t**)bitsFreelist;
-                if((uintptr_t(bitsFreelist) & GCHeap::kOffsetMask) == 0) {
-                    *((void**)bitsFreelist) = pageList;
-                    pageList = (void**)bitsFreelist;
-                }
-                bitsFreelist = next;
-            }
-        }
-
-        // Go through page list and free all pages on it
-        while (pageList) {
-            void **next = (void**) *pageList;
-            heapFree((void*)pageList);
-            pageList = next;
-        }
+		// Go through m_bitsFreelist and collect list of all pointers
+		// that are on page boundaries into new list, pageList
+		void **pageList = NULL;
+		for(int i=0, n=kNumSizeClasses; i<n; i++) {
+			for (int j=0, m=kNumGCPartitions; j<m; j++) {
+				uint32_t* bitsFreelist = m_bitsFreelists[i][j];
+				while(bitsFreelist) {
+					uint32_t *next = *(uint32_t**)bitsFreelist;
+					if((uintptr_t(bitsFreelist) & GCHeap::kOffsetMask) == 0) {
+						*((void**)bitsFreelist) = pageList;
+						pageList = (void**)bitsFreelist;
+					}
+					bitsFreelist = next;
+				}
+			}
+		}
+        
+		// Go through page list and free all pages on it
+		while (pageList) {
+			void **next = (void**) *pageList;
+			heapFree((void*)pageList, /*siz*/0, kGCBitmapPartition);
+			pageList = next;
+		}
 
         pageMap.DestroyPageMapVia(heap);
 
@@ -795,8 +835,10 @@ namespace MMgc
     }
 #endif
 
-    void *GC::Alloc(size_t size, int flags/*0*/)
+    void *GC::Alloc(size_t size, int flags, int partition)
     {
+		GCAssert(partition < kNumGCPartitions);
+		
 #ifdef GCDEBUG
         AllocPrologue(size);
 #endif
@@ -832,18 +874,18 @@ namespace MMgc
 #endif
 
             // The table avoids a five-way decision tree.
-            GCAlloc **allocs = allocsTable[flags & (kRCObject|kFinalizable|kContainsPointers)];
+            Allocators* allocs = allocsTable[flags & (kRCObject|kFinalizable|kContainsPointers)];
 
             // assert that I fit
-            GCAssert(size <= allocs[index]->GetItemSize());
+            GCAssert(size <= (*allocs)[index][partition]->GetItemSize());
 
             // assert that I don't fit (makes sure we don't waste space)
-            GCAssert( (index==0) || (size > allocs[index-1]->GetItemSize()));
+            GCAssert( (index==0) || (size > (*allocs)[index-1][partition]->GetItemSize()));
 
 #if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
-            item = allocs[index]->Alloc(askSize, flags);
+            item = (*allocs)[index][partition]->Alloc(askSize, flags);
 #else
-            item = allocs[index]->Alloc(flags);
+            item = (*allocs)[index][partition]->Alloc(flags);
 #endif
         }
         else
@@ -854,9 +896,9 @@ namespace MMgc
             size += DebugSize();
 #endif
 #if defined GCDEBUG || defined MMGC_MEMORY_PROFILER
-            item = largeAlloc->Alloc(askSize, size, flags);
+            item = largeAllocs[partition]->Alloc(askSize, size, flags);
 #else
-            item = largeAlloc->Alloc(size, flags);
+            item = largeAllocs[partition]->Alloc(size, flags);
 #endif
         }
 
@@ -899,9 +941,9 @@ namespace MMgc
 
     // Mmmm.... gcc -O3 inlines Alloc into this in Release builds :-)
 
-    void *GC::OutOfLineAllocExtra(size_t size, size_t extra, int flags)
+    void *GC::OutOfLineAllocExtra(size_t size, size_t extra, int flags, int partition)
     {
-        return AllocExtra(size, extra, flags);
+        return AllocExtra(size, extra, flags, partition);
     }
 
     void GC::AbortFree(const void* item)
@@ -979,15 +1021,17 @@ namespace MMgc
         // allocator in that pool.
 
         while (remainingQuickListBudget <= nbytes) {
-            GCAlloc** allocs = NULL;
+            Allocators* allocs = NULL;
             switch (victimIterator % 5) {
-                case 0: allocs = containsPointersNonfinalizedAllocs; break;
-                case 1: allocs = containsPointersFinalizedAllocs; break;
-                case 2: allocs = containsPointersRCAllocs; break;
-                case 3: allocs = noPointersNonfinalizedAllocs; break;
-                case 4: allocs = noPointersFinalizedAllocs; break;
+                case 0: allocs = &containsPointersNonfinalizedAllocs; break;
+                case 1: allocs = &containsPointersFinalizedAllocs; break;
+                case 2: allocs = &containsPointersRCAllocs; break;
+                case 3: allocs = &noPointersNonfinalizedAllocs; break;
+                case 4: allocs = &noPointersFinalizedAllocs; break;
             }
-            allocs[victimIterator / 5]->CoalesceQuickList();
+			for (int i=0; i < kNumGCPartitions; i++) {
+				(*allocs)[victimIterator / 5][i]->CoalesceQuickList();
+			}
             victimIterator = (victimIterator + 1) % (5*kNumSizeClasses);
         }
 
@@ -1058,15 +1102,19 @@ namespace MMgc
         EstablishSweepInvariants();
 
         for (int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->ClearMarks();
-            containsPointersNonfinalizedAllocs[i]->ClearMarks();
-            containsPointersFinalizedAllocs[i]->ClearMarks();
-            noPointersNonfinalizedAllocs[i]->ClearMarks();
-            noPointersFinalizedAllocs[i]->ClearMarks();
+			for (int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->ClearMarks();
+				containsPointersNonfinalizedAllocs[i][j]->ClearMarks();
+				containsPointersFinalizedAllocs[i][j]->ClearMarks();
+				noPointersNonfinalizedAllocs[i][j]->ClearMarks();
+				noPointersFinalizedAllocs[i][j]->ClearMarks();
+			}
         }
         bibopAllocFloat->ClearMarks();
         bibopAllocFloat4->ClearMarks();
-        largeAlloc->ClearMarks();
+		for (int j=0; j < kNumGCPartitions; j++) {
+			largeAllocs[j]->ClearMarks();
+		}
         m_markStackOverflow = false;
     }
 
@@ -1075,23 +1123,29 @@ namespace MMgc
         MarkOrClearWeakRefs();
 
         for(int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->Finalize();
-            containsPointersNonfinalizedAllocs[i]->Finalize();
-            containsPointersFinalizedAllocs[i]->Finalize();
-            noPointersNonfinalizedAllocs[i]->Finalize();
-            noPointersFinalizedAllocs[i]->Finalize();
+			for (int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->Finalize();
+				containsPointersNonfinalizedAllocs[i][j]->Finalize();
+				containsPointersFinalizedAllocs[i][j]->Finalize();
+				noPointersNonfinalizedAllocs[i][j]->Finalize();
+				noPointersFinalizedAllocs[i][j]->Finalize();
+			}
         }
         bibopAllocFloat->Finalize();
         bibopAllocFloat4->Finalize();
-        largeAlloc->Finalize();
+		for (int j=0; j < kNumGCPartitions; j++) {
+			largeAllocs[j]->Finalize();
+		}
         finalizedValue = !finalizedValue;
 
         for(int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->m_finalized = false;
-            containsPointersNonfinalizedAllocs[i]->m_finalized = false;
-            containsPointersFinalizedAllocs[i]->m_finalized = false;
-            noPointersNonfinalizedAllocs[i]->m_finalized = false;
-            noPointersFinalizedAllocs[i]->m_finalized = false;
+			for (int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->m_finalized = false;
+				containsPointersNonfinalizedAllocs[i][j]->m_finalized = false;
+				containsPointersFinalizedAllocs[i][j]->m_finalized = false;
+				noPointersNonfinalizedAllocs[i][j]->m_finalized = false;
+				noPointersFinalizedAllocs[i][j]->m_finalized = false;
+			}
         }
 
         bibopAllocFloat->m_finalized = false;
@@ -1105,11 +1159,13 @@ namespace MMgc
 
         // clean up any pages that need sweeping
         for(int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->SweepNeedsSweeping();
-            containsPointersNonfinalizedAllocs[i]->SweepNeedsSweeping();
-            containsPointersFinalizedAllocs[i]->SweepNeedsSweeping();
-            noPointersNonfinalizedAllocs[i]->SweepNeedsSweeping();
-            noPointersFinalizedAllocs[i]->SweepNeedsSweeping();
+			for (int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->SweepNeedsSweeping();
+				containsPointersNonfinalizedAllocs[i][j]->SweepNeedsSweeping();
+				containsPointersFinalizedAllocs[i][j]->SweepNeedsSweeping();
+				noPointersNonfinalizedAllocs[i][j]->SweepNeedsSweeping();
+				noPointersFinalizedAllocs[i][j]->SweepNeedsSweeping();
+			}
         }
         bibopAllocFloat->SweepNeedsSweeping();
         bibopAllocFloat4->SweepNeedsSweeping();
@@ -1118,11 +1174,13 @@ namespace MMgc
     void GC::EstablishSweepInvariants()
     {
         for(int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->CoalesceQuickList();
-            containsPointersNonfinalizedAllocs[i]->CoalesceQuickList();
-            containsPointersFinalizedAllocs[i]->CoalesceQuickList();
-            noPointersNonfinalizedAllocs[i]->CoalesceQuickList();
-            noPointersFinalizedAllocs[i]->CoalesceQuickList();
+			for (int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->CoalesceQuickList();
+				containsPointersNonfinalizedAllocs[i][j]->CoalesceQuickList();
+				containsPointersFinalizedAllocs[i][j]->CoalesceQuickList();
+				noPointersNonfinalizedAllocs[i][j]->CoalesceQuickList();
+				noPointersFinalizedAllocs[i][j]->CoalesceQuickList();
+			}
         }
         bibopAllocFloat->CoalesceQuickList();
         bibopAllocFloat4->CoalesceQuickList();
@@ -1328,6 +1386,7 @@ namespace MMgc
         GCLargeAlloc::LargeBlock *lb = largeEmptyPageList;
         while(lb) {
             GCLargeAlloc::LargeBlock *next = GCLargeAlloc::Next(lb);
+            GCLargeAlloc* alloc = (GCLargeAlloc*)lb->alloc;
 #ifdef MMGC_HOOKS
             if(heap->HooksEnabled())
                 heap->FreeHook(GetUserPointer(lb->GetObject()), lb->size - DebugSize(), uint8_t(GCHeap::GCSweptPoison));
@@ -1337,7 +1396,7 @@ namespace MMgc
             VALGRIND_MEMPOOL_FREE(lb, lb);
             VALGRIND_MEMPOOL_FREE(lb, lb->GetObject());
             VALGRIND_DESTROY_MEMPOOL(lb);
-            FreeBlock(lb, numBlocks);
+            FreeBlock(lb, numBlocks, alloc->m_partitionIndex);
             lb = next;
         }
         largeEmptyPageList = NULL;
@@ -1383,11 +1442,11 @@ namespace MMgc
 
     }
 
-    void* GC::AllocBlock(int size, PageMap::PageType pageType, bool zero, bool canFail)
+    void* GC::AllocBlock(int size, int partition, PageMap::PageType pageType, bool zero, bool canFail)
     {
         GCAssert(size > 0);
 
-        void *item = heapAlloc(size, GCHeap::kExpand| (zero ? GCHeap::kZero : 0) | (canFail ? GCHeap::kCanFail : 0));
+        void *item = heapAlloc(size, partition, GCHeap::kExpand| (zero ? GCHeap::kZero : 0) | (canFail ? GCHeap::kCanFail : 0));
 
         // mark GC pages in page map, small pages get marked one,
         // the first page of large pages is 3 and the rest are 2
@@ -1401,12 +1460,12 @@ namespace MMgc
         return item;
     }
 
-    void GC::FreeBlock(void *ptr, uint32_t size)
+    void GC::FreeBlock(void *ptr, uint32_t size, int partition)
     {
         // Bugzilla 551833:  Unmark first so that any OOM or other action triggered
         // by heapFree does not examine bits representing pages that are gone.
         UnmarkGCPages(ptr, size);
-        heapFree(ptr, size, false);
+        heapFree(ptr, size, partition, false);
     }
 
     void *GC::FindBeginningGuarded(const void *gcItem, bool allowGarbage)
@@ -1612,7 +1671,7 @@ namespace MMgc
     {
         const void* begin_recv;
         size_t size_recv;
-        FixedMalloc *fm = FixedMalloc::GetFixedMalloc();
+        FixedMalloc *fm = FixedMalloc::GetFixedMalloc(kGCRootNewPartition);
         bool success = fm->FindBeginningAndSize(this, begin_recv, size_recv);
         (void)success;
         GCAssertMsg(success, "GCRoot must be allocated via FixedMalloc");
@@ -1623,7 +1682,7 @@ namespace MMgc
     {
         const void* begin_recv;
         size_t size_recv;
-        FixedMalloc *fm = FixedMalloc::GetFixedMalloc();
+        FixedMalloc *fm = FixedMalloc::GetFixedMalloc(kGCRootNewPartition);
         bool success = fm->FindBeginningAndSize(this, begin_recv, size_recv);
         (void)success;
         GCAssertMsg(success, "GCRoot must be allocated via FixedMalloc");
@@ -1763,25 +1822,27 @@ namespace MMgc
     // this is a release ready tool for hunting down freelist corruption
     void GC::CheckFreelists()
     {
-        GCAlloc **allocs = containsPointersNonfinalizedAllocs;
+		GC::Allocators* allocs = containsPointersNonfinalizedAllocs;
         for (int l=0; l < GC::kNumSizeClasses; l++) {
-            GCAlloc *a = allocs[l];
-            GCAlloc::GCBlock *_b = a->m_firstBlock;
-            while(_b) {
-                void *fitem = _b->firstFree;
-                void *prev = 0;
-                while(fitem) {
-                    if((uintptr_t(fitem) & 7) != 0) {
-                        _asm int 3;
-                        break;
-                    }
-                    if((uintptr_t(fitem) & GCHeap::kBlockMask) != uintptr_t(_b))
-                        _asm int 3;
-                    prev = fitem;
-                    fitem = *(void**)fitem;
-                }
-                _b = _b->next;
-            }
+			for (int m=0; m < GC::kNumGCPartitions; m++) {
+				GCAlloc *a = (*allocs)[l][m];
+				GCAlloc::GCBlock *_b = a->m_firstBlock;
+				while(_b) {
+					void *fitem = _b->firstFree;
+					void *prev = 0;
+					while(fitem) {
+						if((uintptr_t(fitem) & 7) != 0) {
+							_asm int 3;
+							break;
+						}
+						if((uintptr_t(fitem) & GCHeap::kBlockMask) != uintptr_t(_b))
+							_asm int 3;
+						prev = fitem;
+						fitem = *(void**)fitem;
+					}
+					_b = _b->next;
+				}
+			}
         }
     }
 #endif
@@ -1904,24 +1965,27 @@ namespace MMgc
 
         size_t total_overhead = 0;
         size_t total_internal_waste = 0;
-        GCAlloc** allocators[] = {
-            containsPointersRCAllocs,
-            containsPointersNonfinalizedAllocs,
-            containsPointersFinalizedAllocs,
-            noPointersNonfinalizedAllocs,
-            noPointersFinalizedAllocs
+        Allocators* allocators[] = {
+            &containsPointersRCAllocs,
+            &containsPointersNonfinalizedAllocs,
+            &containsPointersFinalizedAllocs,
+            &noPointersNonfinalizedAllocs,
+            &noPointersFinalizedAllocs
         };
         for(int j = 0;j<5;j++)
         {
-            GCAlloc** gc_alloc = allocators[j];
+            Allocators* gc_alloc = allocators[j];
 
             for(int i=0; i < kNumSizeClasses; i++)
             {
-                size_t internal_waste;
-                size_t overhead;
-                DumpAlloc(gc_alloc[i], internal_waste, overhead);
-                total_internal_waste += internal_waste;
-                total_overhead += overhead;
+				for (int k=0; k < kNumGCPartitions; k++)
+				{
+					size_t internal_waste;
+					size_t overhead;
+					DumpAlloc((*gc_alloc)[i][k], internal_waste, overhead);
+					total_internal_waste += internal_waste;
+					total_overhead += overhead;
+				}
             }
         }
         GCLog("Overhead %u bytes (%u kb)\n", (uint32_t)total_overhead, (uint32_t)(total_overhead>>10));
@@ -1965,11 +2029,14 @@ namespace MMgc
     {
         for(int i=0; i < kNumSizeClasses; i++)
         {
-            containsPointersNonfinalizedAllocs[i]->CheckFreelist();
-            containsPointersFinalizedAllocs[i]->CheckFreelist();
-            containsPointersRCAllocs[i]->CheckFreelist();
-            noPointersNonfinalizedAllocs[i]->CheckFreelist();
-            noPointersFinalizedAllocs[i]->CheckFreelist();
+			for(int j=0; j < kNumGCPartitions; j++)
+			{
+				containsPointersNonfinalizedAllocs[i][j]->CheckFreelist();
+				containsPointersFinalizedAllocs[i][j]->CheckFreelist();
+				containsPointersRCAllocs[i][j]->CheckFreelist();
+				noPointersNonfinalizedAllocs[i][j]->CheckFreelist();
+				noPointersFinalizedAllocs[i][j]->CheckFreelist();
+			}
         }
         bibopAllocFloat->CheckFreelist();
         bibopAllocFloat4->CheckFreelist();
@@ -2080,11 +2147,13 @@ namespace MMgc
         // at this point every object should have no marks or be marked kFreelist
 #ifdef GCDEBUG
         for(int i=0; i < kNumSizeClasses; i++) {
-            containsPointersRCAllocs[i]->CheckMarks();
-            containsPointersNonfinalizedAllocs[i]->CheckMarks();
-            containsPointersFinalizedAllocs[i]->CheckMarks();
-            noPointersNonfinalizedAllocs[i]->CheckMarks();
-            noPointersFinalizedAllocs[i]->CheckMarks();
+			for(int j=0; j < kNumGCPartitions; j++) {
+				containsPointersRCAllocs[i][j]->CheckMarks();
+				containsPointersNonfinalizedAllocs[i][j]->CheckMarks();
+				containsPointersFinalizedAllocs[i][j]->CheckMarks();
+				noPointersNonfinalizedAllocs[i][j]->CheckMarks();
+				noPointersFinalizedAllocs[i][j]->CheckMarks();
+			}
         }
         bibopAllocFloat->CheckMarks();
         bibopAllocFloat4->CheckMarks();
@@ -2247,28 +2316,32 @@ namespace MMgc
         markerActive++;
 
         for(int i=0; i < kNumSizeClasses; i++) {
-            GCAllocIterator iter1(containsPointersRCAllocs[i]);
-            while (iter1.GetNextMarkedObject(ptr)) {
-                MarkItem_GCObject(ptr);
-                Mark();
-            }
-            GCAllocIterator iter2(containsPointersNonfinalizedAllocs[i]);
-            while (iter2.GetNextMarkedObject(ptr)) {
-                MarkItem_GCObject(ptr);
-                Mark();
-            }
-            GCAllocIterator iter3(containsPointersFinalizedAllocs[i]);
-            while (iter3.GetNextMarkedObject(ptr)) {
-                MarkItem_GCObject(ptr);
-                Mark();
-            }
+			for(int j=0; j < kNumGCPartitions; j++) {
+				GCAllocIterator iter1(containsPointersRCAllocs[i][j]);
+				while (iter1.GetNextMarkedObject(ptr)) {
+					MarkItem_GCObject(ptr);
+					Mark();
+				}
+				GCAllocIterator iter2(containsPointersNonfinalizedAllocs[i][j]);
+				while (iter2.GetNextMarkedObject(ptr)) {
+					MarkItem_GCObject(ptr);
+					Mark();
+				}
+				GCAllocIterator iter3(containsPointersFinalizedAllocs[i][j]);
+				while (iter3.GetNextMarkedObject(ptr)) {
+					MarkItem_GCObject(ptr);
+					Mark();
+				}
+			}
         }
-
-        GCLargeAllocIterator iter(largeAlloc);
-        while (iter.GetNextMarkedObject(ptr)) {
-            MarkItem_GCObject(ptr);
-            Mark();
-        }
+		
+		for(int j=0; j < kNumGCPartitions; j++) {
+			GCLargeAllocIterator iter(largeAllocs[j]);
+			while (iter.GetNextMarkedObject(ptr)) {
+				MarkItem_GCObject(ptr);
+				Mark();
+			}
+		}
 
         markerActive--;
     }
@@ -2836,7 +2909,7 @@ namespace MMgc
         }
     end: ;
 #ifdef MMGC_POINTINESS_PROFILING
-        policy.signalDemographics(size/sizeof(void*), could_be_pointer, actually_is_pointer);
+        policy.signalDemographics(1, could_be_pointer, actually_is_pointer);
 #endif
     }
 
@@ -3305,7 +3378,7 @@ namespace MMgc
         }
     }
 
-    uint32_t *GC::AllocBits(int numBytes, int sizeClass)
+    uint32_t *GC::AllocBits(int numBytes, int sizeClass, int partition)
     {
         uint32_t *bits;
 
@@ -3317,9 +3390,9 @@ namespace MMgc
         #endif
 
         // hit freelists first
-        if(m_bitsFreelists[sizeClass]) {
-            bits = m_bitsFreelists[sizeClass];
-            m_bitsFreelists[sizeClass] = *(uint32_t**)bits;
+        if(m_bitsFreelists[sizeClass][partition]) {
+            bits = m_bitsFreelists[sizeClass][partition];
+            m_bitsFreelists[sizeClass][partition] = *(uint32_t**)bits;
             VMPI_memset(bits, 0, sizeof(uint32_t*));
             return bits;
         }
@@ -3328,7 +3401,7 @@ namespace MMgc
             // Bugzilla 551833: It's OK to use heapAlloc here (as opposed to
             // heap->AllocNoOOM, say) because the caller knows AllocBits()
             // can trigger OOM.
-            m_bitsNext = (uint32_t*)heapAlloc(1);
+            m_bitsNext = (uint32_t*)heapAlloc(1, kGCBitmapPartition);
         }
 
         int leftOver = GCHeap::kBlockSize - ((uintptr_t)m_bitsNext & GCHeap::kOffsetMask);
@@ -3342,16 +3415,19 @@ namespace MMgc
             if(leftOver>=int(sizeof(void*))) {
                 // put waste in freelist
                 for(int i=0, n=kNumSizeClasses; i<n; i++) {
-                    GCAlloc *a = noPointersNonfinalizedAllocs[i];
-                    if(!a->m_bitsInPage && a->m_numBitmapBytes <= leftOver) {
-                        FreeBits(m_bitsNext, a->m_sizeClassIndex);
-                        break;
-                    }
+					for(int j=0, m=kNumGCPartitions; j<m; j++) {
+						GCAlloc *a = noPointersNonfinalizedAllocs[i][j];
+						if(!a->m_bitsInPage && a->m_numBitmapBytes <= leftOver) {
+							FreeBits(m_bitsNext, a->m_sizeClassIndex, a->m_sliceIndex);
+							goto done;
+						}
+					}
                 }
             }
+			done:
             m_bitsNext = 0;
             // recurse rather than duplicating code
-            return AllocBits(numBytes, sizeClass);
+            return AllocBits(numBytes, sizeClass, partition);
         }
         return bits;
     }
@@ -3574,20 +3650,20 @@ namespace MMgc
     }
 #endif //GCDEBUG
 
-    void *GC::heapAlloc(size_t siz, int flags)
+    void *GC::heapAlloc(size_t siz, int partition, int flags)
     {
-        void *ptr = heap->Alloc((int)siz, flags);
+        void *ptr = heap->GetPartition(partition)->Alloc((int)siz, flags);
         if(ptr)
             policy.signalBlockAllocation(siz);
         return ptr;
     }
 
-    void GC::heapFree(void *ptr, size_t siz, bool profile)
+    void GC::heapFree(void *ptr, size_t siz, int partition, bool profile)
     {
         if(!siz)
-            siz = heap->Size(ptr);
+            siz = heap->GetPartition(partition)->Size(ptr);
         policy.signalBlockDeallocation(siz);
-        heap->FreeInternal(ptr, profile, true);
+        heap->GetPartition(partition)->FreeInternal(ptr, profile, true);
     }
 
     size_t GC::GetBytesInUse()
@@ -3607,22 +3683,25 @@ namespace MMgc
         size_t ask;
         size_t allocated;
 
-        GCAlloc** allocators[] = {
-            containsPointersRCAllocs,
-            containsPointersNonfinalizedAllocs,
-            containsPointersFinalizedAllocs,
-            noPointersNonfinalizedAllocs,
-            noPointersFinalizedAllocs
+        Allocators* allocators[] = {
+            &containsPointersRCAllocs,
+            &containsPointersNonfinalizedAllocs,
+            &containsPointersFinalizedAllocs,
+            &noPointersNonfinalizedAllocs,
+            &noPointersFinalizedAllocs
         };
         for(int j = 0;j<5;j++)
         {
-            GCAlloc** gc_alloc = allocators[j];
+            Allocators* gc_alloc = allocators[j];
 
             for(int i=0; i < kNumSizeClasses; i++)
             {
-                gc_alloc[i]->GetUsageInfo(ask, allocated);
-                totalAskSize += ask;
-                totalAllocated += allocated;
+				for(int k=0; k < kNumGCPartitions; k++)
+				{
+					(*gc_alloc)[i][k]->GetUsageInfo(ask, allocated);
+					totalAskSize += ask;
+					totalAllocated += allocated;
+				}
             }
         }
         bibopAllocFloat->GetUsageInfo(ask, allocated);
@@ -3633,33 +3712,42 @@ namespace MMgc
         totalAskSize += ask;
         totalAllocated += allocated;
 
-        largeAlloc->GetUsageInfo(ask, allocated);
-        totalAskSize += ask;
-        totalAllocated += allocated;
+		for(int k=0; k < kNumGCPartitions; k++)
+		{
+			largeAllocs[k]->GetUsageInfo(ask, allocated);
+			totalAskSize += ask;
+			totalAllocated += allocated;
+		}
     }
 
     size_t GC::GetBytesInUseFast()
     {
         size_t totalAllocated = 0;
         
-        GCAlloc** allocators[] = {
-            containsPointersRCAllocs,
-            containsPointersNonfinalizedAllocs,
-            containsPointersFinalizedAllocs,
-            noPointersNonfinalizedAllocs,
-            noPointersFinalizedAllocs
+        Allocators* allocators[] = {
+            &containsPointersRCAllocs,
+            &containsPointersNonfinalizedAllocs,
+            &containsPointersFinalizedAllocs,
+            &noPointersNonfinalizedAllocs,
+            &noPointersFinalizedAllocs
         };
         for(int j = 0;j<5;j++)
         {
-            GCAlloc** gc_alloc = allocators[j];
+            Allocators* gc_alloc = allocators[j];
             for(int i=0; i < kNumSizeClasses; i++)
             {
-                totalAllocated += gc_alloc[i]->GetTotalAllocatedBytes();
+				for(int k=0; k < kNumGCPartitions; k++)
+				{
+					totalAllocated += (*gc_alloc)[i][k]->GetTotalAllocatedBytes();
+				}
             }
         }
         totalAllocated += bibopAllocFloat->GetTotalAllocatedBytes();
         totalAllocated += bibopAllocFloat4->GetTotalAllocatedBytes();
-        totalAllocated += largeAlloc->GetTotalAllocatedBytes();
+		for(int k=0; k < kNumGCPartitions; k++)
+		{
+			totalAllocated += largeAllocs[k]->GetTotalAllocatedBytes();
+		}
 
         GCAssert(totalAllocated == GetBytesInUse());
         return totalAllocated;

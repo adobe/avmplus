@@ -713,11 +713,7 @@ extern "C" unsigned long* get_frame_pointer();
 // We believe that we may be failing to set code memory executable in some cases,
 // resulting in crashes.  Let's instead crash immediately upon such failures in a
 // way that the crash dump will tell us what happened.
-// An inline assembler "int3" would be ideal, but inline assembler is not supported
-// on X64.  Instead, we dereference NULL and try to hide our misdeed from the optimizer,
-// as the effect is undefind according to the C++ definition.
-int AVMPI_crashFastHelper(int* x) { return x[0]; }
-#define CRASHFAST() do { AVMPI_crashFastHelper(NULL); } while(0)
+VMPI_DEFINE_FAILFAST(CodeMemoryProtectionError)
 
 // Constraint: nbytes must be a multiple of the VM page size.
 //
@@ -749,7 +745,7 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
     
     size_t nblocks = nbytes / MMgc::GCHeap::kBlockSize;
     heap->SignalCodeMemoryAllocation(nblocks, true);
-	void *codePage = heap->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize / MMgc::GCHeap::kBlockSize);
+	void *codePage = heap->GetPartition(MMgc::kCodePartition)->Alloc(nblocks, MMgc::GCHeap::flags_Alloc, pagesize / MMgc::GCHeap::kBlockSize);
 #if defined(NANOJIT_WIN_CFG)
 	if (IsSupportedSetICallTarget())
 	{
@@ -770,7 +766,7 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
 							  (PAGE_EXECUTE_READ | PAGE_TARGETS_INVALID)))
 			{
 				// It should not happen!!
-				CRASHFAST();
+				CodeMemoryProtectionError();
 			}
 
 			DWORD oldProtectFlags = 0;
@@ -779,7 +775,7 @@ void *AVMPI_allocateCodeMemory(size_t nbytes)
 			if (!VirtualProtect(curPage, markSize, PAGE_READWRITE, &oldProtectFlags))
 			{
 				// It should not happen!!
-				CRASHFAST();
+				CodeMemoryProtectionError();
 			}
 			curPage = (char*)curPage + markSize;
 			nbytes -= markSize;
@@ -807,7 +803,7 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
 {
     MMgc::GCHeap* heap = MMgc::GCHeap::GetGCHeap();
     size_t pagesize = VMPI_getVMPageSize();
-    size_t nblocks = heap->Size(address);
+    size_t nblocks = heap->GetPartition(MMgc::kCodePartition)->Size(address);
     size_t actualBytes = nblocks * MMgc::GCHeap::kBlockSize;
     
     if ((uintptr_t)address % pagesize != 0 || nbytes % pagesize != 0 || nbytes != actualBytes) {
@@ -824,7 +820,7 @@ void AVMPI_freeCodeMemory(void* address, size_t nbytes)
         VMPI_abort();
     }
     
-    heap->Free(address);
+    heap->GetPartition(MMgc::kCodePartition)->Free(address);
     heap->SignalCodeMemoryDeallocated(nblocks, true);
 }
 
@@ -880,7 +876,7 @@ void AVMPI_makeCodeMemoryExecutable(void *address, size_t nbytes, bool makeItSo)
         
         retval = VirtualProtect(address, markSize, newProtectFlags, &oldProtectFlags);
         AvmAssert(retval != 0);
-		if (retval == FALSE) CRASHFAST();
+		if (retval == FALSE) CodeMemoryProtectionError();
         
         address = (char*) address + markSize;
         nbytes -= markSize;
@@ -905,7 +901,7 @@ void AVMPI_makeTargetValid(void *address, size_t pageSize, void *pFnc)
 				if (!CallSetProcessValidCallTargets(GetCurrentProcess(), mbi.BaseAddress, markSize, 1, &info))
 				{
 					// TODO: error handler
-					CRASHFAST();
+					CodeMemoryProtectionError();
 				}
 				return;
 			}

@@ -264,7 +264,12 @@ namespace avmplus
         if (traits()->needsHashtable())
         {
             Stringp s = core()->atomToString(name);
-            AvmAssert(s->isInterned());
+            AvmAssert(s && s->isInterned());
+			// https://asset-jira.corp.adobe.com/browse/PSIRT-4098
+			// Check for empty string
+			if (!s || !s->isInterned()) 
+				return false;
+
             Atom ival = s->getIntAtom();
             if (ival)
             {

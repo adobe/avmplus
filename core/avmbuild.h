@@ -153,15 +153,6 @@
 // Harden against attacks that smash the length field of vectors and (dense) arrays.
 #define VMCFG_VECTOR_SMASH_PROTECTION
 
-// Use system allocator (malloc) for (untraced) DataList objects.
-// The main effect of this is to place vector and array contents in a separate area of
-// the address space that will not be used for allocations of other sorts of objects.
-// This is a temporary half-measure on the way to a proper partitionmalloc-style partitioned heap.
-#define VMCFG_PARTITION_LIST_DATA
-
-// Use system allocator (malloc) for the buffer contents of ByteArray objects.
-#define VMCFG_PARTITION_BYTEARRAY_DATA
-
 // Deliberately fragment and randomize code space to test long branches in JIT.
 // Stress mode for testing only.  Implemented only on MacOS at present, with no
 // effect on other platforms.
@@ -173,5 +164,9 @@
 
 // Enable extra GC consistency checks and memory poisoning even in release builds.
 //#define GCDEBUG
+
+ // Enable collection of static code metrics from swf
+#define VMCFG_CODE_METRICS
+
 
 #endif /* __avmbuild__ */

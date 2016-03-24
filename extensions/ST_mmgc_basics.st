@@ -161,7 +161,7 @@ delete gc;
 
 %%test fixedAlloc
     MMgc::FixedAlloc *fa;
-    fa=new MMgc::FixedAlloc(2048,MMgc::GCHeap::GetGCHeap());
+    fa=new MMgc::FixedAlloc(2048,MMgc::GCHeap::GetGCHeap(), MMgc::kAVMShellHeapPartition);
     %%verify (int)fa->GetMaxAlloc()==0
     %%verify (int)fa->GetNumBlocks()==0
     void *data1=fa->Alloc(2048);
@@ -180,7 +180,7 @@ delete gc;
     delete fa;
 
 %%test fixedMalloc
-    fm=MMgc::FixedMalloc::GetFixedMalloc();
+	fm=MMgc::FixedMalloc::GetFixedMalloc(MMgc::kAVMShellFixedPartition);
     int start=(int)fm->GetBytesInUse();
     int starttotal=(int)fm->GetTotalSize();
 //    AvmLog("fm->GetBytesInUse()=%d\n",(int)fm->GetBytesInUse());
@@ -218,10 +218,10 @@ delete gc;
 //    %%verify (int)gh->GetTotalHeapSize()==128
 //    AvmLog("gh->GetFreeHeapSize()=%d\n",(int)gh->GetFreeHeapSize());
     %%verify (int)gh->GetFreeHeapSize()==startfreeheap
-    void *data = gh->Alloc(10,MMgc::GCHeap::kExpand | MMgc::GCHeap::kZero);
+    void *data = gh->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(10,MMgc::GCHeap::kExpand | MMgc::GCHeap::kZero);
     %%verify (int)gh->GetTotalHeapSize()>startfreeheap
 //    AvmLog("gh->GetFreeHeapSize()=%d\n",(int)gh->GetFreeHeapSize());
-    gh->FreeNoProfile(data);
+    gh->GetPartition(MMgc::kAVMShellHeapPartition)->FreeNoProfile(data);
        
 %%test gcheapAlign
     MMgc::GCHeap *gh=MMgc::GCHeap::GetGCHeap();
@@ -229,19 +229,19 @@ delete gc;
     // Tricky: try to provoke some internal asserts
     void *d[1000];
     for ( unsigned i=0 ; i < ARRAY_SIZE(d) ; i++ ) {
-        d[i] = gh->Alloc(1);
-        void *data = gh->Alloc(10,MMgc::GCHeap::flags_Alloc, 4);
-        gh->Free(data);
+        d[i] = gh->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(1);
+        void *data = gh->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(10,MMgc::GCHeap::flags_Alloc, 4);
+        gh->GetPartition(MMgc::kAVMShellHeapPartition)->Free(data);
     }
     for ( unsigned i=0 ; i < ARRAY_SIZE(d) ; i++ )
-        gh->Free(d[i]);
+        gh->GetPartition(MMgc::kAVMShellHeapPartition)->Free(d[i]);
 
     // 
     for ( size_t k=2 ; k <= 256 ; k *= 2 ) {
-        void *data = gh->Alloc(10,MMgc::GCHeap::flags_Alloc, k);
+        void *data = gh->GetPartition(MMgc::kAVMShellHeapPartition)->Alloc(10,MMgc::GCHeap::flags_Alloc, k);
         %%verify ((uintptr_t)data & (k*MMgc::GCHeap::kBlockSize - 1)) == 0
-        %%verify gh->Size(data) == 10
-        gh->Free(data);
+        %%verify gh->GetPartition(MMgc::kAVMShellHeapPartition)->Size(data) == 10
+        gh->GetPartition(MMgc::kAVMShellHeapPartition)->Free(data);
     }
 
 %%test gcmethods
@@ -274,17 +274,17 @@ delete gc;
     GCConfig config;
     GC *gcb = new GC(GCHeap::GetGCHeap(), config);
     MMGC_GCENTER(gc);
-    void *a = gc->Alloc(8);
+	void *a = gc->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
     {
         MMGC_GCENTER(gcb);
-        a = gcb->Alloc(8);
+        a = gcb->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
         {
             MMGC_GCENTER(gc);
-            a = gc->Alloc(8);
+            a = gc->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
         }
-        a = gcb->Alloc(8);
+        a = gcb->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
     }
-    a = gc->Alloc(8);
+	a = gc->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
     // just fishing for asserts/hangs/crashes
     %%verify true
     delete gcb;
@@ -295,7 +295,7 @@ delete gc;
         GC *gcb = new GC(GCHeap::GetGCHeap(), config);
         {
             MMGC_GCENTER(gcb);
-            gcb->Alloc(8);
+            gcb->Alloc(8, MMgc::kNone, MMgc::kAVMShellGCPartition);
         }
 
         // this will cause a Collection in gcb

@@ -322,7 +322,7 @@ namespace nanojit
                 n->value = v;
                 return;
             }
-#if _MSC_VER >= 1900
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
 			buckets[i] = new (allocator, alignof(K)) Seq<Node>(Node(k, v), buckets[i]);
 #else
             buckets[i] = new (allocator, alignof1<K>()) Seq<Node>(Node(k,v), buckets[i]);

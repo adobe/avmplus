@@ -80,7 +80,7 @@ namespace MMgc
          */
         static void *operator new(size_t size, GC *gc)
         {
-            return gc->Alloc(size, 0);
+            return gc->Alloc(size, 0, kGCWeakRefNewPartition);
         }
 
         /**

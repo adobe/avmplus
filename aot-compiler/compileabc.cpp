@@ -298,8 +298,6 @@ namespace compile_abc
         conf.verbose = false;
         conf.clearCheckFixedMemory();  // too slow!
         
-        uint32_t secret = (uint32_t)VMPI_getPerformanceCounter();
-        conf.secret = secret;
         MMgc::GCHeap::Init(conf);        
 
         MMGC_ENTER_RETURN(EXIT_CODE_OUT_OF_MEMORY);

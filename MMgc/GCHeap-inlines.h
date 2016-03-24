@@ -71,27 +71,33 @@ namespace MMgc
         return VMPI_lockRelease(&instanceEnterLock);
     }
 
-    REALLY_INLINE FixedMalloc* GCHeap::GetFixedMalloc()
+    REALLY_INLINE FixedMalloc* GCHeap::GetFixedMalloc(int partition)
     {
-        return FixedMalloc::GetFixedMalloc();
+        return FixedMalloc::GetFixedMalloc(partition);
     }
+	
+	REALLY_INLINE GCHeap::Partition* GCHeap::GetPartition(int partition)
+	{
+		GCAssert(partition < kNumHeapPartitions);
+		return &partitions[partition];
+	}
 
-    REALLY_INLINE void *GCHeap::AllocNoOOM(size_t size, uint32_t flags)
+    REALLY_INLINE void *GCHeap::Partition::AllocNoOOM(size_t size, uint32_t flags)
     {
         return Alloc(size, flags|kNoOOMHandling);
     }
 
-    REALLY_INLINE void GCHeap::Free(void *item)
+    REALLY_INLINE void GCHeap::Partition::Free(void *item)
     {
         FreeInternal(item, true, true);
     }
 
-    REALLY_INLINE void GCHeap::FreeNoOOM(void* item)
+    REALLY_INLINE void GCHeap::Partition::FreeNoOOM(void* item)
     {
         FreeInternal(item, true, false);
     }
 
-    REALLY_INLINE void GCHeap::FreeNoProfile(void *item)
+    REALLY_INLINE void GCHeap::Partition::FreeNoProfile(void *item)
     {
         FreeInternal(item, false, true);
     }
@@ -104,19 +110,19 @@ namespace MMgc
             externalCodeMemory -= size;
     }
 
-    REALLY_INLINE void GCHeap::Free(void *item, size_t /*ignore*/)
+    REALLY_INLINE void GCHeap::Partition::Free(void *item, size_t /*ignore*/)
     {
         FreeInternal(item, true, true);
     }
 
     REALLY_INLINE size_t GCHeap::GetUsedHeapSize() const
     {
-        return numAlloc;
+        return totalNumAlloc;
     }
 
     REALLY_INLINE size_t GCHeap::GetFreeHeapSize() const
     {
-        return GetTotalHeapSize()-numAlloc;
+        return GetTotalHeapSize()-totalNumAlloc;
     }
 
     REALLY_INLINE size_t GCHeap::GetTotalCodeSize() const
@@ -135,12 +141,24 @@ namespace MMgc
         privateBlocks = maxPrivateMemory / kBlockSize;
     }
 #endif
+	
+    REALLY_INLINE size_t GCHeap::Partition::GetPartitionSize() const
+    {
+        return blocksLen - numDecommitted + largeAllocation;
+    }
 
     REALLY_INLINE size_t GCHeap::GetTotalHeapSize() const
     {
-        return blocksLen - numDecommitted + largeAllocs;
+		size_t result = totalBlocksLen - totalNumDecommitted + totalLargeAllocs;
+#ifdef GCDEBUG
+		size_t check = 0;
+		for (int i = 0; i < kNumHeapPartitions; i++)
+			check += partitions[i].GetPartitionSize();
+		GCAssert(result == check);
+#endif
+        return result;
     }
-
+	
     REALLY_INLINE void GCHeap::PreventDestruct()
     {
         preventDestruct++;
@@ -357,13 +375,13 @@ namespace MMgc
 
 #ifndef GCDEBUG
     // debug only freelist consistency checks
-    REALLY_INLINE void GCHeap::CheckFreelist()
+    REALLY_INLINE void GCHeap::Partition::CheckFreelist()
     {
         // nothing
     }
 #endif
 
-    REALLY_INLINE size_t GCHeap::LargeAllocSize(const void *item)
+    REALLY_INLINE size_t GCHeap::Partition::LargeAllocSize(const void *item)
     {
         Region *r = AddrToRegion(item);
         // Note: we can't use r->baseAddr or r->reserveTop b/c
@@ -372,9 +390,9 @@ namespace MMgc
         return (r->commitTop - (char*)item) / kBlockSize;
     }
 
-    REALLY_INLINE size_t GCHeap::Size(const void *item)
+    REALLY_INLINE size_t GCHeap::Partition::Size(const void *item)
     {
-        MMGC_LOCK(m_spinlock);
+        MMGC_LOCK(heap->m_spinlock);
         GCAssert((uintptr_t(item) & (kBlockSize-1)) == 0);
         HeapBlock *block = BaseAddrToBlock(item);
         if(block)
@@ -384,7 +402,8 @@ namespace MMgc
         return 0;
     }
 
-    REALLY_INLINE void GCHeap::RemoveFromList(HeapBlock *block)
+	//### FIXME: could be static
+    REALLY_INLINE void GCHeap::Partition::RemoveFromList(HeapBlock *block)
     {
         GCAssert(!block->inUse());
         block->prev->next = block->next;
@@ -392,7 +411,8 @@ namespace MMgc
         block->next = block->prev = 0;
     }
 
-    REALLY_INLINE uint32_t GCHeap::GetFreeListIndex(size_t size)
+	//### FIXME: could be static
+    REALLY_INLINE uint32_t GCHeap::Partition::GetFreeListIndex(size_t size)
     {
         if (size <= kUniqueThreshold) {
             return (uint32_t)size-1;
@@ -421,7 +441,7 @@ namespace MMgc
         return bytes / kBlockSize;
     }
 
-    REALLY_INLINE bool GCHeap::HaveFreeRegion() const
+    REALLY_INLINE bool GCHeap::Partition::HaveFreeRegion() const
     {
         return nextRegion != NULL || freeRegion != NULL;
     }

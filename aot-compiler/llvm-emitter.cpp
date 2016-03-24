@@ -1843,10 +1843,22 @@ void LLVMEmitter::do_callinterface(CallStmt2* call)
     // This is a quick-and-dirty (and slow) implementation that boxes the arguments,
     // calls coerceEnter, then unboxes the results.
     //
+	//Generating a direct call to method as now do_loadenv_interface always provides a concrete methodInfo rather than ImtThunkEnv
+
     const Use& env_in = call->param_in();
     MethodInfo* callee = getMethod(type(env_in));
     StUTF8String methodName(callee->getMethodName());
     llvm::Value* callee_env = def_ins(env_in);
+    llvm::Value* callee_info = loadMember(callee_env, module.methodenv_method_member);
+    llvm::Value* native_info = createMemberGEP(callee_info, module.methodinfo_native_member);
+    llvm::Value* func1 = loadMember(native_info, module.methodinfonative_handler_member);
+    func1->setName(methodName.c_str());
+    llvm::CallInst* result = emitCall(callee, func1, callee_env, call);
+    set_def_ins(call->value_out(), result);
+
+    return;
+
+#if 0
     llvm::Value* methodInfo = getMethodInfoValue(callee);
     
     // Create a suitable function type for invoking the _impl method
@@ -1897,6 +1909,7 @@ void LLVMEmitter::do_callinterface(CallStmt2* call)
     llvm::CallInst* ins = CreateCall(func, args);
 
     set_def_ins(call->value_out(), ins);
+#endif
 }
 
 void LLVMEmitter::do_greaterthan(BinaryExpr* instr)

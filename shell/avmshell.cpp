@@ -782,7 +782,7 @@ namespace avmshell
         size_t logFilenameLen = (lastDot == NULL) ? VMPI_strlen(basename) : (lastDot - basename);
 
         char* logFilename = new char[logFilenameLen + 5];  // 5 bytes for ".log" + null char
-        VMPI_strncpy(logFilename,basename,logFilenameLen);
+        VMPI_strncpy(logFilename, logFilenameLen + 5, basename,logFilenameLen);
         VMPI_strcpy(logFilename+logFilenameLen,".log");
 
         Platform::GetInstance()->initializeLogging(logFilename);
@@ -905,7 +905,7 @@ namespace avmshell
                     else if (!VMPI_strncmp(arg+2, "selftest", 8)) {
                         settings.do_selftest = true;
                         if (arg[10] == '=') {
-                            VMPI_strncpy(settings.st_mem, arg+11, sizeof(settings.st_mem));
+                            VMPI_strncpy(settings.st_mem, sizeof(settings.st_mem), arg+11, sizeof(settings.st_mem) - 1);
                             settings.st_mem[sizeof(settings.st_mem)-1] = 0;
                             char *p = settings.st_mem;
                             settings.st_component = p;

@@ -44,19 +44,22 @@ namespace MMgc
      * Simply an abstraction around a lower-level allocator: no headers, no tagging.
      * @return NULL only if ((opts & kCanFail) != 0), zeroed memory only if ((opts & kZero) != 0).
      */
-    REALLY_INLINE void *AllocCallInline(size_t size, FixedMallocOpts opts=kNone)
+    REALLY_INLINE void *AllocCallInline(size_t size, FixedMallocOpts opts, int partition)
     {
 #ifdef MMGC_USE_SYSTEM_MALLOC
+		(void)partition;
         return SystemNew(size, opts);
 #else
-        return FixedMalloc::GetFixedMalloc()->OutOfLineAlloc(size, opts);
+        return FixedMalloc::GetFixedMalloc(partition)->OutOfLineAlloc(size, opts);
 #endif
     }
 
     /**
      * Out-of-line implementation of AllocCallInline.
      */
-    void *AllocCall(size_t, FixedMallocOpts opts=kNone);
+    void *AllocCall(size_t, FixedMallocOpts opts);
+	
+    void *MMFXAllocCall(size_t, FixedMallocOpts opts, int partition);
 
     /**
      * Simply an abstraction around a lower-level deallocator, for objects allocated
@@ -64,12 +67,13 @@ namespace MMgc
      *
      * @param p  The object to be deallocated.  May be NULL.
      */
-    REALLY_INLINE void DeleteCallInline(void *p)
+    REALLY_INLINE void DeleteCallInline(void *p, int partition)
     {
 #ifdef MMGC_USE_SYSTEM_MALLOC
+		(void)partition;
         SystemDelete(p);
 #else
-        FixedMalloc::GetFixedMalloc()->OutOfLineFree(p);
+        FixedMalloc::GetFixedMalloc(partition)->OutOfLineFree(p);
 #endif
     }
 
@@ -77,7 +81,15 @@ namespace MMgc
      * Out-of-line implementation of DeleteCallInline.
      */
     void DeleteCall(void *);
+	
+    void MMFXDeleteCall(void *, int partition);
 };
+
+// Unmanaged (MMFX) memory allocations via 'new' may be partitioned only by whether they are array
+// or scalar (non-array) objects. For more fine-grained control of partitioning, the allocation site
+// must use FixedMalloc::Alloc() or FixedMalloc::CAlloc(), and the client is responsible for invoking
+// constructors (via placement 'new') and destructors explicitly.  For scalar allocations, we can
+// provide a customized implementation of 'new' as a class member and avoid modifying the allocation sites.
 
 #ifdef MMGC_OVERRIDE_GLOBAL_NEW
 
@@ -87,7 +99,7 @@ namespace MMgc
 // handling will release everything allocated with FixedMalloc when abort due to OOM occurs. If
 // things in the system headers/plugin interface/platform globals are allocated with these, it will
 // result most likely in a crash. By using the GCAllocObject you can try to go around some of these
-// issues, but atleast to system headers may pose a problem.
+// issues, but at least to system headers may pose a problem.
 #ifdef __clang__
 #pragma clang diagnostic push
 #if (__clang_major__ > 5) || ((__clang_major__ == 5) && (__clang_minor__ >= 1))
@@ -98,33 +110,33 @@ namespace MMgc
 // User-defined operator new.
 REALLY_INLINE void *operator new(size_t size) MMGC_NEW_THROWS_CLAUSE
 {
-    return MMgc::AllocCallInline(size);
+	return MMgc::AllocCallInline(size, MMgc::kNone, MMgc::kMMFXNewScalarPartition);
 }
 
 REALLY_INLINE void *operator new(size_t size, MMgc::FixedMallocOpts opts) MMGC_NEW_THROWS_CLAUSE
 {
-    return MMgc::AllocCallInline(size, opts);
+	return MMgc::AllocCallInline(size, opts, MMgc::kMMFXNewScalarPartition);
 }
 
 REALLY_INLINE void *operator new[](size_t size) MMGC_NEW_THROWS_CLAUSE
 {
-    return MMgc::AllocCallInline(size);
+    return MMgc::AllocCallInline(size, MMgc::kNone, MMgc::kMMFXNewArrayPartition);
 }
 
 REALLY_INLINE void *operator new[](size_t size, MMgc::FixedMallocOpts opts) MMGC_NEW_THROWS_CLAUSE
 {
-    return ( (size==0) ? NULL : MMgc::AllocCallInline(size, opts) );
+    return ( (size==0) ? NULL : MMgc::AllocCallInline(size, opts, MMgc::kMMFXNewArrayPartition) );
 }
 
 // User-defined operator delete.
 REALLY_INLINE void operator delete( void *p) MMGC_DELETE_THROWS_CLAUSE
 {
-    MMgc::DeleteCallInline(p);
+	MMgc::DeleteCallInline(p, MMgc::kMMFXNewScalarPartition);
 }
 
 REALLY_INLINE void operator delete[]( void *p ) MMGC_DELETE_THROWS_CLAUSE
 {
-    MMgc::DeleteCallInline(p);
+    MMgc::DeleteCallInline(p, MMgc::kMMFXNewArrayPartition);
 }
 
 #ifdef __clang__
@@ -179,7 +191,7 @@ namespace MMgc
     void VerifyTaggedScalar(void* p);
 
     // Verify that p points to an object allocated by NewTaggedArray.
-    void VerifyTaggedArray(void* p, bool primitive);
+    void VerifyTaggedArray(void* p, bool isPrimitive, int partition);
 #endif
 
     /**
@@ -212,7 +224,7 @@ namespace MMgc
      *          and the object can't be allocated due to an out-of-memory condition or
      *          if the object would exceed the maximum object size.
      */
-    void* NewTaggedArray(size_t count, size_t elsize, FixedMallocOpts opts, bool isPrimitive);
+    void* NewTaggedArray(size_t count, size_t elsize, FixedMallocOpts opts, bool isPrimitive, int partition);
 
     /* Deallocate an object allocated by NewTaggedScalar.  Does /not/ check the tag.
      *
@@ -234,18 +246,18 @@ namespace MMgc
      */
     void DeleteTaggedArrayWithHeader(void *);
 
-    /* Delete an object allocated by NewTaggedVecor /if/ the allocation
+    /* Delete an object allocated by NewTaggedVector /if/ the allocation
      * call specified isPrimitive=true, after checking the tag (in debug builds).
      *
      * @param p  A pointer returned from NewTaggedArray with isPrimitive=false, or NULL.
      */
-    void DeleteTaggedArrayWithHeaderChecked(void* p, bool primitive);
+    void DeleteTaggedArrayWithHeaderChecked(void* p, bool isPrimitive, int partition);
 };
 
     template <class T>
     T *MMgcConstructTaggedArray(T* /*dummy template arg*/, size_t count, MMgc::FixedMallocOpts opts)
     {
-        T *mem = (T*) MMgc::NewTaggedArray(count, sizeof(T), opts, false /* !isPrimitive */);
+        T *mem = (T*) MMgc::NewTaggedArray(count, sizeof(T), opts, false, MMgc::kMMFXNewArrayPartition);
         // Observe that mem can be NULL only if (opts & kCanFail) is true, so there is no
         // reason to redundantly test that condition here, and in fact adding the condition
         // will confuse tools like Coverity (bugzilla 655048).
@@ -257,31 +269,31 @@ namespace MMgc
         return mem;
     }
 
-#define DECLARE_PRIM_ARRAY_NEW(_x)  \
-    template <> REALLY_INLINE _x *MMgcConstructTaggedArray(_x*, size_t count, MMgc::FixedMallocOpts opts)   \
-    {                                                                                               \
-        return (_x*)MMgc::NewTaggedArray(count, sizeof(_x), opts, true /* isPrimitive */);          \
-    }
+#define DECLARE_PRIM_ARRAY_NEW(_x, _part)  \
+    template <> REALLY_INLINE _x *MMgcConstructTaggedArray(_x*, size_t count, MMgc::FixedMallocOpts opts)	\
+    {																										\
+        return (_x*)MMgc::NewTaggedArray(count, sizeof(_x), opts, true, _part);								\
+	}
 
     // Scalar delete mechanism. First calls the destructor and then deletefunc to release the memory.
 
-    template <typename T> REALLY_INLINE void MMgcDestructTaggedScalarChecked( T* mem )
+    template <typename T> REALLY_INLINE void MMgcDestructTaggedScalarChecked(T* mem)
     {
         if( mem )
         {
             mmgc_debug_only(MMgc::VerifyTaggedScalar(mem);)
             //  Call destructor first and then release memory
             mem->~T();
-            MMgc::DeleteTaggedScalar( mem );
+            MMgc::DeleteTaggedScalar(mem);
         }
     }
 
     //  Array delete mechanism
-    template <typename T> REALLY_INLINE void MMgcDestructTaggedArrayChecked( T* mem )
+    template <typename T> REALLY_INLINE void MMgcDestructTaggedArrayChecked(T* mem)
     {
         if( mem )
         {
-            mmgc_debug_only(MMgc::VerifyTaggedArray(mem, false);)
+            mmgc_debug_only(MMgc::VerifyTaggedArray(mem, false, MMgc::kMMFXNewArrayPartition);)
 
             char *p = (char*)mem - MMGC_ARRAYHEADER_SIZE;
             size_t count = *(size_t*)(void*)p;
@@ -292,53 +304,53 @@ namespace MMgc
                 tail--;
                 tail->~T();
             }
-            MMgc::DeleteTaggedArrayWithHeader( mem );
+            MMgc::DeleteTaggedArrayWithHeader(mem);
         }
     }
 
-#define DECLARE_PRIM_ARRAY_DELETE(_x)                                   \
-    template <> REALLY_INLINE void MMgcDestructTaggedArrayChecked( _x* mem )    \
-    {                                                                   \
-        MMgc::DeleteTaggedArrayWithHeaderChecked( mem, true );          \
-    }                                                                   \
-                                                                        \
-    template <> REALLY_INLINE void MMgcDestructTaggedScalarChecked(_x *mem) {       \
-        MMgc::DeleteTaggedScalarChecked(mem);                           \
+#define DECLARE_PRIM_ARRAY_DELETE(_x, _part)										\
+    template <> REALLY_INLINE void MMgcDestructTaggedArrayChecked(_x* mem)			\
+    {																				\
+        MMgc::DeleteTaggedArrayWithHeaderChecked(mem, true, _part);					\
+    }																				\
+																					\
+    template <> REALLY_INLINE void MMgcDestructTaggedScalarChecked(_x *mem) {		\
+        MMgc::DeleteTaggedScalarChecked(mem);										\
     }
 
 
-#define DECLARE_PRIM_ARRAY(_x)                  \
-    DECLARE_PRIM_ARRAY_NEW(_x)                  \
-    DECLARE_PRIM_ARRAY_DELETE(_x)               \
+#define DECLARE_PRIM_ARRAY(_x, _part)                  \
+    DECLARE_PRIM_ARRAY_NEW(_x, _part)                  \
+    DECLARE_PRIM_ARRAY_DELETE(_x, _part)
 
     // Specialized function templates, for built-in types so that we
     // don't call destructor and add extra overhead.
 
-    DECLARE_PRIM_ARRAY(uint8_t)
-    DECLARE_PRIM_ARRAY(int8_t)
+    DECLARE_PRIM_ARRAY(uint8_t,  MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(int8_t,   MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
 #if defined(__GNUC__) || defined(__ARMCC__) || defined(__WINSCW__) || (defined(_MSC_VER) && (_MSC_VER >= 1600))
     // msvc 2008 treats char and (u)int8_t as the same but msvc 2010+, as well as gcc and armcc don't.
-    DECLARE_PRIM_ARRAY(char)
+    DECLARE_PRIM_ARRAY(char,     MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
 #elif !defined(_MSC_VER) && !defined(__SUNPRO_CC)
 #error "Unknown compiler, check whether your compiler compiles with the above declaration, if it does you probably want it"
 #endif
-    DECLARE_PRIM_ARRAY(uint16_t)
-    DECLARE_PRIM_ARRAY(int16_t)
-    DECLARE_PRIM_ARRAY(uint32_t)
-    DECLARE_PRIM_ARRAY(int32_t)
-    DECLARE_PRIM_ARRAY(uint64_t)
-    DECLARE_PRIM_ARRAY(int64_t)
-    DECLARE_PRIM_ARRAY(float)
-    DECLARE_PRIM_ARRAY(double)
-    DECLARE_PRIM_ARRAY(void*)
-    DECLARE_PRIM_ARRAY(void**)
+	DECLARE_PRIM_ARRAY(uint16_t, MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(int16_t,  MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(uint32_t, MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(int32_t,  MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(uint64_t, MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(int64_t,  MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(float,    MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(double,   MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
+    DECLARE_PRIM_ARRAY(void*,    MMgc::kMMFXNewPrimitivePointerArrayPartition)
+    DECLARE_PRIM_ARRAY(void**,   MMgc::kMMFXNewPrimitivePointerArrayPartition)
 
     template <> REALLY_INLINE void *MMgcConstructTaggedArray(void*, size_t count, MMgc::FixedMallocOpts opts)
     {
-        return (void*)MMgc::NewTaggedArray(count, sizeof(void*), opts, true /* isPrimitive */);
+        return (void*)MMgc::NewTaggedArray(count, sizeof(void*), opts, true, MMgc::kMMFXNewPrimitivePointerArrayPartition);
     }
 
-    DECLARE_PRIM_ARRAY_DELETE(void)
+    DECLARE_PRIM_ARRAY_DELETE(void, MMgc::kMMFXNewPrimitiveNonPointerArrayPartition)
 
 #undef DECLARE_PRIM_ARRAY_NEW
 #undef DECLARE_PRIM_ARRAY_DELETE
@@ -348,15 +360,15 @@ namespace MMgc
     // G++ pukes on the ::, MSC requires them
 
 // If a class has private destructor adding this macro will allow the delete mechanisms to call that.
-#define MMGC_DECLARE_GLOBAL_DELETE_FNCS_AS_FRIEND( TYPE )   \
-    friend void MMgcDestructTaggedScalarChecked<>( TYPE* );         \
+#define MMGC_DECLARE_GLOBAL_DELETE_FNCS_AS_FRIEND( TYPE )		\
+    friend void MMgcDestructTaggedScalarChecked<>( TYPE* );		\
     friend void MMgcDestructTaggedArrayChecked<>( TYPE* );
 
 #else
 
 // If a class has private destructor adding this macro will allow the delete mechanisms to call that.
-#define MMGC_DECLARE_GLOBAL_DELETE_FNCS_AS_FRIEND( TYPE )   \
-    friend void ::MMgcDestructTaggedScalarChecked<>( TYPE* );           \
+#define MMGC_DECLARE_GLOBAL_DELETE_FNCS_AS_FRIEND( TYPE )		\
+    friend void ::MMgcDestructTaggedScalarChecked<>( TYPE* );	\
     friend void ::MMgcDestructTaggedArrayChecked<>( TYPE* );
 
 #endif
@@ -369,14 +381,14 @@ namespace MMgc
 // and MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATES outside the class definition to have specialized function
 // template for the destructor.
 // This is done in cases where the pointer to be destructed is actually the pointer of a non-first base class.
-#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATES( TYPE ) \
-    MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATE( TYPE ) \
+#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATES( TYPE )	\
+    MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATE( TYPE )		\
     MMGC_DECLARE_SPECIALIZED_DESTRUCTORARRAYCALL_TEMPLATE( TYPE )
 
-#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATE( TYPE )        \
+#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORCALL_TEMPLATE( TYPE )	\
     template <> REALLY_INLINE void MMgcDestructTaggedScalarChecked( TYPE* mem ) { if(mem) delete mem; }
 
-#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORARRAYCALL_TEMPLATE( TYPE )   \
+#define MMGC_DECLARE_SPECIALIZED_DESTRUCTORARRAYCALL_TEMPLATE( TYPE )	\
     template <> REALLY_INLINE void MMgcDestructTaggedArrayChecked( TYPE* mem ) { if(mem) delete[] mem; }
 
 // These dont need to call destructors as the operator delete will do that automatically for us.
@@ -388,7 +400,7 @@ namespace MMgc
     void operator delete(void* p) { MMgc::DeleteTaggedScalarChecked(p); }
 
 #define MMGC_DECLARE_VECTOR_DELETE_FOR_CLASS \
-    void operator delete[](void* p) { MMgc::DeleteTaggedArrayWithHeaderChecked(p, false); }
+    void operator delete[](void* p) { MMgc::DeleteTaggedArrayWithHeaderChecked(p, false, MMgc::kMMFXNewArrayPartition); }
 
 // If a class derives from multiple baseclasses that define delete operator, this can be used to
 // select with one to use.
@@ -466,32 +478,32 @@ namespace MMgc
 
     REALLY_INLINE void DeleteTaggedScalar( void* p )
     {
-        DeleteCallInline(p);
+        DeleteCallInline(p, MMgc::kMMFXNewScalarPartition);
     }
 
     REALLY_INLINE void DeleteTaggedArrayWithHeader( void* p )
     {
-        if( p )
+        if (p)
         {
             p = ((char*)p - MMGC_ARRAYHEADER_SIZE);
-            DeleteCallInline(p);
+            DeleteCallInline(p, MMgc::kMMFXNewArrayPartition);
         }
     }
 
     REALLY_INLINE void DeleteTaggedScalarChecked(void* p)
     {
-        if( p )
+        if (p)
         {
-            DeleteTaggedScalar( p );
+            DeleteTaggedScalar(p);
         }
     }
 
-    REALLY_INLINE void DeleteTaggedArrayWithHeaderChecked(void* p, bool primitive)
+    REALLY_INLINE void DeleteTaggedArrayWithHeaderChecked(void* p, bool primitive, int partition)
     {
         if (p)
         {
             if (primitive)
-                DeleteTaggedScalar(p);
+				DeleteCallInline(p, partition);
             else
                 DeleteTaggedArrayWithHeader(p);
         }

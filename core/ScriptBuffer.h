@@ -37,6 +37,7 @@ namespace avmplus
         size_t size;
     };
 
+#if defined(AVMSHELL_BUILD) || defined(VMCFG_HALFMOON_AOT_COMPILER)
     /**
      * BasicScriptBufferImpl is a ScriptBuffer implementation that
      * owns its own buffer and has no external dependencies.
@@ -53,9 +54,10 @@ namespace avmplus
         // override to skip memset and prevent marking
         static void *operator new(size_t size, MMgc::GC *gc, size_t extra = 0)
         {
-            return gc->Alloc(size + extra, 0);
+            return gc->Alloc(size + extra, 0, MMgc::kAVMShellScriptBufferPartition);
         }
     };
+#endif
 
     /**
      * ReadOnlyScriptBufferImpl is a ScriptBuffer implementation that
